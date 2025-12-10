@@ -1,17 +1,70 @@
 # VOOT
 
-An ArkTS/HarmonyOS application that delivers real-time multilingual captioning and translation powered by local ASR, configurable LLM backends, and a polished onboarding experience. The goal is to keep speech data and API secrets on-device while offering flexible UI tooling for live caption scenarios such as meetings, accessibility support, and cross-language chats.
+# Voot – LLM-powered Live Translation for HarmonyOS
 
-## Highlights
+Voot is an intelligent simultaneous-interpretation & text translation app for **HarmonyOS**, powered by **your own LLM / translation APIs**.  
+It is designed with three core principles: **security, privacy, and simplicity**.
 
-- **Real-time ASR pipeline** – Uses Sherpa Whisper-based mic service plus optional Vosk worker to decode speech locally and stream condensed segments into the translation loop.
-- **Configurable translation providers** – Switch between OpenAI, DeepL, Ollama, and Doubao, or plug in new providers through the `ApiConfigPage` without touching business logic.
-- **Prompt & locale tuning** – Per-language presets plus editable prompt templates keep translations faithful to tone and domain.
-- **Stateful UI tabs** – Configuration, live Translation view, and Settings each keep independent ArkUI state so you can tweak APIs or display preferences without losing mic context.
-- **First-run onboarding** – A welcome screen walks new users through privacy/terms confirmation using rawfile HTML assets before enabling mic capture or network access.
-- **Policy sheets & dialogs** – Shared `PolicySheet` component renders agreements either as WebViews (HTML) or native ArkTS cards, reused in Settings and onboarding flows.
+> ⚠️ Voot does not provide or resell any LLM/translation service.  
+> You bring your own API keys (OpenAI, DeepL, Ollama, 豆包, etc.).
 
-## Project Layout
+---
+
+## Table of Contents
+
+- [Features](#features)
+- [Architecture](#architecture)
+- [Screenshots](#screenshots)
+- [Getting Started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Clone](#clone)
+  - [Run](#run)
+- [Configuration](#configuration)
+  - [API Providers](#api-providers)
+  - [Target Languages](#target-languages)
+- [Usage](#usage)
+- [Security & Privacy](#security--privacy)
+- [Roadmap](#roadmap)
+- [Contributing](#contributing)
+- [License](#license)
+- [Disclaimer](#disclaimer)
+- [Chinese README / 中文说明](#chinese-readme--中文说明)
+
+---
+
+## Features
+
+- 🔐 **Secure by design**
+  - No built-in or hosted model – you must configure your own API keys.
+  - API keys are stored **only in the HarmonyOS sandbox**, protected by **face / biometric unlock**.
+  - No third-party analytics SDKs.
+
+- 🕵️ **Privacy-first**
+  - Audio is processed **locally** on-device for capture & pre-processing.
+  - Recorded audio for translation is **not uploaded** and is **destroyed after processing**.
+  - Only the minimal text required for translation is sent directly to the provider you configure.
+
+- 🧩 **Multi-provider support**
+  - OpenAI (GPT-style chat / translation)
+  - DeepL
+  - Ollama (local LLM gateway)
+  - 豆包 / other custom endpoints (via configurable URL & API key)
+
+- 🗣️ **Simultaneous interpretation**
+  - One-tap start/stop of “live” translation.
+  - Clear split between **original text** and **translated text**.
+
+- 🌐 **Flexible language configuration**
+  - Global “target language” selector.
+  - Per-API configuration (prompt, system instructions, etc.).
+
+- 💡 **Simple UI, ArkTS only**
+  - Frontend written purely in **ArkTS**, no extra UI framework.
+  - Minimalist layout: buttons, text, and light effects – optimized for real-time usage.
+
+---
+
+## Architecture
 
 ```
 Voot/
@@ -26,60 +79,28 @@ Voot/
 │  ├─ oh-package*.json5    # Module package definitions
 │  └─ build-profile.json5  # Entry module build settings
 ├─ AppScope/               # Application-level configuration and assets
-├─ DOCS/                   # Reference materials & UI design notes
 ├─ hvigorfile.ts           # Workspace hvigor build script
 └─ build-profile.json5     # Global build profile
 ```
 
-## Prerequisites
+---
 
-- [DevEco Studio](https://developer.harmonyos.com/) or HarmonyOS SDK with `hvigorw`
-- HarmonyOS/OpenHarmony device or emulator running API level that supports ArkTS + ArkUI 4.0
-- `ohpm` (OpenHarmony package manager) available in your shell
-- (Optional) API keys for OpenAI, DeepL, Doubao, or an accessible Ollama server
+## Screenshots
 
-## Setup
+> Replace the paths with your actual image files in the repo.
 
-1. **Install dependencies**
-   ```powershell
-   ohpm install
-   cd entry
-   ohpm install
-   ```
+- Main translation page  
+  `docs/screenshots/voot-translate.png`
+- Provider & language selection  
+  `docs/screenshots/voot-settings.png`
+- API configuration (OpenAI / DeepL / Ollama / 豆包)  
+  `docs/screenshots/voot-api-config.png`
 
-2. **Configure API secrets**
-   - Launch the app once to reach the Configuration tab.
-   - Choose *Configure API*, pass biometric auth, then fill in keys/URLs for the providers you plan to use.
-   - Settings persist via `ApiConfigStorage` (Preferences), so no plaintext files are required.
+```markdown
+![Translate](docs/screenshots/voot-translate.png)
+![Settings](docs/screenshots/voot-settings.png)
+![API Config](docs/screenshots/voot-api-config.png)
 
-3. **Prepare ASR models**
-   - Default Sherpa ONNX models live under `entry/src/main/resources/rawfile/sherpa-onnx-moonshine-tiny-en-int8`.
-   - If you swap models, update the paths referenced in `SherpaWhisperMicService` and `NonStreamingAsrWithVadWorker`.
-
-## Build & Run
-
-Using DevEco Studio:
-1. Import the repo as a HarmonyOS project.
-2. Select the `entry` module and run on a connected device/emulator.
-
-Using CLI:
-```powershell
-# From repo root
-hvigorw assemble --module entry --runtime-mode debug
-```
-The output package appears under `entry/build/default/outputs/`.
-
-## Developer Notes
-
-- **Onboarding flow**: The first launch checks `OnboardingStorage`. Until users accept both the Terms and Privacy sheets, mic permissions and ASR init stay dormant.
-- **Shared Policy sheets**: `components/PolicySheet.ets` centralizes text, HTML assets, and rendering for both Settings and onboarding overlays.
-- **ASR lifecycle**: `Index.ets` boots Sherpa when entering the foreground and tears down via `SherpaWhisperMicService.stop()` when captioning stops. Ensure new features call the same helpers to avoid dangling audio sessions.
-- **Networking**: Translation providers use `http.createHttp()` and must call `destroy()` after each request to avoid file-descriptor leaks.
-- **Styling**: Most UI surfaces use ArkUI visual effects (HDS point lights, capsules). When adding controls, prefer builder functions to keep `build()` lean.
-
-## Contributing
-
-Issues and pull requests are welcome. Please lint your ArkTS code (`ohpm run lint` if configured) and ensure `hvigorw assemble --module entry` succeeds before submitting.
 
 ## License
 
