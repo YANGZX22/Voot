@@ -145,7 +145,7 @@ struct Index {
   @State promptText: string =
     'Act as an elite simultaneous interpreter who only hears imperfect microphone pickups. ' +
       'You receive roughly five-second snippets of speech, so rely on the snippet enclosed in [abc] and reasonably infer missing words while staying faithful to the speaker. ' +
-      'Translate that snippet into {0} in a single fluent line, preserving intent and tone even when the audio is noisy. No matter how, you must output only one summarized sentences.';
+      'Translate that snippet into {0} in a single fluent line, preserving intent and tone even when the audio is noisy. No matter how, you must output only one summarized sentence.';
 
   // Demo translation text for Appearance page
   @State originalDemoText: string = '';
