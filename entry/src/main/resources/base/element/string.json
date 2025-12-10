@@ -1,0 +1,26 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "module description"
+    },
+    { "name": "internet_reason",
+      "value": "Voot 需要使用网络与您选择的的模型通信。" },
+    {
+      "name": "EntryAbility_desc",
+      "value": "description"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "Voot"
+    },
+    {
+      "name": "mic_reason",
+      "value": "Voot 需要使用您的麦克风用于收集声音进行本地文字识别。"
+    },
+    {
+      "name": "biometric_reason",
+      "value": "Voot 需要使用您的生物信息仅用于保护您的密钥。"
+    }
+  ]
+}
