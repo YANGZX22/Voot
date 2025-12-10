@@ -85,7 +85,7 @@ Voot/
 
 ## Screenshots
 
-![image]([https://github.com/YANGZX22/Voot/blob/main/entry/src/main/resources/base/media/screenshot.jpg])
+![image](https://github.com/YANGZX22/Voot/blob/main/entry/src/main/resources/base/media/screenshot.jpg?raw=true)
 
 ---
 
