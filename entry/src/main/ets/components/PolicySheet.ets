@@ -55,7 +55,7 @@ export function getPolicySheetConfig(type: PolicySheetType): PolicySheetConfig {
           },
           {
             title: '联系我们',
-            description: 'voot@contact.yangzixiao.com'
+            description: 'voot@mail.yangzixiao.com'
           }
         ]
       };
@@ -63,7 +63,7 @@ export function getPolicySheetConfig(type: PolicySheetType): PolicySheetConfig {
     default:
       return {
         title: '隐私政策',
-        intro: '我们严格遵循最小化采集原则，不会上传语音与密钥，请在使用前阅读《隐私政策》。',
+        intro: '我们严格遵循最小化采集原则，不会上传语音与密钥，请在使用前阅读《关于 Voot 与隐私的声明》。',
         action: '我已知晓',
         asset: $rawfile('html/privacy.html'),
         useWeb: true
