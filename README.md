@@ -1,6 +1,6 @@
 # Voot – LLM-powered Live Translation for HarmonyOS
 
-Voot is an intelligent simultaneous-interpretation & text translation app for **HarmonyOS**, powered by **your own LLM / translation APIs**.  
+Voot, standing for **Vo**ice **o**n **t**op, is an intelligent simultaneous-interpretation & text translation app for **HarmonyOS**, powered by **your own LLM / translation APIs**.  
 It is designed with three core principles: **security, privacy, and simplicity**.
 
 > ⚠️ Voot does not provide or resell any LLM/translation service.  
