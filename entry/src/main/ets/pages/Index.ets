@@ -601,6 +601,12 @@ struct Index {
         .padding({ left: 16, right: 16, top: 16, bottom: 16 })
         .backgroundColor('#333c1464')
         .borderRadius(18)
+        .margin({ bottom: 12 })
+
+        Text('试着点击上面的卡片，感受HarmonyOS为您带来的的光！')
+          .fontSize(12)
+          .fontColor(Color.Gray)
+          .margin({ bottom: 12 });
       }
       .width('100%')
       Column() {
