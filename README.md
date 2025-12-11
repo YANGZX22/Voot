@@ -75,7 +75,7 @@ Voot/
 ├─ entry/
 │  ├─ src/main/ets/
 │  │  ├─ pages/            # ArkUI pages (Index, Configuration, Translation, Settings, etc.)
-│  │  ├─ services/         # Mic + ASR services (SherpaWhisperMicService, Vosk pipelines)
+│  │  ├─ services/         # Mic + ASR services
 │  │  ├─ storage/          # Preference-backed stores (API config, onboarding flag)
 │  │  ├─ components/       # Shared UI builders (PolicySheet, etc.)
 │  │  └─ workers/          # Background ASR workers for long-running capture
