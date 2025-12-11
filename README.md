@@ -127,6 +127,16 @@ Open the project in [**DevEco Studio**](https://developer.huawei.com/consumer/cn
 
 ---
 
+## Install Hap
+
+Use [Auto-installer](https://github.com/likuai2010/auto-installer/) or [DevEcho Testing](https://developer.huawei.com/consumer/cn/deveco-testing/) as mentioned above.
+
+
+> [!NOTE]
+> Apps sideloaded using self-signed certificates on HarmonyOS NEXT have a default validity period of 14 days. Completing [Developer Reality Authentication](https://developer.huawei.com/consumer/cn/verified/enrollment) extends this validity period to 180 days.
+
+---
+
 ## Configuration
 
 ### API Providers
@@ -150,16 +160,6 @@ In the **“目标语言 / Target language”** section:
 
 1. Select your default output language (e.g. 中文, English, etc.).
 2. The chosen target language is used for all translation APIs by default.
-
----
-
-## Install Hap
-
-Use [Auto-installer](https://github.com/likuai2010/auto-installer/) or [DevEcho Testing](https://developer.huawei.com/consumer/cn/deveco-testing/) as mentioned above.
-
-
-> [!NOTE]
-> Apps sideloaded using self-signed certificates on HarmonyOS NEXT have a default validity period of 14 days. Completing [Developer Reality Authentication](https://developer.huawei.com/consumer/cn/verified/enrollment) extends this validity period to 180 days.
 
 ---
 
