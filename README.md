@@ -7,8 +7,9 @@
 Voot, standing for **Vo**ice **o**n **t**op, is an intelligent simultaneous-interpretation & text translation app for **HarmonyOS**, powered by **your own LLM / translation APIs**.  
 It is designed with three core principles: **security, privacy, and simplicity**.
 
-> ⚠️ Voot does not provide or resell any LLM/translation service.  
-> You bring your own API keys (OpenAI, DeepL, Ollama, 豆包, etc.).
+>[!NOTE]
+> - Voot does not provide or resell any LLM/translation service.  
+> - You bring your own API keys (OpenAI, DeepL, Ollama, 豆包, etc.).
 
 ---
 
