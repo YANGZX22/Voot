@@ -1,4 +1,6 @@
-![Image](https://github.com/YANGZX22/Voot/blob/main/entry/src/main/resources/base/media/Icon2.png?raw=true)
+<p align="center">
+<img src="https://github.com/YANGZX22/Voot/blob/main/entry/src/main/resources/base/media/Icon2.png" width="400px">
+</p>
 
 # Voot – LLM-powered Live Translation for HarmonyOS
 
