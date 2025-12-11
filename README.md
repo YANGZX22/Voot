@@ -129,7 +129,7 @@ Open the project in [**DevEco Studio**](https://developer.huawei.com/consumer/cn
 
 ## Install Hap
 
-Use [Auto-installer](https://github.com/likuai2010/auto-installer/) or [DevEcho Testing](https://developer.huawei.com/consumer/cn/deveco-testing/) as mentioned above.
+Use [Auto-installer](https://github.com/likuai2010/auto-installer/) or [DevEcho Testing](https://developer.huawei.com/consumer/cn/deveco-testing/).
 
 
 > [!NOTE]
