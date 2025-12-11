@@ -2,7 +2,7 @@
 <img src="https://github.com/YANGZX22/Voot/blob/main/entry/src/main/resources/base/media/Icon2.png" width="400px">
 </p>
 
-# Voot – LLM-powered Live Translation for HarmonyOS
+# Voot – LLM API Empowered Live Translation for HarmonyOS
 
 Voot, standing for **Vo**ice **o**n **t**op, is an intelligent simultaneous-interpretation & text translation app for **HarmonyOS**, powered by **your own LLM / translation APIs**.  
 It is designed with three core principles: **security, privacy, and simplicity**.
