@@ -1,9 +1,11 @@
 import { hdsEffect, HdsNavigation, HdsNavigationAttribute, HdsNavigationTitleMode, ScrollEffectType } from '@kit.UIDesignKit';
 import { AuthUtil, LogUtil, ToastUtil } from '@pura/harmony-utils';
 import { userAuth } from '@kit.UserAuthenticationKit';
+import userIAM_userAuth from '@ohos.userIAM.userAuth';
 
 const TITLE_BAR_HEIGHT_MINI: number = 84;
 const FACE_AUTH_SUCCESS_CODE: number = userAuth.UserAuthResultCode.SUCCESS;
+const FACE_AUTH_FAIL_CODE: number = userAuth.UserAuthResultCode.FAIL;
 
 @Component
 export struct ConfigurationPage {
@@ -109,19 +111,41 @@ export struct ConfigurationPage {
                   }
                 })
                 .onClick(() => {
-                  AuthUtil.onStart({
-                    authType: [userAuth.UserAuthType.FACE],
-                    authTrustLevel: userAuth.AuthTrustLevel.ATL3,
-                    title: '请验证人脸',
-                    showTip: true
-                  }, (result: userAuth.UserAuthResult) => {
-                    const authPassed: boolean = !!result && result.result === FACE_AUTH_SUCCESS_CODE;
-                    if (authPassed) {
-                      this.onOpenApiSettings();
-                      return;
-                    }
-                    ToastUtil.showToast('Voot 现在无法验证您的人脸');
-                  });
+                  let facestatus = AuthUtil.getAvailableStatus(userIAM_userAuth.UserAuthType.FACE, userIAM_userAuth.AuthTrustLevel.ATL1)
+                  let fingerstatus = AuthUtil.getAvailableStatus(userIAM_userAuth.UserAuthType.FINGERPRINT, userIAM_userAuth.AuthTrustLevel.ATL2)
+                  let pinstatus = AuthUtil.getAvailableStatus(userIAM_userAuth.UserAuthType.PIN, userIAM_userAuth.AuthTrustLevel.ATL2)
+                  if (facestatus.status) {
+                    AuthUtil.onStart({
+                      authType: [userAuth.UserAuthType.FACE],
+                      authTrustLevel: userAuth.AuthTrustLevel.ATL3,
+                      title: '请验证人脸',
+                      showTip: true
+                    }, (result: userAuth.UserAuthResult) => {
+                      const authPassed: boolean = !!result && result.result === FACE_AUTH_SUCCESS_CODE;
+                      if (authPassed) {
+                        this.onOpenApiSettings();
+                        return;
+                      }
+                      ToastUtil.showToast('Voot 现在无法验证您的人脸信息，请重试')})
+                  } else if (!facestatus.status && fingerstatus.status) {
+                    AuthUtil.onStartEasy(true, (result: userAuth.UserAuthResult) => {
+                      const authPassed: boolean = !!result && result.result === FACE_AUTH_SUCCESS_CODE;
+                      if (authPassed) {
+                        this.onOpenApiSettings();
+                        return;
+                      }
+                      ToastUtil.showToast('Voot 现在无法验证您的指纹信息，请重试')})
+                  } else if (!facestatus.status && !fingerstatus.status && pinstatus.status) {
+                    AuthUtil.onStartEasy(true, (result: userAuth.UserAuthResult) => {
+                      const authPassed: boolean = !!result && result.result === FACE_AUTH_SUCCESS_CODE;
+                      if (authPassed) {
+                        this.onOpenApiSettings();
+                        return;
+                      }
+                      ToastUtil.showToast('Voot 现在无法验证您的锁屏密码信息，请重试')})
+                  } else {
+                    this.onOpenApiSettings()
+                    ToastUtil.showToast('Voot 无法验证您的屏幕锁定选项，密钥不受保障')}
                 })
             }
             .width('100%')
