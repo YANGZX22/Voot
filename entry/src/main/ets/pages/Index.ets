@@ -148,7 +148,7 @@ struct Index {
   // Doubao config (chat/completions endpoint)
   @State doubaoApiUrl: string = 'https://ark.cn-beijing.volces.com/api/v3/chat/completions';
   @State doubaoApiKey: string = '';
-  @State doubaoModel: string = 'ep-20251125172005-phn6b';
+  @State doubaoModel: string = 'ep-20251221220646-rnx4c';
 
   // Subtitle Style Config
   @State subtitleFontSize: number = 30;
