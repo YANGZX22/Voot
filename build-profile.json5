@@ -1,0 +1,56 @@
+{
+  "app": {
+    "signingConfigs": [
+      {
+        "name": "default",
+        "type": "HarmonyOS",
+        "material": {
+          "certpath": "C:\\Users\\ASUS\\.ohos\\config\\default_Voot_3HZHNyx2QQUwRepeUfHA3rGKel39x2ygmJQ-f7X-qG0=.cer",
+          "keyAlias": "debugKey",
+          "keyPassword": "0000001BE65A7AE6216A1CA281C0DEEF840910C495E5E286D43FB5B6D52B3F2A4348FABBD9E364E619A16C",
+          "profile": "C:\\Users\\ASUS\\.ohos\\config\\default_Voot_3HZHNyx2QQUwRepeUfHA3rGKel39x2ygmJQ-f7X-qG0=.p7b",
+          "signAlg": "SHA256withECDSA",
+          "storeFile": "C:\\Users\\ASUS\\.ohos\\config\\default_Voot_3HZHNyx2QQUwRepeUfHA3rGKel39x2ygmJQ-f7X-qG0=.p12",
+          "storePassword": "0000001B4175EB8AC91E872D14548CA1A2FC2A2ABF58FB0F06BD18F4E8181F8BB26899F0BFB26DCA9E0E4B"
+        }
+      }
+    ],
+    "products": [
+      {
+        "name": "default",
+        "signingConfig": "default",
+        "targetSdkVersion": "6.0.1(21)",
+        "compatibleSdkVersion": "6.0.1(21)",
+        "runtimeOS": "HarmonyOS",
+        "buildOption": {
+          "strictMode": {
+            "caseSensitiveCheck": true,
+            "useNormalizedOHMUrl": true
+          }
+        }
+      }
+    ],
+    "buildModeSet": [
+      {
+        "name": "debug",
+      },
+      {
+        "name": "release"
+      }
+    ]
+  },
+  "modules": [
+    {
+      "name": "entry",
+      "srcPath": "./entry",
+      "targets": [
+        {
+          "name": "default",
+          "applyToProducts": [
+            "default"
+          ]
+        }
+      ]
+    }
+  ]
+}

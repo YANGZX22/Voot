@@ -1,0 +1,69 @@
+{
+  "module": {
+    "requestPermissions": [
+      {
+        "name": "ohos.permission.INTERNET",
+        "reason": "$string:internet_reason"
+      },
+      {
+        "name": "ohos.permission.MICROPHONE",
+        "reason": "$string:mic_reason",
+        "usedScene": { "when": "always" }
+      },
+      {
+        "name": "ohos.permission.ACCESS_BIOMETRIC",
+        "reason": "$string:biometric_reason",
+        "usedScene": { "when": "inuse" }
+      },
+      {
+        "name": "ohos.permission.SYSTEM_FLOAT_WINDOW",
+        "reason": "$string:float_window_reason",
+        "usedScene": { "when": "always" }
+      },
+      {
+        "name": "ohos.permission.KEEP_BACKGROUND_RUNNING",
+        "reason": "$string:background_running_reason",
+        "usedScene": { "when": "always" }
+      }
+    ],
+    "name": "entry",
+    "type": "entry",
+    "description": "$string:module_desc",
+    "mainElement": "EntryAbility",
+    "deviceTypes": [
+      "phone",
+      "tablet",
+      "2in1"
+    ],
+    "deliveryWithInstall": true,
+    "installationFree": false,
+    "pages": "$profile:main_pages",
+    "abilities": [
+      {
+        "name": "EntryAbility",
+        "srcEntry": "./ets/entryability/EntryAbility.ets",
+        "description": "$string:EntryAbility_desc",
+        "icon": "$media:layered_image",
+        "label": "$string:EntryAbility_label",
+        "startWindowIcon": "$media:startIcon",
+        "startWindowBackground": "$color:start_window_background",
+        "exported": true,
+        "backgroundModes": [
+          "audioRecording",
+          "audioPlayback"
+        ],
+        "skills": [
+          {
+            "entities": [
+              "entity.system.home"
+            ],
+            "actions": [
+              "ohos.want.action.home"
+            ]
+          }
+        ]
+      }
+    ],
+    "dependencies": []
+  }
+}
