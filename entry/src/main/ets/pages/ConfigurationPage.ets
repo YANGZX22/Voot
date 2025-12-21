@@ -344,7 +344,7 @@ export struct ConfigurationPage {
                 onInfoClick: () => {
                   AlertDialog.show({
                     title: '间隔说明',
-                    message: '设置两次翻译请求之间的最小时间间隔（秒）。\n同时也作为传译的时间间隔。\n较短的间隔能提供更实时的反馈，但会消耗更多Token。',
+                    message: '设置两次翻译请求之间的最小时间间隔（秒），同时也作为传译的时间间隔。\n较短的间隔能提供更实时的反馈，但会消耗更多Token。\n默认间隔推荐为5。',
                     confirm: {
                       value: '我知道了',
                       fontColor: '#3c1464',
@@ -365,7 +365,7 @@ export struct ConfigurationPage {
                 onInfoClick: () => {
                   AlertDialog.show({
                     title: '上下文说明',
-                    message: '设置发送给翻译模型的历史对话轮数。\n更多的上下文有助于模型理解语境，提高翻译准确度，但会消耗更多Token。',
+                    message: '设置发送给翻译模型的历史对话轮数。\n更多的上下文有助于模型理解语境，提高翻译准确度，但会消耗更多Token。\n默认上下文推荐为3。',
                     confirm: {
                       value: '我知道了',
                       fontColor: '#3c1464',

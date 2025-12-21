@@ -120,10 +120,10 @@ struct Index {
   @State selectedApiIndex: number = 0;
 
   @State intervalOptions: string[] = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
-  @State intervalIndex: number = 0;
+  @State intervalIndex: number = 4;
 
   @State contextsOptions: string[] = ['1', '2', '3', '4', '5', '6'];
-  @State contextsIndex: number = 0;
+  @State contextsIndex: number = 2;
 
   @State languageOptions: string[] = ['Chinese', 'English', 'Spanish', 'French', 'Japanese'];
   @State languageDisplayOptions: string[] = ['中文', '英语', '西班牙语', '法语', '日语'];
@@ -1445,34 +1445,59 @@ struct Index {
 
     const body: string = JSON.stringify({
       model: this.doubaoModel,
-      max_tokens: 256, // Shorter output for speed
+      max_tokens: 100, // Further reduced for real-time translation
       messages: messages,
-      temperature: 0.3
-      // Removed reasoning_effort for faster output
+      temperature: 0.0, // Zero temperature for fastest, deterministic output
+      stream: false
     });
 
-    const response: http.HttpResponse = await httpRequest.request(this.doubaoApiUrl, {
-      method: http.RequestMethod.POST,
-      header: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + this.doubaoApiKey
-      },
-      extraData: body,
-      expectDataType: http.HttpDataType.STRING
-    });
+    try {
+      const response: http.HttpResponse = await httpRequest.request(this.doubaoApiUrl, {
+        method: http.RequestMethod.POST,
+        header: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + this.doubaoApiKey
+        },
+        extraData: body,
+        expectDataType: http.HttpDataType.STRING,
+        connectTimeout: 8000, // 8s connection timeout
+        readTimeout: 20000 // 20s read timeout
+      });
 
-    const resultStr: string = response.result as string;
-    let translated: string = '';
+      const responseCode: number = response.responseCode;
+      const resultStr: string = response.result as string;
 
-    const parsed = JSON.parse(resultStr) as DoubaoChatResponse;
-    if (parsed.choices && parsed.choices.length > 0) {
-      translated = parsed.choices[0].message.content;
-    } else {
-      translated = '[Doubao: no choices in response]';
+      if (responseCode !== 200) {
+        console.error(`Doubao HTTP error: ${responseCode}, body: ${resultStr}`);
+        this.updateTranslationField(`[Doubao错误: HTTP ${responseCode}]`);
+        httpRequest.destroy();
+        return;
+      }
+
+      let translated: string = '';
+      const parsed = JSON.parse(resultStr) as DoubaoChatResponse;
+      if (parsed.choices && parsed.choices.length > 0) {
+        translated = parsed.choices[0].message.content;
+      } else {
+        console.warn('Doubao response has no choices: ' + resultStr);
+        translated = '[Doubao: 响应为空]';
+      }
+
+      this.updateTranslationField(translated);
+    } catch (e) {
+      const errMsg = JSON.stringify(e);
+      console.error('translateWithDoubao error: ' + errMsg);
+      // Show more specific error to help debugging
+      if (errMsg.includes('timeout') || errMsg.includes('Timeout')) {
+        this.updateTranslationField('[Doubao: 请求超时]');
+      } else if (errMsg.includes('network') || errMsg.includes('Network')) {
+        this.updateTranslationField('[Doubao: 网络错误]');
+      } else {
+        this.updateTranslationField('[Doubao: ' + errMsg.substring(0, 50) + ']');
+      }
+    } finally {
+      httpRequest.destroy();
     }
-
-    this.updateTranslationField(translated);
-    httpRequest.destroy();
   }
 
   // =======================

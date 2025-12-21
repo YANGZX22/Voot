@@ -245,6 +245,24 @@ export class SherpaWhisperMicService {
       sliceStart = totalLen - maxSamples;
     }
 
+    // Optimization: Prune old chunks if we have a window limit and aren't clearing everything
+    if (!clearBuffer && maxSamples !== undefined && sliceStart > 0) {
+      let removedSamples = 0;
+      while (this.pcmChunks.length > 0) {
+        const firstChunk = this.pcmChunks[0];
+        // Keep the chunk if it contains the start of our slice
+        if (removedSamples + firstChunk.length <= sliceStart) {
+          removedSamples += firstChunk.length;
+          this.pcmChunks.shift();
+        } else {
+          break;
+        }
+      }
+      // Adjust calculations based on removed chunks
+      sliceStart -= removedSamples;
+      totalLen -= removedSamples;
+    }
+
     const copyLen: number = totalLen - sliceStart;
     if (copyLen <= 0) {
       return null;
