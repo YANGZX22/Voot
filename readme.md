@@ -1,5 +1,5 @@
 <div  align="center">    
-  <img src="https://github.com/YANGZX22/Voot/blob/main/entry/src/main/resources/base/media/title.png" width="500px">
+  <img src="https://github.com/YANGZX22/Voot/blob/main/entry/src/main/resources/base/media/title.png" width="400px">
 </div>
 
 # Voot – LLM-powered Live Translation for HarmonyOS
