@@ -393,7 +393,7 @@ export struct SettingsPage {
               .onClick(() => {
                 AlertDialog.show({
                   title: '传译说明',
-                  message: '实验功能，欢迎试用！',
+                  message: '*实验功能，欢迎试用*\n开启开关后，当翻译成功时传译器会自动打开。',
                   confirm: {
                     value: '我知道了',
                     fontColor: '#3c1464',
@@ -534,6 +534,7 @@ export struct SettingsPage {
         .padding({ left: 24, right: 24, top: 16, bottom: 24 });
       }
     }
+    .mode(NavigationMode.Stack)
     .width('100%')
     .height('100%')
     .backgroundColor(Color.Transparent)

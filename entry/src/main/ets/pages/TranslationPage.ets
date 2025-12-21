@@ -227,6 +227,7 @@ export struct TranslationPage {
       }
       .scrollable(ScrollDirection.Vertical);
     }
+    .mode(NavigationMode.Stack)
     .width('100%')
     .height('100%')
     .backgroundColor(Color.Transparent)

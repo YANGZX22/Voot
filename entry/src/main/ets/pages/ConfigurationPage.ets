@@ -344,7 +344,7 @@ export struct ConfigurationPage {
                 onInfoClick: () => {
                   AlertDialog.show({
                     title: '间隔说明',
-                    message: '设置两次翻译请求之间的最小时间间隔（秒）。\n较短的间隔能提供更实时的反馈，但会消耗更多Token。',
+                    message: '设置两次翻译请求之间的最小时间间隔（秒）。\n同时也作为传译的时间间隔。\n较短的间隔能提供更实时的反馈，但会消耗更多Token。',
                     confirm: {
                       value: '我知道了',
                       fontColor: '#3c1464',
@@ -388,6 +388,7 @@ export struct ConfigurationPage {
       }
       .scrollable(ScrollDirection.Vertical);
     }
+    .mode(NavigationMode.Stack)
     .width('100%')
     .height('100%')
     .backgroundColor(Color.Transparent)
