@@ -1,4 +1,4 @@
-<div  align="center">    
+<div align="center">    
   <img src="https://github.com/YANGZX22/Voot/blob/main/entry/src/main/resources/base/media/title.png" width="400px">
 </div>
 
@@ -7,7 +7,8 @@
 Voot is an intelligent simultaneous-interpretation & text translation app for **HarmonyOS**, powered by **your own LLM / translation APIs**.  
 It is designed with three core principles: **security, privacy, and simplicity**.
 
-> ⚠️ Voot does not provide or resell any LLM/translation service.  
+> [!NOTE]
+> Voot does not provide or resell any LLM/translation service.  
 > You bring your own API keys (OpenAI, DeepL, Ollama, 豆包, etc.).
 
 ---
@@ -21,6 +22,7 @@ It is designed with three core principles: **security, privacy, and simplicity**
   - [Prerequisites](#prerequisites)
   - [Clone](#clone)
   - [Run](#run)
+- [Install Hap](#install-hap)
 - [Configuration](#configuration)
   - [API Providers](#api-providers)
   - [Target Languages](#target-languages)
@@ -74,7 +76,7 @@ Voot/
 ├─ entry/
 │  ├─ src/main/ets/
 │  │  ├─ pages/            # ArkUI pages (Index, Configuration, Translation, Settings, etc.)
-│  │  ├─ services/         # Mic + ASR services (SherpaWhisperMicService, Vosk pipelines)
+│  │  ├─ services/         # Mic + ASR services (SherpaWhisperMicService)
 │  │  ├─ storage/          # Preference-backed stores (API config, onboarding flag)
 │  │  ├─ components/       # Shared UI builders (PolicySheet, etc.)
 │  │  └─ workers/          # Background ASR workers for long-running capture
@@ -89,7 +91,7 @@ Voot/
 
 ## Screenshots
 
-<div  align="center">    
+<div align="center">    
   <img src="https://github.com/YANGZX22/Voot/blob/main/entry/src/main/resources/base/media/screenshot.jpg">
 </div>
 
@@ -125,6 +127,18 @@ Open the project in **DevEco Studio**.
 1. Connect a HarmonyOS device or start an emulator.
 2. In DevEco Studio, select the run configuration corresponding to the app.
 3. Click **Run** to build and deploy.
+
+---
+
+## Install Hap
+
+You can use [Auto-installer](https://github.com/likuai2010/auto-installer/) or [DevEcho Testing](https://developer.huawei.com/consumer/cn/deveco-testing/) for installation.
+
+> [!IMPORTANT]
+> Huawei's signing servers block IP addresses outside mainland China. To sideload software for HarmonyOS NEXT in countries/regions outside mainland China.
+
+> [!NOTE]
+> Apps sideloaded via self-signing on HarmonyOS NEXT have a default validity period of 14 days. Completing [Developer Real-Name Authentication](https://developer.huawei.com/consumer/cn/verified/enrollment) extends this period to 180 days.
 
 ---
 
