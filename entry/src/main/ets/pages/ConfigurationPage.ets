@@ -2,6 +2,7 @@ import { hdsEffect, HdsNavigation, HdsNavigationAttribute, HdsNavigationTitleMod
 import { AuthUtil, LogUtil, ToastUtil } from '@pura/harmony-utils';
 import { userAuth } from '@kit.UserAuthenticationKit';
 import userIAM_userAuth from '@ohos.userIAM.userAuth';
+import { TokenUsageChart } from '../components/TokenUsageChart';
 
 const TITLE_BAR_HEIGHT_MINI: number = 110;
 const AUTH_SUCCESS_CODE: number = userAuth.UserAuthResultCode.SUCCESS
@@ -139,6 +140,10 @@ export struct ConfigurationPage {
   @Prop selectedIntervalIndex: number = 0;
   contextsOptions: string[] = [];
   @Prop selectedContextsIndex: number = 0;
+  temperatureOptions: string[] = [];
+  @Prop selectedTemperatureIndex: number = 0;
+  maxTokensOptions: string[] = [];
+  @Prop selectedMaxTokensIndex: number = 0;
 
   // Callbacks
   onCycleApi: () => void = () => {};
@@ -146,6 +151,8 @@ export struct ConfigurationPage {
   onOpenApiSettings: () => void = () => {};
   onSelectInterval: (index: number) => void = () => {};
   onSelectContexts: (index: number) => void = () => {};
+  onSelectTemperature: (index: number) => void = () => {};
+  onSelectMaxTokens: (index: number) => void = () => {};
 
   @State activeBtn: number = 0;
 
@@ -279,18 +286,23 @@ export struct ConfigurationPage {
             }
           })
 
+          TokenUsageChart({
+            modelName: this.apiOptions[this.selectedApiIndex],
+            activeBtn: $activeBtn
+          })
+
           Grid() {
             GridItem() {
               ConfigCard({
-                title: '选择API',
+                title: '选择 API',
                 content: this.apiOptions[this.selectedApiIndex],
                 btnId: 1,
                 callback: () => this.onCycleApi(),
                 activeBtn: $activeBtn,
                 onInfoClick: () => {
                   AlertDialog.show({
-                    title: 'API 选择说明',
-                    message: '点击切换可用的翻译 / LLM 服务：OpenAI、DeepL、Ollama、Doubao。\n选择后请在“配置API”里填写对应地址和密钥。',
+                    title: '选择 API 说明',
+                    message: '点击切换可用的翻译 / LLM 服务：OpenAI、DeepL、Ollama、Doubao。\n选择后请在“配置API”里填写对应地址、（模型）和密钥。',
                     confirm: {
                       value: '我知道了',
                       fontColor: '#3c1464',
@@ -303,7 +315,7 @@ export struct ConfigurationPage {
 
             GridItem() {
               ConfigCard({
-                title: '配置API',
+                title: '配置 API',
                 content: '',
                 btnId: 2,
                 callback: () => this.handleConfigApi(),
@@ -311,7 +323,7 @@ export struct ConfigurationPage {
                 activeBtn: $activeBtn,
                 onInfoClick: () => {
                   AlertDialog.show({
-                    title: '配置API说明',
+                    title: '配置 API 说明',
                     message: '使用您的屏幕锁定信息保护您的密钥。',
                     confirm: {
                       value: '我知道了',
@@ -377,7 +389,7 @@ export struct ConfigurationPage {
                 onInfoClick: () => {
                   AlertDialog.show({
                     title: '间隔说明',
-                    message: '设置两次翻译请求之间的最小时间间隔（秒），同时也作为传译的时间间隔。\n较短的间隔能提供更实时的反馈，但会消耗更多Token。\n默认间隔推荐为5。',
+                    message: '设置两次翻译请求之间的最小时间间隔（秒），同时也作为传译的时间间隔。\n较短的间隔能提供更实时的反馈，但会消耗更多 Token。\n默认间隔推荐为5。',
                     confirm: {
                       value: '我知道了',
                       fontColor: '#3c1464',
@@ -398,7 +410,49 @@ export struct ConfigurationPage {
                 onInfoClick: () => {
                   AlertDialog.show({
                     title: '上下文说明',
-                    message: '设置发送给翻译模型的历史对话轮数。\n更多的上下文有助于模型理解语境，提高翻译准确度，但会消耗更多Token。\n默认上下文推荐为3。',
+                    message: '设置发送给翻译模型的历史对话轮数。\n更多的上下文有助于模型理解语境，提高翻译准确度，但会消耗更多 Token。\n默认上下文推荐为3。',
+                    confirm: {
+                      value: '我知道了',
+                      fontColor: '#3c1464',
+                      action: () => {}
+                    }
+                  })
+                }
+              })
+            }
+
+            GridItem() {
+              ConfigCard({
+                title: '温度',
+                content: this.temperatureOptions[this.selectedTemperatureIndex],
+                btnId: 7,
+                callback: () => this.showTextPicker(this.temperatureOptions, this.selectedTemperatureIndex, this.onSelectTemperature),
+                activeBtn: $activeBtn,
+                onInfoClick: () => {
+                  AlertDialog.show({
+                    title: '温度说明',
+                    message: '控制模型输出的随机性。\n较低的值（如0.2）使输出更集中和确定。较高的值（如0.8）使输出更随机和多样。\n默认温度推荐为0.3，且不建议过大。',
+                    confirm: {
+                      value: '我知道了',
+                      fontColor: '#3c1464',
+                      action: () => {}
+                    }
+                  })
+                }
+              })
+            }
+
+            GridItem() {
+              ConfigCard({
+                title: '最大 Token',
+                content: this.maxTokensOptions[this.selectedMaxTokensIndex],
+                btnId: 8,
+                callback: () => this.showTextPicker(this.maxTokensOptions, this.selectedMaxTokensIndex, this.onSelectMaxTokens),
+                activeBtn: $activeBtn,
+                onInfoClick: () => {
+                  AlertDialog.show({
+                    title: '最大 Token 说明',
+                    message: '设置模型单次回复生成的最大 Token 数量。\n较小的值（如128）适合简短回复，响应更快。较大的值（如512）允许更长的回复，但可能增加延迟。\n默认最大 Token 推荐为256。',
                     confirm: {
                       value: '我知道了',
                       fontColor: '#3c1464',
@@ -410,16 +464,18 @@ export struct ConfigurationPage {
             }
           }
           .columnsTemplate('1fr 1fr')
-          .rowsTemplate('1fr 1fr 1fr')
+          .rowsTemplate('1fr 1fr 1fr 1fr')
           .columnsGap(10)
           .rowsGap(10)
           .padding({ left: 24, right: 24 })
-          .height(420)
+          .height(560)
         }
         .width('100%')
-        .height('100%')
+        .padding({ bottom: 100 })
       }
-      .scrollable(ScrollDirection.Vertical);
+      .scrollable(ScrollDirection.Vertical)
+      .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.Spring)
     }
     .mode(NavigationMode.Stack)
     .width('100%')

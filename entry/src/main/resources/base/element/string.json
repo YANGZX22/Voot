@@ -29,6 +29,38 @@
     {
       "name": "background_running_reason",
       "value": "Voot 需要后台运行权限以支持朗读功能。"
+    },
+    {
+      "name": "widget_display_name_1",
+      "value": "Token 用量"
+    },
+    {
+      "name": "widget_desc_1",
+      "value": "展示近七天 Token 用量"
+    },
+    {
+      "name": "EntryFormAbility_label",
+      "value": "Token 用量"
+    },
+    {
+      "name": "EntryFormAbility_desc",
+      "value": "展示近七天 Token 用量"
+    },
+    {
+      "name": "widget_display_name_2",
+      "value": "Token 趋势"
+    },
+    {
+      "name": "widget_desc_2",
+      "value": "展示近七天 Token 用量趋势"
+    },
+    {
+      "name": "widget_display_name_3",
+      "value": "快捷控制"
+    },
+    {
+      "name": "widget_desc_3",
+      "value": "控制画中画字幕和朗读功能"
     }
   ]
 }

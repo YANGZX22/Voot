@@ -17,6 +17,8 @@ export interface ApiConfigSnapshot {
   selectedLanguageIndex: number;
   intervalIndex: number;
   contextsIndex: number;
+  temperatureIndex: number;
+  maxTokensIndex: number;
   subtitleFontSize: number;
   subtitleFontColor: string;
   subtitleBackgroundColor: string;
@@ -39,6 +41,8 @@ export interface PartialApiConfigSnapshot {
   selectedLanguageIndex?: number;
   intervalIndex?: number;
   contextsIndex?: number;
+  maxTokensIndex?: number;
+  temperatureIndex?: number;
   subtitleFontSize?: number;
   subtitleFontColor?: string;
   subtitleBackgroundColor?: string;
@@ -112,6 +116,8 @@ export class ApiConfigStorage {
     sanitized.selectedLanguageIndex = ApiConfigStorage.pickNumber(candidate.selectedLanguageIndex, defaults.selectedLanguageIndex);
     sanitized.intervalIndex = ApiConfigStorage.pickNumber(candidate.intervalIndex, defaults.intervalIndex);
     sanitized.contextsIndex = ApiConfigStorage.pickNumber(candidate.contextsIndex, defaults.contextsIndex);
+    sanitized.maxTokensIndex = ApiConfigStorage.pickNumber(candidate.maxTokensIndex, defaults.maxTokensIndex);
+    sanitized.temperatureIndex = ApiConfigStorage.pickNumber(candidate.temperatureIndex, defaults.temperatureIndex);
     return sanitized;
   }
 
@@ -144,6 +150,8 @@ export class ApiConfigStorage {
       selectedLanguageIndex: snapshot.selectedLanguageIndex,
       intervalIndex: snapshot.intervalIndex,
       contextsIndex: snapshot.contextsIndex,
+      maxTokensIndex: snapshot.maxTokensIndex,
+      temperatureIndex: snapshot.temperatureIndex,
       subtitleFontSize: snapshot.subtitleFontSize,
       subtitleFontColor: snapshot.subtitleFontColor,
       subtitleBackgroundColor: snapshot.subtitleBackgroundColor,

@@ -13,6 +13,7 @@ import { ApiConfigPage, ApiMenuType } from './ApiConfigPage';
 import App from '@system.app';
 import { ApiConfigStorage, ApiConfigSnapshot } from '../storage/ApiConfigStorage';
 import { OnboardingStorage } from '../storage/OnboardingStorage';
+import { TokenUsageStorage } from '../storage/TokenUsageStorage';
 import { PolicySheetType, PolicySheetContent, getPolicySheetConfig } from '../components/PolicySheet';
 import window from '@ohos.window';
 import promptAction from '@ohos.promptAction';
@@ -35,8 +36,13 @@ interface ChatCompletionChoice {
   message: ChatCompletionMessage;
 }
 
+interface ChatCompletionUsage {
+  total_tokens: number;
+}
+
 interface ChatCompletionResponse {
   choices: ChatCompletionChoice[];
+  usage?: ChatCompletionUsage;
 }
 
 // DeepL
@@ -66,6 +72,8 @@ interface OllamaChatOptions {
 
 interface OllamaChatResponse {
   message: OllamaChatMessage;
+  eval_count?: number;
+  prompt_eval_count?: number;
 }
 
 // Doubao chat
@@ -78,8 +86,13 @@ interface DoubaoChatChoice {
   message: DoubaoChatMessage;
 }
 
+interface DoubaoUsage {
+  total_tokens: number;
+}
+
 interface DoubaoChatResponse {
   choices: DoubaoChatChoice[];
+  usage?: DoubaoUsage;
 }
 
 enum WelcomeStage {
@@ -126,6 +139,12 @@ struct Index {
 
   @State contextsOptions: string[] = ['1', '2', '3', '4', '5', '6'];
   @State contextsIndex: number = 2;
+
+  @State temperatureOptions: string[] = ['0.0', '0.1', '0.2', '0.3', '0.4', '0.5', '0.6', '0.7', '0.8', '0.9', '1.0', '1.1', '1.2', '1.3', '1.4', '1.5', '1.6', '1.7', '1.8', '1.9', '2.0'];
+  @State temperatureIndex: number = 3; // Default 0.3
+
+  @State maxTokensOptions: string[] = ['64', '100', '128', '256', '512', '1024'];
+  @State maxTokensIndex: number = 3; // Default 256
 
   @State languageOptions: string[] = ['Chinese', 'English', 'Spanish', 'French', 'Japanese'];
   @State languageDisplayOptions: string[] = ['中文', '英语', '西班牙语', '法语', '日语'];
@@ -187,6 +206,10 @@ struct Index {
   private pipSubtitleManager: PipSubtitleManager = PipSubtitleManager.getInstance();
   private isPipInitialized: boolean = false;
 
+  // Widget trigger states
+  @StorageProp('widgetPipToggle') @Watch('onWidgetPipToggle') widgetPipToggle: number = 0;
+  @StorageProp('widgetRealtimeReadingToggle') @Watch('onWidgetReadingToggle') widgetReadingToggle: number = 0;
+
   private translationDebounceId: number | undefined = undefined;
   private lastAsrText: string = '';
   private pendingTranslationText: string = '';  // text we want to translate next
@@ -212,10 +235,39 @@ struct Index {
   private micService?: SherpaWhisperMicService;
 
   /**
+   * Widget PiP toggle handler
+   */
+  onWidgetPipToggle(): void {
+    if (this.widgetPipToggle > 0) {
+      this.togglePipSubtitle();
+    }
+  }
+
+  /**
+   * Widget Reading toggle handler
+   */
+  onWidgetReadingToggle(): void {
+    if (this.widgetReadingToggle > 0) {
+      this.isRealtimeReadingEnabled = !this.isRealtimeReadingEnabled;
+      if (!this.isRealtimeReadingEnabled) {
+        TextReader.stop();
+      }
+    }
+  }
+
+  /**
    * Get translation interval from config (in ms).
    */
   private getTranslationIntervalMs(): number {
     return parseInt(this.intervalOptions[this.intervalIndex]) * 1000;
+  }
+
+  private getTemperatureValue(): number {
+    return parseFloat(this.temperatureOptions[this.temperatureIndex]);
+  }
+
+  private getMaxTokensValue(): number {
+    return parseInt(this.maxTokensOptions[this.maxTokensIndex]);
   }
 
   private scheduleRealtimeTranslation(): void {
@@ -426,7 +478,7 @@ struct Index {
 
     // Initialize TextReader
     try {
-      let context = getContext(this) as common.BaseContext;
+      let context = getContext(this) as common.UIAbilityContext;
       const readerParams: TextReader.ReaderParam = {
         isVoiceBrandVisible: true,
         businessBrandInfo: {
@@ -435,9 +487,15 @@ struct Index {
         }
       };
       await TextReader.init(context, readerParams);
+      
+      // Initialize TokenUsageStorage
+      await TokenUsageStorage.getInstance().init(context);
     } catch (e) {
-      console.error(`TextReader init failed: ${JSON.stringify(e)}`);
+      console.error(`Init failed: ${JSON.stringify(e)}`);
     }
+
+    // Listen for widget button triggers
+    // Widget triggers are handled via @StorageProp with @Watch in state declarations
   }
 
   private async initSherpaAsr(): Promise<void> {
@@ -572,6 +630,8 @@ struct Index {
     this.selectedLanguageIndex = snapshot.selectedLanguageIndex;
     this.intervalIndex = snapshot.intervalIndex;
     this.contextsIndex = snapshot.contextsIndex;
+    this.temperatureIndex = snapshot.temperatureIndex !== undefined ? snapshot.temperatureIndex : 3; // Default 0.3
+    this.maxTokensIndex = snapshot.maxTokensIndex !== undefined ? snapshot.maxTokensIndex : 3; // Default 256
     this.subtitleFontSize = snapshot.subtitleFontSize;
     this.subtitleFontColor = snapshot.subtitleFontColor;
     this.subtitleBackgroundColor = snapshot.subtitleBackgroundColor;
@@ -595,6 +655,8 @@ struct Index {
       selectedLanguageIndex: this.selectedLanguageIndex,
       intervalIndex: this.intervalIndex,
       contextsIndex: this.contextsIndex,
+      maxTokensIndex: this.maxTokensIndex,
+      temperatureIndex: this.temperatureIndex,
       subtitleFontSize: this.subtitleFontSize,
       subtitleFontColor: this.subtitleFontColor,
       subtitleBackgroundColor: this.subtitleBackgroundColor,
@@ -949,8 +1011,12 @@ struct Index {
                 selectedLanguageIndex: this.selectedLanguageIndex,
                 intervalOptions: this.intervalOptions,
                 selectedIntervalIndex: this.intervalIndex,
+                maxTokensOptions: this.maxTokensOptions,
+                selectedMaxTokensIndex: this.maxTokensIndex,
                 contextsOptions: this.contextsOptions,
                 selectedContextsIndex: this.contextsIndex,
+                temperatureOptions: this.temperatureOptions,
+                selectedTemperatureIndex: this.temperatureIndex,
                 onCycleApi: () => {
                   this.selectedApiIndex = (this.selectedApiIndex + 1) % this.apiOptions.length;
                   this.persistApiConfigSnapshot();
@@ -970,6 +1036,14 @@ struct Index {
                 },
                 onSelectContexts: (index: number) => {
                   this.contextsIndex = index;
+                  this.persistApiConfigSnapshot();
+                },
+                onSelectMaxTokens: (index: number) => {
+                  this.maxTokensIndex = index;
+                  this.persistApiConfigSnapshot();
+                },
+                onSelectTemperature: (index: number) => {
+                  this.temperatureIndex = index;
                   this.persistApiConfigSnapshot();
                 }
               });
@@ -1285,8 +1359,8 @@ struct Index {
     const body: string = JSON.stringify({
       model: this.openAiModel,
       messages: messages,
-      max_tokens: 256, // Limit output for speed
-      temperature: 0.3 // Lower temp for consistent, fast output
+      max_tokens: this.getMaxTokensValue(), // Limit output for speed
+      temperature: this.getTemperatureValue()
     });
 
     const response: http.HttpResponse = await httpRequest.request(this.openAiApiUrl, {
@@ -1305,6 +1379,9 @@ struct Index {
     const parsed = JSON.parse(resultStr) as ChatCompletionResponse;
     if (parsed.choices && parsed.choices.length > 0) {
       translated = parsed.choices[0].message.content;
+      if (parsed.usage && parsed.usage.total_tokens) {
+        TokenUsageStorage.getInstance().addTokenUsage('OpenAI', parsed.usage.total_tokens);
+      }
     }
 
     this.updateTranslationField(translated);
@@ -1338,6 +1415,9 @@ struct Index {
     const parsed = JSON.parse(resultStr) as DeepLResponse;
     if (parsed.translations && parsed.translations.length > 0) {
       translated = parsed.translations[0].text;
+      // DeepL charges by character, so we track characters as "tokens"
+      const usage = text.length + translated.length;
+      TokenUsageStorage.getInstance().addTokenUsage('DeepL', usage);
     } else {
       translated = '[DeepL: empty translations]';
     }
@@ -1357,8 +1437,8 @@ struct Index {
     ];
 
     const options: OllamaChatOptions = {
-      num_predict: 256,
-      temperature: 0.3
+      num_predict: this.getMaxTokensValue(),
+      temperature: this.getTemperatureValue()
     };
 
     const body: string = JSON.stringify({
@@ -1383,6 +1463,11 @@ struct Index {
     const parsed = JSON.parse(resultStr) as OllamaChatResponse;
     translated = parsed.message.content;
 
+    if (parsed.eval_count || parsed.prompt_eval_count) {
+      const total = (parsed.eval_count || 0) + (parsed.prompt_eval_count || 0);
+      TokenUsageStorage.getInstance().addTokenUsage('Ollama', total);
+    }
+
     this.updateTranslationField(translated);
     httpRequest.destroy();
   }
@@ -1395,13 +1480,13 @@ struct Index {
     // Single message for faster response
     const messages: ChatMessage[] = [
       { role: 'user', content: systemPrompt }
-    ];
+    ];this.getMaxTokensValue()
 
     const body: string = JSON.stringify({
       model: this.doubaoModel,
       max_tokens: 100, // Further reduced for real-time translation
       messages: messages,
-      temperature: 0.0, // Zero temperature for fastest, deterministic output
+      temperature: this.getTemperatureValue(),
       stream: false
     });
 
@@ -1432,6 +1517,9 @@ struct Index {
       const parsed = JSON.parse(resultStr) as DoubaoChatResponse;
       if (parsed.choices && parsed.choices.length > 0) {
         translated = parsed.choices[0].message.content;
+        if (parsed.usage && parsed.usage.total_tokens) {
+          TokenUsageStorage.getInstance().addTokenUsage('Doubao', parsed.usage.total_tokens);
+        }
       } else {
         console.warn('Doubao response has no choices: ' + resultStr);
         translated = '[Doubao: 响应为空]';

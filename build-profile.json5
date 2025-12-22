@@ -5,13 +5,13 @@
         "name": "default",
         "type": "HarmonyOS",
         "material": {
-          "certpath": "C:\\Users\\ASUS\\.ohos\\config\\default_Voot_3HZHNyx2QQUwRepeUfHA3rGKel39x2ygmJQ-f7X-qG0=.cer",
-          "keyAlias": "debugKey",
-          "keyPassword": "0000001B0F2A4371AE124991B0BE1AE78C3F8BED91EEC2F7EA6CE6C5D8D329B3BDF5DAB8C727855F7DDA4E",
-          "profile": "C:\\Users\\ASUS\\.ohos\\config\\default_Voot_3HZHNyx2QQUwRepeUfHA3rGKel39x2ygmJQ-f7X-qG0=.p7b",
+          "storeFile": "E:/vootKEY/vootkey.p12",
+          "storePassword": "0000001A352905B590458CA41658FAE9F05D08D1E5086A8203B6C28A562D4EE8E90EE56F542CE1EBC2B1",
+          "keyAlias": "mykey",
+          "keyPassword": "0000001AEE85B73997EE9F4F91307AA95F8456FB4C2A2CEDB271829EC5C1A780A72A38A31C708E9D0DE0",
           "signAlg": "SHA256withECDSA",
-          "storeFile": "C:\\Users\\ASUS\\.ohos\\config\\default_Voot_3HZHNyx2QQUwRepeUfHA3rGKel39x2ygmJQ-f7X-qG0=.p12",
-          "storePassword": "0000001B088C773CC25308181539AE17370A2ACA79F5B841F7DA1F71F9E7302A69003B76C9D534197B8AB1"
+          "profile": "E:/vootKEY/Profile发布Release.p7b",
+          "certpath": "E:/vootKEY/VOOT发布.cer"
         }
       }
     ],

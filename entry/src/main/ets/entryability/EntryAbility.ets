@@ -5,11 +5,71 @@ import AbilityConstant from '@ohos.app.ability.AbilityConstant';
 import backgroundTaskManager from '@ohos.resourceschedule.backgroundTaskManager';
 import wantAgent, { WantAgent } from '@ohos.app.ability.wantAgent';
 import { BusinessError } from '@ohos.base';
+import rpc from '@ohos.rpc';
 
 export default class EntryAbility extends UIAbility {
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     console.info('[EntryAbility] onCreate');
     this.startContinuousTask();
+    this.handleWidgetAction(want);
+
+    // Register Callee listeners for Widget actions
+    try {
+      this.callee.on('togglePip', (data: rpc.MessageSequence) => {
+        console.info('[EntryAbility] Callee: togglePip');
+        AppStorage.setOrCreate('widgetPipToggle', Date.now());
+        return null;
+      });
+
+      this.callee.on('toggleRealtimeReading', (data: rpc.MessageSequence) => {
+        console.info('[EntryAbility] Callee: toggleRealtimeReading');
+        AppStorage.setOrCreate('widgetRealtimeReadingToggle', Date.now());
+        return null;
+      });
+    } catch (e) {
+      console.error('[EntryAbility] Failed to register callee: ' + JSON.stringify(e));
+    }
+  }
+
+  onNewWant(want: Want, launchParam: AbilityConstant.LaunchParam): void {
+    console.info('[EntryAbility] onNewWant');
+    this.handleWidgetAction(want);
+  }
+
+  private handleWidgetAction(want: Want): void {
+    // Handle command from form event
+    if (want.parameters && want.parameters['command']) {
+      const command = want.parameters['command'] as string;
+      if (command === 'togglePip') {
+        AppStorage.setOrCreate('widgetPipToggle', Date.now());
+        console.info('[EntryAbility] Widget command: togglePip');
+      } else if (command === 'toggleReadAloud') {
+        AppStorage.setOrCreate('widgetRealtimeReadingToggle', Date.now());
+        console.info('[EntryAbility] Widget command: toggleReadAloud');
+      }
+    }
+    
+    // Handle params from router action
+    if (want.parameters && want.parameters['params']) {
+      try {
+        const paramsStr = want.parameters['params'] as string;
+        const params = JSON.parse(paramsStr) as Record<string, string>;
+        const widgetAction = params['widgetAction'];
+        
+        if (widgetAction === 'toggleMic') {
+          AppStorage.setOrCreate('widgetMicToggle', Date.now());
+          console.info('[EntryAbility] Widget action: toggleMic');
+        } else if (widgetAction === 'toggleRealtimeReading' || widgetAction === 'toggleReadAloud') {
+          AppStorage.setOrCreate('widgetRealtimeReadingToggle', Date.now());
+          console.info('[EntryAbility] Widget action: toggleRealtimeReading');
+        } else if (widgetAction === 'togglePip') {
+          AppStorage.setOrCreate('widgetPipToggle', Date.now());
+          console.info('[EntryAbility] Widget action: togglePip');
+        }
+      } catch (e) {
+        console.error('[EntryAbility] handleWidgetAction error: ' + JSON.stringify(e));
+      }
+    }
   }
 
   onDestroy(): void {
