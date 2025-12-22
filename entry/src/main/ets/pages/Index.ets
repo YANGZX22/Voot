@@ -157,7 +157,7 @@ struct Index {
   @State subtitleFontColor: string = '#FFFFFF';
   @State subtitleBackgroundColor: string = '#3c1464';
 
-  @State subtitleHeight: number = 240;
+  @State subtitleHeight: number = 20;
 
   // Prompt template (used in LLM system message)
   @State promptText: string =
@@ -473,7 +473,8 @@ struct Index {
       const ctx = getContext(this) as common.UIAbilityContext;
       const uiContext = this.getUIContext();
 
-      const success = await this.pipSubtitleManager.init(ctx, uiContext);
+      // Convert subtitle height (10-30) to pixel value (100-300)
+      const success = await this.pipSubtitleManager.init(ctx, uiContext, this.subtitleHeight * 10);
       if (success) {
         this.isPipInitialized = true;
 
@@ -490,7 +491,7 @@ struct Index {
           }
         });
 
-        // Syn Subtitle style
+        // Sync Subtitle style
         this.pipSubtitleManager.updateStyle({
           fontSize: this.subtitleFontSize,
           fontColor: this.subtitleFontColor,
@@ -574,7 +575,7 @@ struct Index {
     this.subtitleFontSize = snapshot.subtitleFontSize;
     this.subtitleFontColor = snapshot.subtitleFontColor;
     this.subtitleBackgroundColor = snapshot.subtitleBackgroundColor;
-    this.subtitleHeight = snapshot.subtitleHeight !== undefined ? snapshot.subtitleHeight : 240;
+    this.subtitleHeight = snapshot.subtitleHeight !== undefined ? snapshot.subtitleHeight : 20;
   }
 
   private buildApiConfigSnapshot(): ApiConfigSnapshot {
@@ -1043,6 +1044,9 @@ struct Index {
                     fontColor: this.subtitleFontColor,
                     backgroundColor: this.subtitleBackgroundColor
                   });
+                  // 同步更新 PiP 窗口高度
+                  // Convert subtitle height (10-30) to pixel value (100-300)
+                  this.pipSubtitleManager.updateContentSize(400, this.subtitleHeight * 10);
                 }
 
               }

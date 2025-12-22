@@ -286,7 +286,18 @@ export struct ConfigurationPage {
                 content: this.apiOptions[this.selectedApiIndex],
                 btnId: 1,
                 callback: () => this.onCycleApi(),
-                activeBtn: $activeBtn
+                activeBtn: $activeBtn,
+                onInfoClick: () => {
+                  AlertDialog.show({
+                    title: 'API 选择说明',
+                    message: '点击切换可用的翻译 / LLM 服务：OpenAI、DeepL、Ollama、Doubao。\n选择后请在“配置API”里填写对应地址和密钥。',
+                    confirm: {
+                      value: '我知道了',
+                      fontColor: '#3c1464',
+                      action: () => {}
+                    }
+                  })
+                }
               })
             }
 
@@ -300,7 +311,7 @@ export struct ConfigurationPage {
                 activeBtn: $activeBtn,
                 onInfoClick: () => {
                   AlertDialog.show({
-                    title: '需要使用您的屏幕锁定信息',
+                    title: '配置API说明',
                     message: '使用您的屏幕锁定信息保护您的密钥。',
                     confirm: {
                       value: '我知道了',
@@ -320,7 +331,18 @@ export struct ConfigurationPage {
                 callback: () => {
                   // ToastUtil.showToast('当前仅支持英语作为原始语言 😭');
                 },
-                activeBtn: $activeBtn
+                activeBtn: $activeBtn,
+                onInfoClick: () => {
+                  AlertDialog.show({
+                    title: '原始语言说明',
+                    message: '暂时仅支持英语。',
+                    confirm: {
+                      value: '我知道了',
+                      fontColor: '#3c1464',
+                      action: () => {}
+                    }
+                  })
+                }
               })
             }
 
@@ -330,7 +352,18 @@ export struct ConfigurationPage {
                 content: this.getLanguageLabels()[this.selectedLanguageIndex],
                 btnId: 4,
                 callback: () => this.onCycleLanguage(),
-                activeBtn: $activeBtn
+                activeBtn: $activeBtn,
+                onInfoClick: () => {
+                  AlertDialog.show({
+                    title: '目标语言说明',
+                    message: '翻译结果将输出为目标语言，点击切换下一个语言。',
+                    confirm: {
+                      value: '我知道了',
+                      fontColor: '#3c1464',
+                      action: () => {}
+                    }
+                  })
+                }
               })
             }
 

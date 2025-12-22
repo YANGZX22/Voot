@@ -7,11 +7,11 @@
         "material": {
           "certpath": "C:\\Users\\ASUS\\.ohos\\config\\default_Voot_3HZHNyx2QQUwRepeUfHA3rGKel39x2ygmJQ-f7X-qG0=.cer",
           "keyAlias": "debugKey",
-          "keyPassword": "0000001BC9D19E6F2587DA7F0A15B131010524CFDD7085893E8E6BBE778246A2529EC4BACABF570F0BFE77",
+          "keyPassword": "0000001B0F2A4371AE124991B0BE1AE78C3F8BED91EEC2F7EA6CE6C5D8D329B3BDF5DAB8C727855F7DDA4E",
           "profile": "C:\\Users\\ASUS\\.ohos\\config\\default_Voot_3HZHNyx2QQUwRepeUfHA3rGKel39x2ygmJQ-f7X-qG0=.p7b",
           "signAlg": "SHA256withECDSA",
           "storeFile": "C:\\Users\\ASUS\\.ohos\\config\\default_Voot_3HZHNyx2QQUwRepeUfHA3rGKel39x2ygmJQ-f7X-qG0=.p12",
-          "storePassword": "0000001BF23C7EA93268439785F6DF1599996F1C29015936814CC5E2782B13C14C005C2A5FBB7353DF92B0"
+          "storePassword": "0000001B088C773CC25308181539AE17370A2ACA79F5B841F7DA1F71F9E7302A69003B76C9D534197B8AB1"
         }
       }
     ],

@@ -120,13 +120,13 @@ struct SubtitleStyleDialog {
       // Subtitle Height
       Row() {
         Text('字幕高度')
-        Slider({ value: this.subtitleHeight, min: 100, max: 600, step: 10 })
+        Slider({ value: this.subtitleHeight, min: 10, max: 30, step: 1 })
           .onChange((value: number) => {
             this.subtitleHeight = value
           })
           .selectedColor('#3c1464')
           .layoutWeight(1)
-        Text((this.subtitleHeight / 10).toFixed(0))
+        Text(this.subtitleHeight.toFixed(0))
           .width(40)
           .textAlign(TextAlign.End)
       }
