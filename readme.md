@@ -30,6 +30,7 @@ It is designed with three core principles: **security, privacy, and simplicity**
 - [Security & Privacy](#security--privacy)
 - [Roadmap](#roadmap)
 - [Contributing](#contributing)
+- [Known Issues](#known-issues)
 - [License](#license)
 - [Disclaimer](#disclaimer)
 
@@ -71,7 +72,7 @@ It is designed with three core principles: **security, privacy, and simplicity**
   - Resizable and movable overlay for seamless multitasking.
 
 - 📱 **Desktop Widgets**
-  - **Control Card**: Start/stop translation directly from the home screen.
+  - **Control Card**: Start/stop subtitle and interpretation directly from the home screen.
   - **Token Card**: Monitor your API token usage without opening the app.
 
 - 💡 **Simple UI, ArkTS only**
@@ -187,7 +188,7 @@ In the **“目标语言 / Target language”** section:
 ## Usage
 
 1. Launch **Voot** on your HarmonyOS device.
-2. In the **配置** tab:
+2. In the **配置 API** tab:
 
    * Pick an API provider.
    * Configure API URL + Key.
@@ -196,7 +197,6 @@ In the **“目标语言 / Target language”** section:
 
    * Tap **“开启麦克风”** to start capturing audio.
    * Speak in the source language.
-   * Tap **“使用 API 翻译”** to send recognized text to the selected provider.
 4. The UI will show:
 
    * **原始文本** (recognized source text)
@@ -229,10 +229,14 @@ Short summary (see in-app privacy policy / `PRIVACY.html` for details):
 
 ## Roadmap
 
-Planned / possible future work:
+Finished / planned / possible work:
 
 * Subtitle (Realized ✅) 
 * Live Window on HarmonyOS (Realized ✅) 
+* Desktop Widgets (Realized ✅)
+* Token usage analytics (Realized ✅)
+* Support for more LLM / translation APIs
+* Enhanced ASR models and offline support
 * More supported original languages
 
 Feel free to open issues or PRs with feature requests.
@@ -252,6 +256,16 @@ Before submitting, please:
 
 * Do not commit any real API keys or secrets.
 * Ensure the app builds and runs on the current HarmonyOS SDK version.
+
+---
+
+## Known Issues
+
+* ASR accuracy may vary based on background noise and microphone quality.
+* Some API providers may have rate limits or usage costs; monitor your usage carefully.
+* When tap **传译** button in desktop widget, the app may not open interpretation correctly due to HarmonyOS restrictions.
+* Subtitle floating window may have layout issues on certain screen sizes, e.g. Pad.\
+  You can try to adjust the size of the floating window manually. An update may fix this in the future.
 
 ---
 
