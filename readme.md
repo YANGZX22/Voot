@@ -1,10 +1,10 @@
 <div align="center">    
-  <img src="https://github.com/YANGZX22/Voot/blob/main/entry/src/main/resources/base/media/title.png" width="400px">
+  <img src="https://github.com/YANGZX22/Voot/blob/main/entry/src/main/resources/base/media/title.png" width="300px">
 </div>
 
 # Voot – LLM-powered Live Translation for HarmonyOS
 
-Voot is an intelligent simultaneous-interpretation & text translation app for **HarmonyOS**, powered by **your own LLM / translation APIs**.  
+Voot, standing for "**Vo**ice **O**n **T**op," is an intelligent simultaneous-interpretation & text translation app for **HarmonyOS**, powered by **your own LLM / translation APIs**.  
 It is designed with three core principles: **security, privacy, and simplicity**.
 
 > [!NOTE]
@@ -135,7 +135,7 @@ git clone https://github.com/YANGZX22/Voot.git
 cd Voot
 ```
 
-Open the project in **DevEco Studio**.
+Open the project in [**DevEco Studio**](https://developer.huawei.com/consumer/cn/deveco-studio/).
 
 ### Run
 
@@ -147,7 +147,7 @@ Open the project in **DevEco Studio**.
 
 ## Install Hap
 
-You can use [Auto-installer](https://github.com/likuai2010/auto-installer/) or [DevEcho Testing](https://developer.huawei.com/consumer/cn/deveco-testing/) for installation.
+Or you can use [Auto-installer](https://github.com/likuai2010/auto-installer/) or [DevEcho Testing](https://developer.huawei.com/consumer/cn/deveco-testing/) for installation.
 
 > [!IMPORTANT]
 > Huawei's signing servers block IP addresses outside mainland China. To sideload software for HarmonyOS NEXT in countries/regions outside mainland China.
@@ -159,12 +159,9 @@ You can use [Auto-installer](https://github.com/likuai2010/auto-installer/) or [
 
 ## Configuration
 
-All configuration is done inside the app UI, so the public repo can stay **free of secrets**.
-
 ### API Providers
 
-In the **“配置 / Configure”** tab:
-
+In the **“配置 API / Configure API”** tab:
 1. Choose the current provider (e.g. OpenAI, DeepL, Ollama, 豆包).
 2. Tap **“配置 API / Configure API”**.
 3. For each provider, fill in:
