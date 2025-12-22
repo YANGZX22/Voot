@@ -88,7 +88,6 @@ struct SubtitleStyleDialog {
   @Link fontSize: number
   @Link fontColor: string
   @Link subtitleBackgroundColor: string
-  @Link backgroundOpacity: number
   @Link subtitleHeight: number
   onConfirm: () => void = () => {}
 
@@ -174,22 +173,6 @@ struct SubtitleStyleDialog {
         }
       }
       .width('100%')
-      .margin({ bottom: 15 })
-
-      // Opacity
-      Row() {
-        Text('背景透明度')
-        Slider({ value: this.backgroundOpacity * 100, min: 0, max: 100, step: 1 })
-          .onChange((value: number) => {
-            this.backgroundOpacity = value / 100
-          })
-          .selectedColor('#3c1464')
-          .layoutWeight(1)
-        Text((this.backgroundOpacity * 100).toFixed(0) + '%')
-          .width(40)
-          .textAlign(TextAlign.End)
-      }
-      .width('100%')
       .margin({ bottom: 20 })
 
       Button('确定')
@@ -210,16 +193,16 @@ struct SubtitleStyleDialog {
 @Component
 export struct SettingsPage {
   // Props
-  @Prop isSubtitleOpen: boolean = false;
   @Prop isRealtimeReadingEnabled: boolean = false;
+  @Prop isPipSubtitleEnabled: boolean = false; // PiP 字幕开关状态
+  @Prop isPipAvailable: boolean = true; // PiP 是否可用
   @Link subtitleFontSize: number;
   @Link subtitleFontColor: string;
   @Link subtitleBackgroundColor: string;
-  @Link subtitleBackgroundOpacity: number;
   @Link subtitleHeight: number;
 
   // Callbacks
-  onToggleSubtitle: () => void = () => {};
+  onTogglePipSubtitle: (isOn: boolean) => void = () => {}; // PiP 字幕切换回调
   onToggleRealtimeReading: () => void = () => {};
   onStyleChange: () => void = () => {};
 
@@ -229,7 +212,6 @@ export struct SettingsPage {
       fontSize: $subtitleFontSize,
       fontColor: $subtitleFontColor,
       subtitleBackgroundColor: $subtitleBackgroundColor,
-      backgroundOpacity: $subtitleBackgroundOpacity,
       subtitleHeight: $subtitleHeight,
       onConfirm: () => {
         this.onStyleChange();
@@ -305,29 +287,38 @@ export struct SettingsPage {
             .fontWeight(FontWeight.Medium)
             .margin({ bottom: 8 });
 
+          // PiP 字幕开关
           Row() {
             Blank().width(12)
-            Text('开启字幕').fontColor(Color.White)
+            Column() {
+              Text('画中画字幕').fontColor(Color.White).alignSelf(ItemAlign.Start)
+              Text('在应用外也可显示翻译')
+                .fontColor('#80FFFFFF')
+                .fontSize(12)
+                .alignSelf(ItemAlign.Start)
+            }
 
             Blank()
 
             Toggle({
               type: ToggleType.Switch,
-              isOn: this.isSubtitleOpen
+              isOn: this.isPipSubtitleEnabled
             })
             .selectedColor('#3c1464')
+            .enabled(this.isPipAvailable)
             .onChange((isOn: boolean) => {
-              this.onToggleSubtitle();
+              this.onTogglePipSubtitle(isOn);
             })
 
             Blank().width(12)
           }
           .width('100%')
-          .height(60)
+          .height(70)
           .padding(4)
           .margin({ bottom: 12 })
           .borderRadius(24)
-          .backgroundColor('#803c1464')
+          .backgroundColor(this.isPipAvailable ? '#803c1464' : '#403c1464')
+          .opacity(this.isPipAvailable ? 1.0 : 0.6)
           .visualEffect(new hdsEffect.HdsEffectBuilder()
             .pointLight({
               illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER
@@ -393,7 +384,7 @@ export struct SettingsPage {
               .onClick(() => {
                 AlertDialog.show({
                   title: '传译说明',
-                  message: '*实验功能，欢迎试用*\n开启开关后，当翻译成功时传译器会自动打开。',
+                  message: '*实验功能，欢迎试用\n开启实时朗读开关后，当翻译成功时传译器会自动打开。\n',
                   confirm: {
                     value: '我知道了',
                     fontColor: '#3c1464',

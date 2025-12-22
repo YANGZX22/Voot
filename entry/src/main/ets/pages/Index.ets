@@ -16,6 +16,8 @@ import { OnboardingStorage } from '../storage/OnboardingStorage';
 import { PolicySheetType, PolicySheetContent, getPolicySheetConfig } from '../components/PolicySheet';
 import window from '@ohos.window';
 import promptAction from '@ohos.promptAction';
+import { PipSubtitleManager, SubtitleParams } from '../services/PipSubtitleManager';
+import { PiPWindow } from '@kit.ArkUI';
 
 
 // ---------- Shared types for JSON parsing ----------
@@ -151,10 +153,10 @@ struct Index {
   @State doubaoModel: string = 'ep-20251221220646-rnx4c';
 
   // Subtitle Style Config
-  @State subtitleFontSize: number = 30;
+  @State subtitleFontSize: number = 20;
   @State subtitleFontColor: string = '#FFFFFF';
   @State subtitleBackgroundColor: string = '#3c1464';
-  @State subtitleBackgroundOpacity: number = 0.4;
+
   @State subtitleHeight: number = 240;
 
   // Prompt template (used in LLM system message)
@@ -177,9 +179,13 @@ struct Index {
   @State activeWelcomeFeature: number = -1;
 
   // Subtitle Window State
-  @State isSubtitleOpen: boolean = false;
   @State isRealtimeReadingEnabled: boolean = false;
-  private subtitleWin: window.Window | null = null;
+
+  // PiP Subtitle State
+  @State isPipSubtitleEnabled: boolean = false;
+  @State isPipActive: boolean = false;
+  private pipSubtitleManager: PipSubtitleManager = PipSubtitleManager.getInstance();
+  private isPipInitialized: boolean = false;
 
   private translationDebounceId: number | undefined = undefined;
   private lastAsrText: string = '';
@@ -449,129 +455,92 @@ struct Index {
     }
   }
 
-  private async toggleSubtitleWindow(forceOpen?: boolean): Promise<void> {
-    const shouldOpen = forceOpen !== undefined ? forceOpen : !this.isSubtitleOpen;
+  /**
+   * Initialize PiP
+   */
+  private async initPipSubtitle(): Promise<boolean> {
+    if (this.isPipInitialized) {
+      return true;
+    }
+
+    // Check PiP
+    if (!this.pipSubtitleManager.isPipEnabled()) {
+      console.warn('[PiP] Picture-in-Picture is not available on this device');
+      return false;
+    }
+
+    try {
+      const ctx = getContext(this) as common.UIAbilityContext;
+      const uiContext = this.getUIContext();
+
+      const success = await this.pipSubtitleManager.init(ctx, uiContext);
+      if (success) {
+        this.isPipInitialized = true;
+
+        this.pipSubtitleManager.registerLifecycleCallback((state: PiPWindow.PiPState) => {
+          if (state === PiPWindow.PiPState.STARTED) {
+            this.isPipActive = true;
+          } else if (state === PiPWindow.PiPState.STOPPED || state === PiPWindow.PiPState.ERROR) {
+            this.isPipActive = false;
+            // Sync toggle state when PiP is closed externally (e.g. via system UI)
+            if (this.isPipSubtitleEnabled) {
+              this.isPipSubtitleEnabled = false;
+              this.persistApiConfigSnapshot();
+            }
+          }
+        });
+
+        // Syn Subtitle style
+        this.pipSubtitleManager.updateStyle({
+          fontSize: this.subtitleFontSize,
+          fontColor: this.subtitleFontColor,
+          backgroundColor: this.subtitleBackgroundColor
+        });
+
+        console.info('[PiP] PiP subtitle initialized successfully');
+      }
+      return success;
+    } catch (e) {
+      console.error('[PiP] initPipSubtitle error: ' + JSON.stringify(e));
+      return false;
+    }
+  }
+
+  private async togglePipSubtitle(forceOpen?: boolean): Promise<void> {
+    const shouldOpen = forceOpen !== undefined ? forceOpen : !this.isPipSubtitleEnabled;
 
     if (!shouldOpen) {
-      // Try to find it if we don't have the reference, just to be sure we clean up
-      if (!this.subtitleWin) {
-        const win = AppStorage.get<window.Window>('voot_subtitle_win');
-        this.subtitleWin = win ? win : null;
-      }
-      
-      if (!this.subtitleWin) {
-        try {
-          this.subtitleWin = await window.findWindow('voot_subtitle');
-        } catch (e) {
-          // ignore
-        }
-      }
-
-      if (this.subtitleWin) {
-        await this.subtitleWin.destroyWindow();
-        this.subtitleWin = null;
-        AppStorage.setOrCreate('voot_subtitle_win', undefined);
-      }
-      this.isSubtitleOpen = false;
+      // Stop PiP
+      await this.pipSubtitleManager.stopPip();
+      this.isPipSubtitleEnabled = false;
+      this.isPipActive = false;
       this.persistApiConfigSnapshot();
       promptAction.showToast({ message: '字幕已关闭' });
       return;
     }
 
-    try {
-      const ctx = getContext(this) as common.UIAbilityContext;
-      const windowStage = AppStorage.get<window.WindowStage>('windowStage');
-      
-      if (!windowStage) {
-        console.error('WindowStage not found in AppStorage');
-        this.isSubtitleOpen = false;
-        this.persistApiConfigSnapshot();
-        promptAction.showToast({ message: '无法获取窗口环境' });
+    // Initialize PiP
+    if (!this.isPipInitialized) {
+      const success = await this.initPipSubtitle();
+      if (!success) {
+        promptAction.showToast({ message: 'PiP 不可用，请尝试传统字幕模式' });
         return;
       }
+    }
 
-      // Check AppStorage first
-      const storedWin = AppStorage.get<window.Window>('voot_subtitle_win');
-      this.subtitleWin = storedWin ? storedWin : null;
-      if (this.subtitleWin) {
-         this.isSubtitleOpen = true;
-         return;
+    // Start PiP
+    const started = await this.pipSubtitleManager.startPip();
+    if (started) {
+      this.isPipSubtitleEnabled = true;
+      this.isPipActive = true; // Label ACTIVE
+      // Syn Translation Text
+      if (this.translatedDemoText) {
+        this.pipSubtitleManager.updateSubtitle(this.translatedDemoText);
       }
-
-      // Check if window already exists to avoid 130002
-      try {
-        this.subtitleWin = await window.findWindow('voot_subtitle');
-        if (this.subtitleWin) {
-           AppStorage.setOrCreate('voot_subtitle_win', this.subtitleWin);
-           await this.subtitleWin.showWindow();
-           this.isSubtitleOpen = true;
-           return;
-        }
-      } catch (e) {
-        // Not found, proceed to create
-      }
-
-      try {
-        // Try creating a system float window first (requires permission)
-        const config: window.Configuration = {
-          name: 'voot_subtitle',
-          windowType: window.WindowType.TYPE_FLOAT,
-          ctx: ctx
-        };
-        this.subtitleWin = await window.createWindow(config);
-      } catch (createErr) {
-        console.warn('Failed to create TYPE_FLOAT window, falling back to subwindow: ' + JSON.stringify(createErr));
-        // Fallback to subwindow
-        try {
-           this.subtitleWin = await windowStage.createSubWindow('voot_subtitle');
-        } catch (subErr) {
-           console.error('createSubWindow failed: ' + JSON.stringify(subErr));
-           // Last ditch effort: try findWindow again
-           try {
-              this.subtitleWin = await window.findWindow('voot_subtitle');
-           } catch (findErr) {
-              throw new Error('Failed to create or find subtitle window: ' + JSON.stringify(subErr));
-           }
-        }
-      }
-
-      if (this.subtitleWin) {
-        AppStorage.setOrCreate('voot_subtitle_win', this.subtitleWin);
-        // Load content FIRST to avoid "uiContent is null" error
-        await this.subtitleWin.loadContent('pages/SubtitlePage');
-        await this.subtitleWin.setWindowBackgroundColor('#00000000'); // Transparent
-        
-        // Set width to full screen, height to ~80vp (around 240px on xxhdpi)
-        // Get main window to determine screen width
-        try {
-          const windowStage = AppStorage.get<window.WindowStage>('windowStage');
-          if (windowStage) {
-            const mainWin = windowStage.getMainWindowSync();
-            const mainRect = mainWin.getWindowProperties().windowRect;
-            const screenWidth = mainRect.width;
-            const screenHeight = mainRect.height;
-            const subtitleHeight = this.subtitleHeight; // Use state
-            await this.subtitleWin.resize(screenWidth, subtitleHeight);
-            // Position near bottom of screen (leave some margin)
-            const defaultY = screenHeight - subtitleHeight - 200;
-            await this.subtitleWin.moveWindowTo(0, defaultY);
-          }
-        } catch (resizeErr) {
-          console.warn('Failed to resize window: ' + JSON.stringify(resizeErr));
-        }
-        
-        await this.subtitleWin.setWindowTouchable(true); // Allow touch for dragging
-        await this.subtitleWin.setWindowFocusable(false); // Don't steal focus
-        await this.subtitleWin.showWindow();
-        this.isSubtitleOpen = true;
-        this.persistApiConfigSnapshot();
-        promptAction.showToast({ message: '字幕已开启' });
-      }
-    } catch (e) {
-      console.error('Failed to create subtitle window: ' + JSON.stringify(e));
-      this.isSubtitleOpen = false;
       this.persistApiConfigSnapshot();
-      promptAction.showToast({ message: '开启字幕失败: ' + JSON.stringify(e) });
+      promptAction.showToast({ message: '字幕已开启' });
+    } else {
+      promptAction.showToast({ message: '字幕启动失败' });
     }
   }
 
@@ -602,25 +571,10 @@ struct Index {
     this.selectedLanguageIndex = snapshot.selectedLanguageIndex;
     this.intervalIndex = snapshot.intervalIndex;
     this.contextsIndex = snapshot.contextsIndex;
-    this.isSubtitleOpen = snapshot.isSubtitleOpen;
     this.subtitleFontSize = snapshot.subtitleFontSize;
     this.subtitleFontColor = snapshot.subtitleFontColor;
     this.subtitleBackgroundColor = snapshot.subtitleBackgroundColor;
-    this.subtitleBackgroundOpacity = snapshot.subtitleBackgroundOpacity;
     this.subtitleHeight = snapshot.subtitleHeight !== undefined ? snapshot.subtitleHeight : 240;
-
-    // Sync to AppStorage for SubtitlePage
-    AppStorage.setOrCreate('subtitleFontSize', this.subtitleFontSize);
-    AppStorage.setOrCreate('subtitleFontColor', this.subtitleFontColor);
-    AppStorage.setOrCreate('subtitleBackgroundColor', this.subtitleBackgroundColor);
-    AppStorage.setOrCreate('subtitleBackgroundOpacity', this.subtitleBackgroundOpacity);
-    
-    if (this.isSubtitleOpen) {
-      // Restore subtitle window if it was open
-      setTimeout(() => {
-        this.toggleSubtitleWindow(true);
-      }, 1000);
-    }
   }
 
   private buildApiConfigSnapshot(): ApiConfigSnapshot {
@@ -640,11 +594,9 @@ struct Index {
       selectedLanguageIndex: this.selectedLanguageIndex,
       intervalIndex: this.intervalIndex,
       contextsIndex: this.contextsIndex,
-      isSubtitleOpen: this.isSubtitleOpen,
       subtitleFontSize: this.subtitleFontSize,
       subtitleFontColor: this.subtitleFontColor,
       subtitleBackgroundColor: this.subtitleBackgroundColor,
-      subtitleBackgroundOpacity: this.subtitleBackgroundOpacity,
       subtitleHeight: this.subtitleHeight
     };
   }
@@ -1065,14 +1017,14 @@ struct Index {
         TabContent() {
           Column() {
             SettingsPage({
-              isSubtitleOpen: this.isSubtitleOpen,
               isRealtimeReadingEnabled: this.isRealtimeReadingEnabled,
+              isPipSubtitleEnabled: this.isPipSubtitleEnabled,
+              isPipAvailable: this.pipSubtitleManager.isPipEnabled(),
               subtitleFontSize: $subtitleFontSize,
               subtitleFontColor: $subtitleFontColor,
               subtitleBackgroundColor: $subtitleBackgroundColor,
-              subtitleBackgroundOpacity: $subtitleBackgroundOpacity,
               subtitleHeight: $subtitleHeight,
-              onToggleSubtitle: () => this.toggleSubtitleWindow(),
+              onTogglePipSubtitle: (isOn: boolean) => this.togglePipSubtitle(isOn),
               onToggleRealtimeReading: () => {
                 this.isRealtimeReadingEnabled = !this.isRealtimeReadingEnabled;
                 if (!this.isRealtimeReadingEnabled) {
@@ -1084,22 +1036,15 @@ struct Index {
                 AppStorage.setOrCreate('subtitleFontSize', this.subtitleFontSize);
                 AppStorage.setOrCreate('subtitleFontColor', this.subtitleFontColor);
                 AppStorage.setOrCreate('subtitleBackgroundColor', this.subtitleBackgroundColor);
-                AppStorage.setOrCreate('subtitleBackgroundOpacity', this.subtitleBackgroundOpacity);
-                
-                // Resize window if open
-                if (this.isSubtitleOpen && this.subtitleWin) {
-                  try {
-                    const windowStage = AppStorage.get<window.WindowStage>('windowStage');
-                    if (windowStage) {
-                      const mainWin = windowStage.getMainWindowSync();
-                      const mainRect = mainWin.getWindowProperties().windowRect;
-                      const screenWidth = mainRect.width;
-                      this.subtitleWin.resize(screenWidth, this.subtitleHeight);
-                    }
-                  } catch (e) {
-                    console.error('Failed to resize subtitle window: ' + JSON.stringify(e));
-                  }
+                // 同步更新 PiP 字幕样式
+                if (this.isPipSubtitleEnabled) {
+                  this.pipSubtitleManager.updateStyle({
+                    fontSize: this.subtitleFontSize,
+                    fontColor: this.subtitleFontColor,
+                    backgroundColor: this.subtitleBackgroundColor
+                  });
                 }
+
               }
             });
           }
@@ -1241,6 +1186,11 @@ struct Index {
   private updateTranslationField(text: string): void {
     this.translatedDemoText = this.trimRealtimeBuffer(text);
     AppStorage.setOrCreate('voot_translated_text', this.translatedDemoText);
+
+    // 同步更新 PiP 字幕（不再依赖 isPipActive，避免状态延迟导致字幕不同步）
+    if (this.isPipSubtitleEnabled && this.translatedDemoText) {
+      this.pipSubtitleManager.updateSubtitle(this.translatedDemoText);
+    }
 
     if (this.isRealtimeReadingEnabled && this.translatedDemoText) {
       const intervalSeconds = parseInt(this.intervalOptions[this.intervalIndex]);

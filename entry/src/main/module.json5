@@ -16,11 +16,6 @@
         "usedScene": { "when": "inuse" }
       },
       {
-        "name": "ohos.permission.SYSTEM_FLOAT_WINDOW",
-        "reason": "$string:float_window_reason",
-        "usedScene": { "when": "always" }
-      },
-      {
         "name": "ohos.permission.KEEP_BACKGROUND_RUNNING",
         "reason": "$string:background_running_reason",
         "usedScene": { "when": "always" }

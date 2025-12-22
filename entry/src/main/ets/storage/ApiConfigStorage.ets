@@ -17,11 +17,9 @@ export interface ApiConfigSnapshot {
   selectedLanguageIndex: number;
   intervalIndex: number;
   contextsIndex: number;
-  isSubtitleOpen: boolean;
   subtitleFontSize: number;
   subtitleFontColor: string;
   subtitleBackgroundColor: string;
-  subtitleBackgroundOpacity: number;
   subtitleHeight: number;
 }
 
@@ -41,11 +39,9 @@ export interface PartialApiConfigSnapshot {
   selectedLanguageIndex?: number;
   intervalIndex?: number;
   contextsIndex?: number;
-  isSubtitleOpen?: boolean;
   subtitleFontSize?: number;
   subtitleFontColor?: string;
   subtitleBackgroundColor?: string;
-  subtitleBackgroundOpacity?: number;
   subtitleHeight?: number;
 }
 
@@ -111,13 +107,11 @@ export class ApiConfigStorage {
     sanitized.subtitleFontSize = ApiConfigStorage.pickNumber(candidate.subtitleFontSize, defaults.subtitleFontSize);
     sanitized.subtitleFontColor = ApiConfigStorage.pickString(candidate.subtitleFontColor, defaults.subtitleFontColor);
     sanitized.subtitleBackgroundColor = ApiConfigStorage.pickString(candidate.subtitleBackgroundColor, defaults.subtitleBackgroundColor);
-    sanitized.subtitleBackgroundOpacity = ApiConfigStorage.pickNumber(candidate.subtitleBackgroundOpacity, defaults.subtitleBackgroundOpacity);
     sanitized.subtitleHeight = ApiConfigStorage.pickNumber(candidate.subtitleHeight, defaults.subtitleHeight);
     sanitized.selectedApiIndex = ApiConfigStorage.pickNumber(candidate.selectedApiIndex, defaults.selectedApiIndex);
     sanitized.selectedLanguageIndex = ApiConfigStorage.pickNumber(candidate.selectedLanguageIndex, defaults.selectedLanguageIndex);
     sanitized.intervalIndex = ApiConfigStorage.pickNumber(candidate.intervalIndex, defaults.intervalIndex);
     sanitized.contextsIndex = ApiConfigStorage.pickNumber(candidate.contextsIndex, defaults.contextsIndex);
-    sanitized.isSubtitleOpen = ApiConfigStorage.pickBoolean(candidate.isSubtitleOpen, defaults.isSubtitleOpen);
     return sanitized;
   }
 
@@ -150,11 +144,9 @@ export class ApiConfigStorage {
       selectedLanguageIndex: snapshot.selectedLanguageIndex,
       intervalIndex: snapshot.intervalIndex,
       contextsIndex: snapshot.contextsIndex,
-      isSubtitleOpen: snapshot.isSubtitleOpen,
       subtitleFontSize: snapshot.subtitleFontSize,
       subtitleFontColor: snapshot.subtitleFontColor,
       subtitleBackgroundColor: snapshot.subtitleBackgroundColor,
-      subtitleBackgroundOpacity: snapshot.subtitleBackgroundOpacity,
       subtitleHeight: snapshot.subtitleHeight
     };
   }

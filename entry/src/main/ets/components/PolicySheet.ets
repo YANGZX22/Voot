@@ -48,7 +48,7 @@ export function getPolicySheetConfig(type: PolicySheetType): PolicySheetConfig {
         highlights: [
           {
             title: '版本信息',
-            description: '1.0.0'
+            description: '1.1.0'
           },
           {
             title: '项目仓库',
