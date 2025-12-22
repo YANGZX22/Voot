@@ -11,7 +11,6 @@ It is designed with three core principles: **security, privacy, and simplicity**
 > Voot does not provide or resell any LLM/translation service.  
 > You bring your own API keys (OpenAI, DeepL, Ollama, 豆包, etc.).
 
----
 
 ## Table of Contents
 
@@ -34,7 +33,6 @@ It is designed with three core principles: **security, privacy, and simplicity**
 - [License](#license)
 - [Disclaimer](#disclaimer)
 
----
 
 ## Features
 
@@ -79,7 +77,6 @@ It is designed with three core principles: **security, privacy, and simplicity**
   - Frontend written purely in **ArkTS**, no extra UI framework.
   - Minimalist layout: buttons, text, and light effects – optimized for real-time usage.
 
----
 
 ## Architecture
 
@@ -102,7 +99,6 @@ Voot/
 ├─ hvigorfile.ts           # Workspace hvigor build script
 └─ build-profile.json5     # Global build profile
 ```
----
 
 ## Screenshots
 
@@ -110,7 +106,6 @@ Voot/
   <img src="https://github.com/YANGZX22/Voot/blob/main/entry/src/main/resources/base/media/screenshot.jpg">
 </div>
 
----
 
 ## Getting Started
 
@@ -143,7 +138,6 @@ Open the project in [**DevEco Studio**](https://developer.huawei.com/consumer/cn
 2. In DevEco Studio, select the run configuration corresponding to the app.
 3. Click **Run** to build and deploy.
 
----
 
 ## Install Hap
 
@@ -155,7 +149,6 @@ Or you can use [Auto-installer](https://github.com/likuai2010/auto-installer/) o
 > [!NOTE]
 > Apps sideloaded via self-signing on HarmonyOS NEXT have a default validity period of 14 days. Completing [Developer Real-Name Authentication](https://developer.huawei.com/consumer/cn/verified/enrollment) extends this period to 180 days.
 
----
 
 ## Configuration
 
@@ -180,7 +173,6 @@ In the **“目标语言 / Target language”** section:
 1. Select your default output language (e.g. 中文, English, etc.).
 2. The chosen target language is used for all translation APIs by default.
 
----
 
 ## Usage
 
@@ -201,7 +193,6 @@ In the **“目标语言 / Target language”** section:
 
 Use it as a live interpreter in meetings, lectures, or travel scenarios.
 
----
 
 ## Security & Privacy
 
@@ -222,7 +213,6 @@ Short summary (see in-app privacy policy / `PRIVACY.html` for details):
   * Text is sent only to your chosen provider (OpenAI / DeepL / etc.).
   * No central logging, analytics, or telemetry from the developer.
 
----
 
 ## Roadmap
 
@@ -232,13 +222,12 @@ Finished / planned / possible work:
 * Live Window on HarmonyOS (Realized ✅) 
 * Desktop Widgets (Realized ✅)
 * Token usage analytics (Realized ✅)
-* Support for more LLM / translation APIs
-* Enhanced ASR models and offline support
+* Support for more LLM / translation APIs (e.g. Google Translate)
+* Enhanced ASR and cutoff logic
 * More supported original languages
 
 Feel free to open issues or PRs with feature requests.
 
----
 
 ## Contributing
 
@@ -254,8 +243,6 @@ Before submitting, please:
 * Do not commit any real API keys or secrets.
 * Ensure the app builds and runs on the current HarmonyOS SDK version.
 
----
-
 ## Known Issues
 
 * ASR accuracy may vary based on background noise and microphone quality.
@@ -263,8 +250,7 @@ Before submitting, please:
 * When tap **传译** button in desktop widget, the app may not open interpretation correctly due to HarmonyOS restrictions.
 * Subtitle floating window may have layout issues on certain screen sizes, e.g. Pad.\
   You can try to adjust the size of the floating window manually. An update may fix this in the future.
-
----
+* Doubao API always gives latente responses when use Lite models. This may be due to the server side of Doubao, not the app itself. [To be confirmed]
 
 ## License
 
@@ -274,8 +260,6 @@ You should have received a copy of the GNU General Public License along with thi
 If not, see: [https://www.gnu.org/licenses/gpl-3.0.en.html](https://www.gnu.org/licenses/gpl-3.0.en.html)
 
 Please see the [`LICENSE`](LICENSE) file in this repository for full license text.
-
----
 
 ## Disclaimer
 
