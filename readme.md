@@ -61,6 +61,19 @@ It is designed with three core principles: **security, privacy, and simplicity**
   - Global “target language” selector.
   - Per-API configuration (prompt, system instructions, etc.).
 
+- � **Token Usage Analytics**
+  - Track your API usage and costs in real-time.
+  - Visual charts for daily/weekly consumption.
+  - Desktop widgets to monitor usage at a glance.
+
+- 🖼️ **Picture-in-Picture (PiP) Subtitles**
+  - Floating subtitle window that works over other apps.
+  - Resizable and movable overlay for seamless multitasking.
+
+- 📱 **Desktop Widgets**
+  - **Control Card**: Start/stop translation directly from the home screen.
+  - **Token Card**: Monitor your API token usage without opening the app.
+
 - 💡 **Simple UI, ArkTS only**
   - Frontend written purely in **ArkTS**, no extra UI framework.
   - Minimalist layout: buttons, text, and light effects – optimized for real-time usage.
@@ -75,9 +88,11 @@ Voot/
 ├─ entry/
 │  ├─ src/main/ets/
 │  │  ├─ pages/            # ArkUI pages (Index, Configuration, Translation, Settings, etc.)
-│  │  ├─ services/         # Mic + ASR services (SherpaWhisperMicService)
-│  │  ├─ storage/          # Preference-backed stores (API config, onboarding flag)
-│  │  ├─ components/       # Shared UI builders (PolicySheet, etc.)
+│  │  ├─ services/         # Mic + ASR services (SherpaWhisperMicService, PipSubtitleManager)
+│  │  ├─ storage/          # Preference-backed stores (API config, TokenUsage, etc.)
+│  │  ├─ components/       # Shared UI builders (PolicySheet, TokenUsageChart, etc.)
+│  │  ├─ widget/           # Service Cards (Desktop Widgets)
+│  │  ├─ entryformability/ # Widget lifecycle management
 │  │  └─ workers/          # Background ASR workers for long-running capture
 │  ├─ src/main/resources/  # Raw HTML, media assets, Sherpa models
 │  ├─ oh-package*.json5    # Module package definitions
