@@ -247,7 +247,7 @@ Before submitting, please:
 
 * ASR accuracy may vary based on background noise and microphone quality.
 * Some API providers may have rate limits or usage costs; monitor your usage carefully.
-* When tap **传译** button in desktop widget, the app may not open interpretation correctly due to HarmonyOS restrictions.
+* ~~When tap **传译** button in desktop widget, the app may not open interpretation correctly due to HarmonyOS restrictions.~~ [Fixed]
 * Subtitle floating window may have layout issues on certain screen sizes, e.g. Pad.\
   You can try to adjust the size of the floating window manually. An update may fix this in the future.
 * Doubao API always gives latente responses when use Lite models. This may be due to the server side of Doubao, not the app itself. [To be confirmed]
