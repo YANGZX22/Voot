@@ -3,6 +3,9 @@ import common from '@ohos.app.ability.common';
 import formProvider from '@ohos.app.form.formProvider';
 import formBindingData from '@ohos.app.form.formBindingData';
 
+const FORM_IDS_KEY = 'form_ids';
+const FORM_PREF_FILE = 'voot_forms';
+
 export interface DailyTokenUsage {
   date: string; // YYYY-MM-DD
   count: number;
@@ -68,7 +71,19 @@ export class TokenUsageStorage {
   }
 
   public async updateAllForms(): Promise<void> {
+    if (!this.context) {
+      console.error('[TokenUsageStorage] updateAllForms: context is undefined');
+      return;
+    }
+
     try {
+      // Get all stored formIds
+      const formIds = await this.getFormIds();
+      if (formIds.length === 0) {
+        console.info('[TokenUsageStorage] updateAllForms: no formIds stored');
+        return;
+      }
+
       const total = await this.getSevenDayTotalUsage();
       const allUsage = await this.getAllUsage();
       const today = new Date();
@@ -102,17 +117,38 @@ export class TokenUsageStorage {
         return [x, y];
       });
 
-      const formData: Record<string, Object> = {
-        'totalTokens': total.toString(),
-        'chartPoints': points,
-        'dailyTotals': dailyTotals,
-        'dateLabels': dateLabels
-      };
-      
-      const bindingData = formBindingData.createFormBindingData(formData);
-      await formProvider.updateForm('*', bindingData);
+      // Update each form by its specific formId
+      for (const formId of formIds) {
+        try {
+          const formData: Record<string, Object> = {
+            'formId': formId,
+            'totalTokens': total.toString(),
+            'chartPoints': points,
+            'dailyTotals': dailyTotals,
+            'dateLabels': dateLabels
+          };
+          
+          const bindingData = formBindingData.createFormBindingData(formData);
+          await formProvider.updateForm(formId, bindingData);
+          console.info('[TokenUsageStorage] updateAllForms: updated form ' + formId);
+        } catch (e) {
+          console.error('[TokenUsageStorage] updateAllForms: failed to update form ' + formId);
+        }
+      }
     } catch (e) {
-      // Ignore errors if no forms exist
+      console.error('[TokenUsageStorage] updateAllForms failed: ' + JSON.stringify(e));
+    }
+  }
+
+  // Get all stored formIds
+  private async getFormIds(): Promise<string[]> {
+    try {
+      const pref = await preferences.getPreferences(this.context!, FORM_PREF_FILE);
+      const idsStr = await pref.get(FORM_IDS_KEY, '[]') as string;
+      return JSON.parse(idsStr) as string[];
+    } catch (e) {
+      console.error('[TokenUsageStorage] getFormIds failed: ' + JSON.stringify(e));
+      return [];
     }
   }
 

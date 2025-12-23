@@ -193,7 +193,7 @@ struct SubtitleStyleDialog {
 @Component
 export struct SettingsPage {
   // Props
-  @Prop isRealtimeReadingEnabled: boolean = false;
+  @Link isRealtimeReadingEnabled: boolean;
   @Prop isPipSubtitleEnabled: boolean = false; // PiP 字幕开关状态
   @Prop isPipAvailable: boolean = true; // PiP 是否可用
   @Link subtitleFontSize: number;
@@ -409,6 +409,7 @@ export struct SettingsPage {
             })
             .selectedColor('#3c1464')
             .onChange((isOn: boolean) => {
+              this.isRealtimeReadingEnabled = isOn;
               this.onToggleRealtimeReading();
             })
 

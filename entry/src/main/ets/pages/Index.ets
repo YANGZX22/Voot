@@ -209,6 +209,9 @@ struct Index {
   // Widget trigger states
   @StorageProp('widgetPipToggle') @Watch('onWidgetPipToggle') widgetPipToggle: number = 0;
   @StorageProp('widgetRealtimeReadingToggle') @Watch('onWidgetReadingToggle') widgetReadingToggle: number = 0;
+  private lastWidgetPipToggle: number = 0;
+  private lastWidgetReadingToggle: number = 0;
+  private isComponentReady: boolean = false;
 
   private translationDebounceId: number | undefined = undefined;
   private lastAsrText: string = '';
@@ -238,21 +241,30 @@ struct Index {
    * Widget PiP toggle handler
    */
   onWidgetPipToggle(): void {
-    if (this.widgetPipToggle > 0) {
-      this.togglePipSubtitle();
+    // Ignore if component not ready or if this is the same trigger we already handled
+    if (!this.isComponentReady || this.widgetPipToggle === 0 || this.widgetPipToggle === this.lastWidgetPipToggle) {
+      return;
     }
+    this.lastWidgetPipToggle = this.widgetPipToggle;
+    console.info('[Index] onWidgetPipToggle triggered');
+    this.togglePipSubtitle();
   }
 
   /**
    * Widget Reading toggle handler
    */
   onWidgetReadingToggle(): void {
-    if (this.widgetReadingToggle > 0) {
-      this.isRealtimeReadingEnabled = !this.isRealtimeReadingEnabled;
-      if (!this.isRealtimeReadingEnabled) {
-        TextReader.stop();
-      }
+    // Ignore if component not ready or if this is the same trigger we already handled
+    if (!this.isComponentReady || this.widgetReadingToggle === 0 || this.widgetReadingToggle === this.lastWidgetReadingToggle) {
+      return;
     }
+    this.lastWidgetReadingToggle = this.widgetReadingToggle;
+    console.info('[Index] onWidgetReadingToggle triggered, current state: ' + this.isRealtimeReadingEnabled);
+    this.isRealtimeReadingEnabled = !this.isRealtimeReadingEnabled;
+    if (!this.isRealtimeReadingEnabled) {
+      TextReader.stop();
+    }
+    console.info('[Index] onWidgetReadingToggle new state: ' + this.isRealtimeReadingEnabled);
   }
 
   /**
@@ -475,6 +487,15 @@ struct Index {
   async aboutToAppear(): Promise<void> {
     this.evaluateFirstLaunch();
     AppStorage.setOrCreate('voot_translated_text', '');
+
+    // Mark component as ready after a short delay to avoid initial @Watch triggers
+    setTimeout(() => {
+      this.isComponentReady = true;
+      // Initialize last toggle values to current values to avoid false triggers
+      this.lastWidgetPipToggle = this.widgetPipToggle;
+      this.lastWidgetReadingToggle = this.widgetReadingToggle;
+      console.info('[Index] Component ready, widget triggers enabled');
+    }, 500);
 
     // Initialize TextReader
     try {
@@ -1092,7 +1113,7 @@ struct Index {
         TabContent() {
           Column() {
             SettingsPage({
-              isRealtimeReadingEnabled: this.isRealtimeReadingEnabled,
+              isRealtimeReadingEnabled: $isRealtimeReadingEnabled,
               isPipSubtitleEnabled: this.isPipSubtitleEnabled,
               isPipAvailable: this.pipSubtitleManager.isPipEnabled(),
               subtitleFontSize: $subtitleFontSize,
@@ -1101,7 +1122,6 @@ struct Index {
               subtitleHeight: $subtitleHeight,
               onTogglePipSubtitle: (isOn: boolean) => this.togglePipSubtitle(isOn),
               onToggleRealtimeReading: () => {
-                this.isRealtimeReadingEnabled = !this.isRealtimeReadingEnabled;
                 if (!this.isRealtimeReadingEnabled) {
                   TextReader.stop();
                 }

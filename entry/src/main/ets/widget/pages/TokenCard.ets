@@ -1,6 +1,9 @@
-@Entry
+let storageCard = new LocalStorage();
+
+@Entry(storageCard)
 @Component
 struct TokenCard {
+  @LocalStorageProp('formId') formId: string = '';
   @LocalStorageProp('totalTokens') totalTokens: string = '...';
   @LocalStorageProp('chartPoints') chartPoints: number[][] = [[0, 100], [100, 100]];
 
@@ -70,10 +73,12 @@ struct TokenCard {
     .height('100%')
     .onClick(() => {
       postCardAction(this, {
-        "action": "router",
-        "abilityName": "EntryAbility",
-        "params": {
-          "targetPage": "pages/Index"
+        action: 'router',
+        abilityName: 'EntryAbility',
+        params: {
+          targetPage: 'pages/Index',
+          formId: this.formId,
+          widgetAction: 'refreshTokenCard'
         }
       });
     })

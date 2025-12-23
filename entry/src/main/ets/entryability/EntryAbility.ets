@@ -7,6 +7,11 @@ import wantAgent, { WantAgent } from '@ohos.app.ability.wantAgent';
 import { BusinessError } from '@ohos.base';
 import rpc from '@ohos.rpc';
 
+import formBindingData from '@ohos.app.form.formBindingData';
+import formProvider from '@ohos.app.form.formProvider';
+import formInfo from '@ohos.app.form.formInfo';
+import { TokenUsageStorage } from '../storage/TokenUsageStorage';
+
 export default class EntryAbility extends UIAbility {
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     console.info('[EntryAbility] onCreate');
@@ -48,6 +53,14 @@ export default class EntryAbility extends UIAbility {
         console.info('[EntryAbility] Widget command: toggleReadAloud');
       }
     }
+
+    // Check if form identity is passed (from router with form info)
+    if (want.parameters && want.parameters[formInfo.FormParam.IDENTITY_KEY] !== undefined) {
+      const formId = want.parameters[formInfo.FormParam.IDENTITY_KEY].toString();
+      console.info('[EntryAbility] Router from widget, formId: ' + formId);
+      // Update this specific widget
+      this.updateFormById(formId);
+    }
     
     // Handle params from router action
     if (want.parameters && want.parameters['params']) {
@@ -65,10 +78,75 @@ export default class EntryAbility extends UIAbility {
         } else if (widgetAction === 'togglePip') {
           AppStorage.setOrCreate('widgetPipToggle', Date.now());
           console.info('[EntryAbility] Widget action: togglePip');
+        } else if (widgetAction === 'refreshTokenCard') {
+          // Refresh all token cards when user taps to enter app
+          console.info('[EntryAbility] Widget action: refreshTokenCard');
+          // Update will happen in onForeground
+        }
+        
+        // If formId is passed, update that specific widget
+        if (params['formId']) {
+          const formId = params['formId'];
+          console.info('[EntryAbility] Router from widget params, formId: ' + formId);
+          this.updateFormById(formId);
         }
       } catch (e) {
         console.error('[EntryAbility] handleWidgetAction error: ' + JSON.stringify(e));
       }
+    }
+  }
+
+  private async updateFormById(formId: string): Promise<void> {
+    try {
+      const storage = TokenUsageStorage.getInstance();
+      await storage.init(this.context);
+      
+      const total = await storage.getSevenDayTotalUsage();
+      const allUsage = await storage.getAllUsage();
+      const today = new Date();
+      const dailyTotals: number[] = [];
+      
+      const dateLabels: string[] = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(today.getDate() - i);
+        const year = d.getFullYear();
+        const month = (d.getMonth() + 1).toString().padStart(2, '0');
+        const day = d.getDate().toString().padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
+        dateLabels.push(`${d.getMonth() + 1}/${d.getDate()}`);
+        
+        let dayTotal = 0;
+        const models = Object.keys(allUsage);
+        for (const model of models) {
+          const modelUsage = allUsage[model] as Record<string, number>;
+          if (modelUsage && modelUsage[dateStr]) {
+            dayTotal += modelUsage[dateStr];
+          }
+        }
+        dailyTotals.push(dayTotal);
+      }
+      
+      const max = Math.max(...dailyTotals, 10);
+      const points = dailyTotals.map((val: number, index: number): number[] => {
+        const x = (index / 6) * 100;
+        const y = 100 - (val / max) * 80;
+        return [x, y];
+      });
+
+      const formData: Record<string, Object> = {
+        'formId': formId,
+        'totalTokens': total.toString(),
+        'chartPoints': points,
+        'dailyTotals': dailyTotals,
+        'dateLabels': dateLabels
+      };
+      
+      const bindingData = formBindingData.createFormBindingData(formData);
+      await formProvider.updateForm(formId, bindingData);
+      console.info('[EntryAbility] updateFormById success: ' + formId);
+    } catch (e) {
+      console.error('[EntryAbility] updateFormById failed: ' + JSON.stringify(e));
     }
   }
 
@@ -112,6 +190,12 @@ export default class EntryAbility extends UIAbility {
 
   onForeground(): void {
     console.info('[EntryAbility] onForeground');
+    // Update widgets when app comes to foreground
+    TokenUsageStorage.getInstance().init(this.context).then(() => {
+      TokenUsageStorage.getInstance().updateAllForms();
+    }).catch((err: BusinessError) => {
+      console.error('[EntryAbility] Failed to update forms: ' + JSON.stringify(err));
+    });
   }
 
   onBackground(): void {

@@ -4,16 +4,31 @@ import formInfo from '@ohos.app.form.formInfo';
 import formProvider from '@ohos.app.form.formProvider';
 import Want from '@ohos.app.ability.Want';
 import { TokenUsageStorage } from '../storage/TokenUsageStorage';
+import preferences from '@ohos.data.preferences';
+
+const FORM_IDS_KEY = 'form_ids';
+const PREF_FILE = 'voot_forms';
 
 export default class EntryFormAbility extends FormExtensionAbility {
-  onAddForm(want: Want) {
+  onAddForm(want: Want): formBindingData.FormBindingData {
+    console.info('[EntryFormAbility] onAddForm');
+    
+    let formId = '';
+    if (want.parameters && want.parameters[formInfo.FormParam.IDENTITY_KEY]) {
+      formId = want.parameters[formInfo.FormParam.IDENTITY_KEY] as string;
+      // Store formId for later updates (async, but we don't await)
+      this.addFormId(formId);
+    }
+
     const formData: Record<string, Object> = {
+      'formId': formId,
       'totalTokens': '...',
-      'chartPoints': [[0, 100], [100, 100]]
+      'chartPoints': [[0, 100], [100, 100]],
+      'dailyTotals': [0, 0, 0, 0, 0, 0, 0],
+      'dateLabels': ['', '', '', '', '', '', '']
     };
     
-    if (want.parameters && want.parameters['ohos.extra.param.key.form_identity']) {
-      const formId = want.parameters['ohos.extra.param.key.form_identity'] as string;
+    if (formId) {
       setTimeout(() => {
         this.updateFormData(formId);
       }, 100);
@@ -25,7 +40,14 @@ export default class EntryFormAbility extends FormExtensionAbility {
   onCastToNormal(formId: string) {
   }
 
+  // Called by system for interval-based updates (every 30 min when updateDuration = 1)
+  onUpdateForm(formId: string) {
+    console.info('[EntryFormAbility] onUpdateForm: ' + formId);
+    this.updateFormData(formId);
+  }
+
   onUpdate(formId: string) {
+    console.info('[EntryFormAbility] onUpdate: ' + formId);
     this.updateFormData(formId);
   }
 
@@ -46,16 +68,64 @@ export default class EntryFormAbility extends FormExtensionAbility {
   }
 
   onRemoveForm(formId: string) {
+    console.info('[EntryFormAbility] onRemoveForm: ' + formId);
+    this.removeFormId(formId);
   }
 
   onAcquireFormState(want: Want): formInfo.FormState {
     return formInfo.FormState.READY;
   }
 
+  // Helper to add formId to persistent storage
+  private async addFormId(formId: string): Promise<void> {
+    try {
+      const pref = await preferences.getPreferences(this.context, PREF_FILE);
+      const idsStr = await pref.get(FORM_IDS_KEY, '[]') as string;
+      const ids: string[] = JSON.parse(idsStr);
+      if (!ids.includes(formId)) {
+        ids.push(formId);
+        await pref.put(FORM_IDS_KEY, JSON.stringify(ids));
+        await pref.flush();
+        console.info('[EntryFormAbility] addFormId success: ' + formId);
+      }
+    } catch (e) {
+      console.error('[EntryFormAbility] addFormId failed: ' + JSON.stringify(e));
+    }
+  }
+
+  // Helper to remove formId from persistent storage
+  private async removeFormId(formId: string): Promise<void> {
+    try {
+      const pref = await preferences.getPreferences(this.context, PREF_FILE);
+      const idsStr = await pref.get(FORM_IDS_KEY, '[]') as string;
+      let ids: string[] = JSON.parse(idsStr);
+      ids = ids.filter((id: string) => id !== formId);
+      await pref.put(FORM_IDS_KEY, JSON.stringify(ids));
+      await pref.flush();
+      console.info('[EntryFormAbility] removeFormId success: ' + formId);
+    } catch (e) {
+      console.error('[EntryFormAbility] removeFormId failed: ' + JSON.stringify(e));
+    }
+  }
+
+  // Get all stored formIds
+  public static async getFormIds(context: Context): Promise<string[]> {
+    try {
+      const pref = await preferences.getPreferences(context, PREF_FILE);
+      const idsStr = await pref.get(FORM_IDS_KEY, '[]') as string;
+      return JSON.parse(idsStr) as string[];
+    } catch (e) {
+      console.error('[EntryFormAbility] getFormIds failed: ' + JSON.stringify(e));
+      return [];
+    }
+  }
+
   async updateFormData(formId: string) {
-    const storage = TokenUsageStorage.getInstance();
-    await storage.init(this.context);
-    const total = await storage.getSevenDayTotalUsage();
+    console.info('[EntryFormAbility] updateFormData start: ' + formId);
+    try {
+      const storage = TokenUsageStorage.getInstance();
+      await storage.init(this.context);
+      const total = await storage.getSevenDayTotalUsage();
     
     const allUsage = await storage.getAllUsage();
     const today = new Date();
@@ -91,6 +161,7 @@ export default class EntryFormAbility extends FormExtensionAbility {
     });
 
     const formData: Record<string, Object> = {
+      'formId': formId,
       'totalTokens': total.toString(),
       'chartPoints': points,
       'dailyTotals': dailyTotals,
@@ -99,5 +170,9 @@ export default class EntryFormAbility extends FormExtensionAbility {
     
     const bindingData = formBindingData.createFormBindingData(formData);
     await formProvider.updateForm(formId, bindingData);
+    console.info('[EntryFormAbility] updateFormData success: ' + formId);
+    } catch (e) {
+      console.error('[EntryFormAbility] updateFormData failed: ' + JSON.stringify(e));
+    }
   }
 }
