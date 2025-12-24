@@ -133,6 +133,7 @@ export struct ConfigurationPage {
   // Props
   apiOptions: string[] = [];
   @Prop selectedApiIndex: number = 0;
+  @Prop currentModelName: string = '';
   languageOptions: string[] = [];
   languageDisplayOptions: string[] = [];
   @Prop selectedLanguageIndex: number = 0;
@@ -261,7 +262,7 @@ export struct ConfigurationPage {
               .lineHeight(16)
               .textAlign(TextAlign.Center)
           }
-          .width('calc(100% - 48vp)')
+          .width('calc(100% - 24vp)')
           .height(120)
           .padding(16)
           .margin({ bottom: 10 })
@@ -287,7 +288,7 @@ export struct ConfigurationPage {
           })
 
           TokenUsageChart({
-            modelName: this.apiOptions[this.selectedApiIndex],
+            modelName: this.currentModelName || this.apiOptions[this.selectedApiIndex],
             activeBtn: $activeBtn
           })
 
@@ -474,7 +475,7 @@ export struct ConfigurationPage {
         .padding({ bottom: 100 })
       }
       .scrollable(ScrollDirection.Vertical)
-      .scrollBar(BarState.Off)
+      .scrollBar(BarState.Auto)
       .edgeEffect(EdgeEffect.Spring)
     }
     .mode(NavigationMode.Stack)

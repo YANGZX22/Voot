@@ -29,7 +29,7 @@ function resolveHighlightText(desc: string | url.URL): string {
   return desc.toString();
 }
 
-export function getPolicySheetConfig(type: PolicySheetType): PolicySheetConfig {
+export function getPolicySheetConfig(type: PolicySheetType, versionName: string = ''): PolicySheetConfig {
   switch (type) {
     case PolicySheetType.Terms:
       return {
@@ -48,7 +48,7 @@ export function getPolicySheetConfig(type: PolicySheetType): PolicySheetConfig {
         highlights: [
           {
             title: '版本信息',
-            description: '1.1.4'
+            description: versionName || 'Unknown'
           },
           {
             title: '项目仓库',

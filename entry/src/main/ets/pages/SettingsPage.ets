@@ -1,8 +1,10 @@
 import { hdsEffect, HdsNavigation, HdsNavigationAttribute, HdsNavigationTitleMode } from '@kit.UIDesignKit';
 import { webview } from '@kit.ArkWeb';
 import common from '@ohos.app.ability.common';
+import bundleManager from '@ohos.bundle.bundleManager';
 import { PolicySheetType, PolicySheetContent, getPolicySheetConfig } from '../components/PolicySheet';
 import promptAction from '@ohos.promptAction';
+import router from '@ohos.router';
 
 const TITLE_BAR_HEIGHT_MINI: number = 94;
 type ToggleKey = 'subtitles' | 'liveWindow';
@@ -227,6 +229,17 @@ export struct SettingsPage {
   @State activeBtn: number = 0;
 
   @State button1Scale: number = 1.0;
+  @State appVersion: string = '';
+
+  async aboutToAppear() {
+    try {
+      let bundleInfo = await bundleManager.getBundleInfoForSelf(bundleManager.BundleFlag.GET_BUNDLE_INFO_WITH_APPLICATION);
+      this.appVersion = bundleInfo.versionName;
+    } catch (error) {
+      console.error('Failed to get bundle info:', error);
+    }
+  }
+
   @State button2Scale: number = 1.0;
   @State liveWindowEnabled: boolean = false;
   @State isPolicySheetOpen: boolean = false;
@@ -384,7 +397,7 @@ export struct SettingsPage {
               .onClick(() => {
                 AlertDialog.show({
                   title: '传译说明',
-                  message: '*实验功能，欢迎试用\n开启实时朗读开关后，当翻译成功时传译器会自动打开。\n',
+                  message: '开启实时朗读开关后，当翻译成功时传译器会自动打开。\n',
                   confirm: {
                     value: '我知道了',
                     fontColor: '#3c1464',
@@ -523,8 +536,11 @@ export struct SettingsPage {
             .buildEffect())
         }
         .width('100%')
-        .padding({ left: 24, right: 24, top: 16, bottom: 24 });
+        .padding({ left: 24, right: 24, top: 16, bottom: 70 });
       }
+      .scrollable(ScrollDirection.Vertical)
+      .scrollBar(BarState.Auto)
+      .edgeEffect(EdgeEffect.Spring)
     }
     .mode(NavigationMode.Stack)
     .width('100%')
@@ -572,7 +588,7 @@ export struct SettingsPage {
     })
     .bindSheet(
       $$this.isPolicySheetOpen,
-      PolicySheetContent(getPolicySheetConfig(this.currentPolicySheet), this.policyWebController, () => {
+      PolicySheetContent(getPolicySheetConfig(this.currentPolicySheet, this.appVersion), this.policyWebController, () => {
         this.closePolicySheet();
       }, getContext(this) as common.UIAbilityContext), {
       detents: [SheetSize.MEDIUM, SheetSize.FIT_CONTENT , SheetSize.LARGE],

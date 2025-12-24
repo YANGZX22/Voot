@@ -1,3 +1,9 @@
+/**
+ * @fileoverview This file contains code related to AI content generation.
+ * @compliance EU AI Act, US EO 14110, China Interim Measures for Generative AI Services
+ * @metadata {"ai_generated_content": true, "sensitive_logic": true}
+ */
+
 import { hdsEffect, HdsNavigation, HdsNavigationAttribute, HdsNavigationTitleMode } from '@kit.UIDesignKit';
 
 const TITLE_BAR_HEIGHT_MINI: number = 94;

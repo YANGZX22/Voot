@@ -1,3 +1,8 @@
+/**
+ * @fileoverview This file contains code related to AI content generation.
+ * @compliance EU AI Act, US EO 14110, China Interim Measures for Generative AI Services
+ * @metadata {"ai_generated_content": true, "sensitive_logic": true}
+ */
 import http from '@ohos.net.http';
 import { TextReader } from '@kit.SpeechKit';
 import { SherpaWhisperMicService, AsrResult, AsrResultCallback, AsrErrorCallback } from '../services/SherpaWhisperMicService';
@@ -8,12 +13,14 @@ import { hdsEffect, HdsTabs, HdsTabsAttribute, HdsTabsController, DividerMode } 
 import { webview } from '@kit.ArkWeb';
 import { ConfigurationPage } from './ConfigurationPage';
 import { TranslationPage } from './TranslationPage';
+import { HistoryTabPage } from './HistoryTabPage';
 import { SettingsPage } from './SettingsPage';
 import { ApiConfigPage, ApiMenuType } from './ApiConfigPage';
 import App from '@system.app';
 import { ApiConfigStorage, ApiConfigSnapshot } from '../storage/ApiConfigStorage';
 import { OnboardingStorage } from '../storage/OnboardingStorage';
 import { TokenUsageStorage } from '../storage/TokenUsageStorage';
+import { HistoryStorage } from '../storage/HistoryStorage';
 import { PolicySheetType, PolicySheetContent, getPolicySheetConfig } from '../components/PolicySheet';
 import window from '@ohos.window';
 import promptAction from '@ohos.promptAction';
@@ -236,6 +243,13 @@ struct Index {
   @State isAsrReady: boolean = false;
   // Sherpa-onnx (Whisper) mic+ASR service
   private micService?: SherpaWhisperMicService;
+  private currentSessionId: number = -1;
+  // 累积的完整原文（用于保存到历史）
+  private fullOriginalText: string = '';
+  // 累积的完整译文（用于保存到历史）
+  private fullTranslatedText: string = '';
+  // 上次保存到数据库的时间戳
+  private lastDbSaveTs: number = 0;
 
   /**
    * Widget PiP toggle handler
@@ -302,7 +316,7 @@ struct Index {
     const intervalMs: number = this.getTranslationIntervalMs();
     const now: number = Date.now();
     const elapsed: number = now - this.lastRealtimeTranslateTs;
-    
+
     // Immediate translate if interval elapsed
     if (elapsed >= intervalMs) {
       this.lastRealtimeTranslateTs = now;
@@ -347,7 +361,7 @@ struct Index {
     }
 
     const prevTrimmed: string = this.lastAsrText.trim();
-    
+
     // Skip exact duplicate
     if (trimmed === prevTrimmed) {
       return '';
@@ -357,7 +371,7 @@ struct Index {
     if (prevTrimmed.length > 5 && trimmed.length > 5) {
       // Calculate similarity score
       const similarity = this.textSimilarity(prevTrimmed, trimmed);
-      
+
       // High similarity (>85%) with small length change = ASR wobble
       if (similarity > 0.85) {
         const lenDiff = Math.abs(prevTrimmed.length - trimmed.length);
@@ -384,11 +398,11 @@ struct Index {
    */
   private isAsrNoise(text: string): boolean {
     if (text.length < 2) return true;
-    
+
     // Check for repeated character patterns (e.g., "aaaa", "ththth")
     const repeatPattern = /(.)\1{3,}/;
     if (repeatPattern.test(text)) return true;
-    
+
     // Check for very short repeated words
     const words = text.split(/\s+/);
     if (words.length >= 3) {
@@ -396,7 +410,7 @@ struct Index {
       // If >60% of words are duplicates, likely noise
       if (uniqueWords.size < words.length * 0.4) return true;
     }
-    
+
     return false;
   }
 
@@ -406,10 +420,10 @@ struct Index {
   private textSimilarity(a: string, b: string): number {
     if (a === b) return 1;
     if (a.length === 0 || b.length === 0) return 0;
-    
+
     const longer = a.length > b.length ? a : b;
     const shorter = a.length > b.length ? b : a;
-    
+
     // Count matching characters from start
     let prefixMatch = 0;
     for (let i = 0; i < shorter.length; i++) {
@@ -419,7 +433,7 @@ struct Index {
         break;
       }
     }
-    
+
     // Count matching characters from end
     let suffixMatch = 0;
     for (let i = 0; i < shorter.length - prefixMatch; i++) {
@@ -429,7 +443,7 @@ struct Index {
         break;
       }
     }
-    
+
     const totalMatch = prefixMatch + suffixMatch;
     return totalMatch / longer.length;
   }
@@ -508,9 +522,11 @@ struct Index {
         }
       };
       await TextReader.init(context, readerParams);
-      
+
       // Initialize TokenUsageStorage
       await TokenUsageStorage.getInstance().init(context);
+      // Initialize HistoryStorage
+      await HistoryStorage.getInstance().init(context);
     } catch (e) {
       console.error(`Init failed: ${JSON.stringify(e)}`);
     }
@@ -1112,6 +1128,17 @@ struct Index {
 
         TabContent() {
           Column() {
+            HistoryTabPage()
+          }
+          .width('100%')
+        }
+        .tabBar(new BottomTabBarStyle($r('app.media.history') ,'历史/收藏')
+          .iconStyle({ selectedColor: Color.White })
+          .labelStyle({ selectedColor: Color.White})
+        )
+
+        TabContent() {
+          Column() {
             SettingsPage({
               isRealtimeReadingEnabled: $isRealtimeReadingEnabled,
               isPipSubtitleEnabled: this.isPipSubtitleEnabled,
@@ -1131,14 +1158,12 @@ struct Index {
                 AppStorage.setOrCreate('subtitleFontSize', this.subtitleFontSize);
                 AppStorage.setOrCreate('subtitleFontColor', this.subtitleFontColor);
                 AppStorage.setOrCreate('subtitleBackgroundColor', this.subtitleBackgroundColor);
-                // 同步更新 PiP 字幕样式
                 if (this.isPipSubtitleEnabled) {
                   this.pipSubtitleManager.updateStyle({
                     fontSize: this.subtitleFontSize,
                     fontColor: this.subtitleFontColor,
                     backgroundColor: this.subtitleBackgroundColor
                   });
-                  // 同步更新 PiP 窗口高度
                   // Convert subtitle height (10-30) to pixel value (100-300)
                   this.pipSubtitleManager.updateContentSize(400, this.subtitleHeight * 10);
                 }
@@ -1241,15 +1266,15 @@ struct Index {
     const langName: string = this.getTargetLanguageName();
     const promptWithLanguage: string = this.promptText.replace('{0}', langName);
     const trimmedSource: string = text ? text.trim() : '';
-    
+
     const numContexts: number = parseInt(this.contextsOptions[this.contextsIndex]);
     // Only include recent context (trimmed) for faster processing
     const recentContexts: string[] = this.contextHistory.slice(-numContexts);
-    const contextPart: string = recentContexts.length > 0 
-      ? `Prior context: ${recentContexts.map(c => c.substring(0, 80)).join(' | ')}. ` 
+    const contextPart: string = recentContexts.length > 0
+      ? `Prior context: ${recentContexts.map(c => c.substring(0, 80)).join(' | ')}. `
       : '';
     const wrappedSource: string = contextPart + '[' + trimmedSource + ']';
-    
+
     return promptWithLanguage.replace('[abc]', wrappedSource);
   }
 
@@ -1284,6 +1309,22 @@ struct Index {
   private updateTranslationField(text: string): void {
     this.translatedDemoText = this.trimRealtimeBuffer(text);
     AppStorage.setOrCreate('voot_translated_text', this.translatedDemoText);
+
+    // 累积译文到完整记录（追加新内容，避免重复）
+    if (this.isListening && text.trim().length > 0 && !text.startsWith('[')) {
+      const newTranslation = text.trim();
+      // 检查是否已包含此翻译（避免完全重复）
+      if (this.fullTranslatedText.length === 0) {
+        this.fullTranslatedText = newTranslation;
+      } else if (!this.fullTranslatedText.includes(newTranslation) && 
+                 !newTranslation.includes(this.fullTranslatedText)) {
+        // 只有当新翻译不是已有内容的子串或超集时才追加
+        this.fullTranslatedText += '\n' + newTranslation;
+      } else if (newTranslation.length > this.fullTranslatedText.length) {
+        // 如果新翻译包含已有内容，说明是更完整的版本，直接替换
+        this.fullTranslatedText = newTranslation;
+      }
+    }
 
     // 同步更新 PiP 字幕（不再依赖 isPipActive，避免状态延迟导致字幕不同步）
     if (this.isPipSubtitleEnabled && this.translatedDemoText) {
@@ -1568,6 +1609,29 @@ struct Index {
 
   private handleRecognizedSpeech(text: string): void {
     this.originalDemoText = this.trimRealtimeBuffer(text);
+
+    // 累积最终识别结果到完整记录（智能追加）
+    if (text.trim().length > 0) {
+      const currentText = text.trim();
+      if (this.fullOriginalText.length === 0) {
+        this.fullOriginalText = currentText;
+      } else if (!this.fullOriginalText.includes(currentText) && 
+                 !currentText.includes(this.fullOriginalText)) {
+        this.fullOriginalText += '\n' + currentText;
+      } else if (currentText.length > this.fullOriginalText.length) {
+        this.fullOriginalText = currentText;
+      }
+    }
+
+    // Update session with full text
+    if (this.currentSessionId !== -1) {
+      HistoryStorage.getInstance().updateSession(
+        this.currentSessionId,
+        this.fullOriginalText || this.originalDemoText,
+        this.fullTranslatedText || this.translatedDemoText
+      );
+    }
+
     this.translateCurrentDemo();
   }
 
@@ -1580,6 +1644,16 @@ struct Index {
     this.isListening = true;
     this.originalDemoText = this.trimRealtimeBuffer('[正在启动语音识别…]');
     this.lastTranslatedText = ''; // Reset to allow first translation
+
+    // Start new session
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
+    this.currentSessionId = await HistoryStorage.getInstance().createSession('新录音 ' + dateStr);
+    
+    // 重置累积变量
+    this.fullOriginalText = '';
+    this.fullTranslatedText = '';
+    this.lastDbSaveTs = Date.now();
 
     // 2) Try real mic + sherpa-onnx (Whisper)
     if (!this.isAsrReady || !this.micService) {
@@ -1604,11 +1678,41 @@ struct Index {
     const onResult: AsrResultCallback = (res: AsrResult): void => {
       // Get processed ASR text
       const displayText: string = this.getShortSegmentFromAsr(res.text);
-      
+
       // Update display if we have meaningful new content
       if (displayText.length > 0 && displayText !== this.lastDisplayedText) {
         this.lastDisplayedText = displayText;
         this.originalDemoText = displayText;
+        
+        // 累积原文到完整记录（智能追加，避免重复）
+        if (res.text.trim().length > 0) {
+          const currentText = res.text.trim();
+          if (this.fullOriginalText.length === 0) {
+            // 首次设置
+            this.fullOriginalText = currentText;
+          } else if (!this.fullOriginalText.includes(currentText) && 
+                     !currentText.includes(this.fullOriginalText)) {
+            // 新内容与已有内容没有包含关系，追加
+            this.fullOriginalText += '\n' + currentText;
+          } else if (currentText.length > this.fullOriginalText.length) {
+            // 新内容更长且包含已有内容，说明是更完整的版本，替换
+            this.fullOriginalText = currentText;
+          }
+          // 如果已有内容包含新内容，跳过（避免重复）
+        }
+        
+        // 按用户设置的间隔时间保存到数据库
+        const now = Date.now();
+        const saveIntervalMs = parseInt(this.intervalOptions[this.intervalIndex]) * 1000;
+        if (this.currentSessionId !== -1 && now - this.lastDbSaveTs >= saveIntervalMs) {
+          this.lastDbSaveTs = now;
+          HistoryStorage.getInstance().updateSession(
+            this.currentSessionId,
+            this.fullOriginalText,
+            this.fullTranslatedText
+          );
+        }
+        
         // Trigger translation
         this.scheduleRealtimeTranslation();
       }
@@ -1658,10 +1762,22 @@ struct Index {
       this.micService.stop();
     }
 
+    // Update session with final full text
+    if (this.currentSessionId !== -1) {
+      await HistoryStorage.getInstance().updateSession(
+        this.currentSessionId,
+        this.fullOriginalText || this.originalDemoText,
+        this.fullTranslatedText || this.translatedDemoText
+      );
+      this.currentSessionId = -1;
+    }
+
     this.isListening = false;
     this.lastRealtimeTranslateTs = 0;
     this.lastTranslatedText = ''; // Reset for next session
     this.lastDisplayedText = ''; // Reset display tracking
+    this.fullOriginalText = ''; // Reset full text
+    this.fullTranslatedText = ''; // Reset full translation
 
     // Cancel pending debounce and do final translation
     if (this.translationDebounceId !== undefined) {
