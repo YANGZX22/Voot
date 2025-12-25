@@ -24,6 +24,7 @@ export struct TokenUsageChart {
 
   // Visual effects state
   @Link activeBtn: number;
+  @Prop isLightEffectBright: boolean = true;
   @State scaleValue: number = 1.0;
   @State bgColor: ResourceColor = '#803c1464';
   @State textColor: ResourceColor = Color.White;
@@ -261,8 +262,8 @@ export struct TokenUsageChart {
     .scale({ x: this.scaleValue, y: this.scaleValue })
     .visualEffect(new hdsEffect.HdsEffectBuilder()
       .pointLight({
-        sourceType: this.activeBtn === this.btnId ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.NONE,
-        illuminatedType: this.activeBtn !== 0 ? hdsEffect.PointLightIlluminatedType.BORDER : hdsEffect.PointLightIlluminatedType.NONE
+        sourceType: this.activeBtn === this.btnId ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT) : hdsEffect.PointLightSourceType.NONE,
+        illuminatedType: this.activeBtn !== 0 ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT : hdsEffect.PointLightIlluminatedType.NONE
       })
       .buildEffect())
     .onTouch((event: TouchEvent) => {

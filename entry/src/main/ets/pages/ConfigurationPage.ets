@@ -13,6 +13,7 @@ struct ConfigCard {
   @Prop content: string = '';
   btnId: number = 0;
   isSymbol: boolean = false;
+  @Prop isLightEffectBright: boolean = true;
   callback: () => void = () => {};
   onInfoClick?: () => void = undefined;
   
@@ -74,10 +75,10 @@ struct ConfigCard {
       .visualEffect(new hdsEffect.HdsEffectBuilder()
         .pointLight({
           sourceType: this.activeBtn === this.btnId
-            ? hdsEffect.PointLightSourceType.BRIGHT
+            ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT)
             : hdsEffect.PointLightSourceType.NONE,
           illuminatedType: this.activeBtn !== 0
-            ? hdsEffect.PointLightIlluminatedType.BORDER
+            ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
             : hdsEffect.PointLightIlluminatedType.NONE
         })
         .buildEffect())
@@ -89,7 +90,7 @@ struct ConfigCard {
     .borderRadius(30)
     .visualEffect(new hdsEffect.HdsEffectBuilder()
       .pointLight({
-        illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER
+        illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
       })
       .buildEffect())
     .justifyContent(FlexAlign.Center)
@@ -145,6 +146,8 @@ export struct ConfigurationPage {
   @Prop selectedTemperatureIndex: number = 0;
   maxTokensOptions: string[] = [];
   @Prop selectedMaxTokensIndex: number = 0;
+  @Prop @Watch('onVisibleChange') isVisible: boolean = false;
+  @Prop isLightEffectBright: boolean = true;
 
   // Callbacks
   onCycleApi: () => void = () => {};
@@ -157,11 +160,64 @@ export struct ConfigurationPage {
 
   @State activeBtn: number = 0;
 
+  // Animation states
+  @State cardScales: number[] = [0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9];
+  @State cardOpacities: number[] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+
   // New states for disclaimer card
   @State disclaimerScale: number = 1.0;
   @State disclaimerBgColor: ResourceColor = '#803c1464';
   @State disclaimerTextColor: ResourceColor = Color.White;
   @State disclaimerSubTextColor: ResourceColor = '#CCFFFFFF';
+
+  private animationTimeouts: number[] = [];
+
+  aboutToAppear() {
+    if (this.isVisible) {
+      this.playAnimations();
+    }
+  }
+
+  aboutToDisappear() {
+    this.clearAnimationTimeouts();
+  }
+
+  onVisibleChange() {
+    if (this.isVisible) {
+      this.resetAnimations();
+      this.playAnimations();
+    } else {
+      this.clearAnimationTimeouts();
+    }
+  }
+
+  resetAnimations() {
+    this.clearAnimationTimeouts();
+    for (let i = 0; i < 10; i++) {
+      this.cardScales[i] = 0.8;
+      this.cardOpacities[i] = 0;
+    }
+  }
+
+  playAnimations() {
+    for (let i = 0; i < 10; i++) {
+      let id = setTimeout(() => {
+        animateTo({
+          duration: 300,
+          curve: Curve.FastOutSlowIn
+        }, () => {
+          this.cardScales[i] = 1.0;
+          this.cardOpacities[i] = 1.0;
+        })
+      }, i * 50);
+      this.animationTimeouts.push(id);
+    }
+  }
+
+  clearAnimationTimeouts() {
+    this.animationTimeouts.forEach(id => clearTimeout(id));
+    this.animationTimeouts = [];
+  }
 
   private getLanguageLabels(): string[] {
     if (this.languageDisplayOptions.length > 0) {
@@ -262,7 +318,7 @@ export struct ConfigurationPage {
               .lineHeight(16)
               .textAlign(TextAlign.Center)
           }
-          .width('calc(100% - 24vp)')
+          .width('calc(100% - 48vp)')
           .height(120)
           .padding(16)
           .margin({ bottom: 10 })
@@ -270,11 +326,12 @@ export struct ConfigurationPage {
           .borderRadius(30)
           .alignItems(HorizontalAlign.Center)
           .justifyContent(FlexAlign.Center)
-          .scale({ x: this.disclaimerScale, y: this.disclaimerScale })
+          .opacity(this.cardOpacities[0])
+          .scale({ x: this.disclaimerScale * this.cardScales[0], y: this.disclaimerScale * this.cardScales[0] })
           .visualEffect(new hdsEffect.HdsEffectBuilder()
             .pointLight({
-              sourceType: this.activeBtn === 99 ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.NONE,
-              illuminatedType: this.activeBtn !== 0 ? hdsEffect.PointLightIlluminatedType.BORDER : hdsEffect.PointLightIlluminatedType.NONE
+              sourceType: this.activeBtn === 99 ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT) : hdsEffect.PointLightSourceType.NONE,
+              illuminatedType: this.activeBtn !== 0 ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT : hdsEffect.PointLightIlluminatedType.NONE
             })
             .buildEffect())
           .onTouch((event: TouchEvent) => {
@@ -289,8 +346,11 @@ export struct ConfigurationPage {
 
           TokenUsageChart({
             modelName: this.currentModelName || this.apiOptions[this.selectedApiIndex],
-            activeBtn: $activeBtn
+            activeBtn: $activeBtn,
+            isLightEffectBright: this.isLightEffectBright
           })
+          .opacity(this.cardOpacities[1])
+          .scale({ x: this.cardScales[1], y: this.cardScales[1] })
 
           Grid() {
             GridItem() {
@@ -298,12 +358,13 @@ export struct ConfigurationPage {
                 title: '选择 API',
                 content: this.apiOptions[this.selectedApiIndex],
                 btnId: 1,
+                isLightEffectBright: this.isLightEffectBright,
                 callback: () => this.onCycleApi(),
                 activeBtn: $activeBtn,
                 onInfoClick: () => {
                   AlertDialog.show({
                     title: '选择 API 说明',
-                    message: '点击切换可用的翻译 / LLM 服务：OpenAI、DeepL、Ollama、Doubao。\n选择后请在“配置API”里填写对应地址、（模型）和密钥。',
+                    message: '点击切换可用的翻译 / LLM 服务：OpenAI、DeepL、Ollama、Doubao。选择后请在“配置API”里填写对应地址、（模型）和密钥。\nDoubao 并非仅限于“豆包”，支持广义HTTP请求大模型。',
                     confirm: {
                       value: '我知道了',
                       fontColor: '#3c1464',
@@ -313,12 +374,15 @@ export struct ConfigurationPage {
                 }
               })
             }
+            .opacity(this.cardOpacities[2])
+            .scale({ x: this.cardScales[2], y: this.cardScales[2] })
 
             GridItem() {
               ConfigCard({
                 title: '配置 API',
                 content: '',
                 btnId: 2,
+                isLightEffectBright: this.isLightEffectBright,
                 callback: () => this.handleConfigApi(),
                 isSymbol: true,
                 activeBtn: $activeBtn,
@@ -335,12 +399,15 @@ export struct ConfigurationPage {
                 }
               })
             }
+            .opacity(this.cardOpacities[3])
+            .scale({ x: this.cardScales[3], y: this.cardScales[3] })
 
             GridItem() {
               ConfigCard({
                 title: '原始语言',
                 content: '英语',
                 btnId: 3,
+                isLightEffectBright: this.isLightEffectBright,
                 callback: () => {
                   // ToastUtil.showToast('当前仅支持英语作为原始语言 😭');
                 },
@@ -358,12 +425,15 @@ export struct ConfigurationPage {
                 }
               })
             }
+            .opacity(this.cardOpacities[4])
+            .scale({ x: this.cardScales[4], y: this.cardScales[4] })
 
             GridItem() {
               ConfigCard({
                 title: '目标语言',
                 content: this.getLanguageLabels()[this.selectedLanguageIndex],
                 btnId: 4,
+                isLightEffectBright: this.isLightEffectBright,
                 callback: () => this.onCycleLanguage(),
                 activeBtn: $activeBtn,
                 onInfoClick: () => {
@@ -379,12 +449,15 @@ export struct ConfigurationPage {
                 }
               })
             }
+            .opacity(this.cardOpacities[5])
+            .scale({ x: this.cardScales[5], y: this.cardScales[5] })
 
             GridItem() {
               ConfigCard({
                 title: '间隔',
                 content: this.intervalOptions[this.selectedIntervalIndex],
                 btnId: 5,
+                isLightEffectBright: this.isLightEffectBright,
                 callback: () => this.showTextPicker(this.intervalOptions, this.selectedIntervalIndex, this.onSelectInterval),
                 activeBtn: $activeBtn,
                 onInfoClick: () => {
@@ -400,12 +473,15 @@ export struct ConfigurationPage {
                 }
               })
             }
+            .opacity(this.cardOpacities[6])
+            .scale({ x: this.cardScales[6], y: this.cardScales[6] })
 
             GridItem() {
               ConfigCard({
                 title: '上下文',
                 content: this.contextsOptions[this.selectedContextsIndex],
                 btnId: 6,
+                isLightEffectBright: this.isLightEffectBright,
                 callback: () => this.showTextPicker(this.contextsOptions, this.selectedContextsIndex, this.onSelectContexts),
                 activeBtn: $activeBtn,
                 onInfoClick: () => {
@@ -421,12 +497,15 @@ export struct ConfigurationPage {
                 }
               })
             }
+            .opacity(this.cardOpacities[7])
+            .scale({ x: this.cardScales[7], y: this.cardScales[7] })
 
             GridItem() {
               ConfigCard({
                 title: '温度',
                 content: this.temperatureOptions[this.selectedTemperatureIndex],
                 btnId: 7,
+                isLightEffectBright: this.isLightEffectBright,
                 callback: () => this.showTextPicker(this.temperatureOptions, this.selectedTemperatureIndex, this.onSelectTemperature),
                 activeBtn: $activeBtn,
                 onInfoClick: () => {
@@ -442,12 +521,15 @@ export struct ConfigurationPage {
                 }
               })
             }
+            .opacity(this.cardOpacities[8])
+            .scale({ x: this.cardScales[8], y: this.cardScales[8] })
 
             GridItem() {
               ConfigCard({
                 title: '最大 Token',
                 content: this.maxTokensOptions[this.selectedMaxTokensIndex],
                 btnId: 8,
+                isLightEffectBright: this.isLightEffectBright,
                 callback: () => this.showTextPicker(this.maxTokensOptions, this.selectedMaxTokensIndex, this.onSelectMaxTokens),
                 activeBtn: $activeBtn,
                 onInfoClick: () => {
@@ -463,6 +545,8 @@ export struct ConfigurationPage {
                 }
               })
             }
+            .opacity(this.cardOpacities[9])
+            .scale({ x: this.cardScales[9], y: this.cardScales[9] })
           }
           .columnsTemplate('1fr 1fr')
           .rowsTemplate('1fr 1fr 1fr 1fr')

@@ -1,7 +1,15 @@
 /**
  * @fileoverview This file contains code related to AI content generation.
  * @compliance EU AI Act, US EO 14110, China Interim Measures for Generative AI Services
- * @metadata {"ai_generated_content": true, "sensitive_logic": true}
+ * @metadata {
+ *   "Label": "AI_Generated_Content",
+ *   "ContentProducer": "Voot_App",
+ *   "ProduceID": "VOOT_GEN_001",
+ *   "ReservedCode1": "RESERVED",
+ *   "ContentPropagator": "Voot_App",
+ *   "PropagateID": "VOOT_PROP_001",
+ *   "ReservedCode2": "RESERVED"
+ * }
  */
 import worker, {
   ThreadWorkerGlobalScope,

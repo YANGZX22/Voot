@@ -1,7 +1,15 @@
 /**
  * @fileoverview This file contains code related to AI content generation.
  * @compliance EU AI Act, US EO 14110, China Interim Measures for Generative AI Services
- * @metadata {"ai_generated_content": true, "sensitive_logic": true}
+ * @metadata {
+ *   "Label": "AI_Generated_Content",
+ *   "ContentProducer": "Voot_App",
+ *   "ProduceID": "VOOT_GEN_001",
+ *   "ReservedCode1": "RESERVED",
+ *   "ContentPropagator": "Voot_App",
+ *   "PropagateID": "VOOT_PROP_001",
+ *   "ReservedCode2": "RESERVED"
+ * }
  */
 
 import router from '@ohos.router';
@@ -103,7 +111,8 @@ const DEFAULT_CONFIG: ApiConfigSnapshot = {
   subtitleFontSize: 18,
   subtitleFontColor: '#FFFFFF',
   subtitleBackgroundColor: '#80000000',
-  subtitleHeight: 20
+  subtitleHeight: 20,
+  glossary: 'HarmonyOS = 鸿蒙'
 };
 
 @Entry
@@ -115,8 +124,7 @@ struct SessionDetailPage {
   async aboutToAppear() {
     const params = router.getParams() as Record<string, number>;
     const sessionId = params['sessionId'];
-    const sessions = await HistoryStorage.getInstance().getSessions();
-    this.session = sessions.find(s => s.id === sessionId);
+    this.session = await HistoryStorage.getInstance().getSessionById(sessionId);
   }
 
   build() {
@@ -239,6 +247,7 @@ struct SessionDetailPage {
       .backgroundColor(Color.Transparent)
       .titleMode(HdsNavigationTitleMode.MINI)
       .hideBackButton(false)
+      .minContentWidth('100%')
       .titleBar({
         style: {
           scrollEffectStyle: {
@@ -326,7 +335,7 @@ struct SessionDetailPage {
       if (apiType === ApiMenuType.OpenAI) {
         summary = await this.callOpenAI({ apiUrl: config.openAiApiUrl, apiKey: config.openAiApiKey, model: config.openAiModel }, prompt);
       } else if (apiType === ApiMenuType.DeepL) {
-        summary = "DeepL 不支持总结功能";
+        summary = "DeepL 仅为翻译模型，不支持大语言模型的总结功能，尝试在配置页面切换其他模型";
       } else if (apiType === ApiMenuType.Ollama) {
         summary = await this.callOllama({ apiUrl: config.ollamaApiUrl, model: config.ollamaModel }, prompt);
       } else if (apiType === ApiMenuType.Doubao) {
@@ -534,7 +543,6 @@ struct SessionDetailPage {
   async exportFile(type: 'md' | 'txt') {
     if (!this.session) return;
 
-    // 文件元数据（隐式标识）：写入到文件头部的机器可读标记
     const exportedAt = new Date().toISOString();
     const metaJson = JSON.stringify({
       voot_ai_generated: true,

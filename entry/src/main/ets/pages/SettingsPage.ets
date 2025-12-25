@@ -1,4 +1,5 @@
 import { hdsEffect, HdsNavigation, HdsNavigationAttribute, HdsNavigationTitleMode } from '@kit.UIDesignKit';
+import { CapsuleSegmentButtonV2, SegmentButtonV2Items, ColorMetrics } from '@kit.ArkUI';
 import { webview } from '@kit.ArkWeb';
 import common from '@ohos.app.ability.common';
 import bundleManager from '@ohos.bundle.bundleManager';
@@ -202,6 +203,7 @@ export struct SettingsPage {
   @Link subtitleFontColor: string;
   @Link subtitleBackgroundColor: string;
   @Link subtitleHeight: number;
+  @Link isLightEffectBright: boolean;
 
   // Callbacks
   onTogglePipSubtitle: (isOn: boolean) => void = () => {}; // PiP 字幕切换回调
@@ -334,7 +336,7 @@ export struct SettingsPage {
           .opacity(this.isPipAvailable ? 1.0 : 0.6)
           .visualEffect(new hdsEffect.HdsEffectBuilder()
             .pointLight({
-              illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER
+              illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
             })
             .buildEffect())
 
@@ -353,8 +355,8 @@ export struct SettingsPage {
               .scale({ x: this.settingsBtnScale, y: this.settingsBtnScale })
               .visualEffect(new hdsEffect.HdsEffectBuilder()
                 .pointLight({
-                  sourceType: this.isSettingsBtnActive ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.NONE,
-                  illuminatedType: this.isSettingsBtnActive ? hdsEffect.PointLightIlluminatedType.BORDER : hdsEffect.PointLightIlluminatedType.NONE
+                  sourceType: this.isSettingsBtnActive ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT) : hdsEffect.PointLightSourceType.NONE,
+                  illuminatedType: this.isSettingsBtnActive ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT : hdsEffect.PointLightIlluminatedType.NONE
                 })
                 .buildEffect())
               .onTouch((event: TouchEvent) => {
@@ -378,7 +380,7 @@ export struct SettingsPage {
           .backgroundColor('#803c1464')
           .visualEffect(new hdsEffect.HdsEffectBuilder()
             .pointLight({
-              illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER
+              illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
             })
             .buildEffect())
 
@@ -436,7 +438,50 @@ export struct SettingsPage {
           .backgroundColor('#803c1464')
           .visualEffect(new hdsEffect.HdsEffectBuilder()
             .pointLight({
-              illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER
+              illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
+            })
+            .buildEffect())
+
+          Blank().height(12)
+
+          Text('光效')
+            .fontColor(Color.White)
+            .fontSize(16)
+            .fontWeight(FontWeight.Medium)
+            .margin({ bottom: 8 });
+
+          Row() {
+            Blank().width(12)
+            Text('光效亮度').fontColor(Color.White)
+
+            Blank()
+
+            CapsuleSegmentButtonV2({
+              items: new SegmentButtonV2Items([
+                { text: '明亮' },
+                { text: '柔和' }
+              ]),
+              selectedIndex: this.isLightEffectBright ? 0 : 1,
+              $selectedIndex: (index: number) => {
+                this.isLightEffectBright = index === 0;
+              },
+              buttonBackgroundColor: ColorMetrics.resourceColor($r('sys.color.comp_background_tertiary')),
+              itemSelectedBackgroundColor: ColorMetrics.rgba(60, 20, 100, 1),
+              // buttonBackgroundEffect: {radius: 24}
+            })
+            .width(140)
+
+            Blank().width(12)
+          }
+          .width('100%')
+          .height(60)
+          .padding(4)
+          .margin({ bottom: 12 })
+          .borderRadius(24)
+          .backgroundColor('#803c1464')
+          .visualEffect(new hdsEffect.HdsEffectBuilder()
+            .pointLight({
+              illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
             })
             .buildEffect())
 
@@ -473,7 +518,7 @@ export struct SettingsPage {
           .backgroundColor('#803c1464')
           .visualEffect(new hdsEffect.HdsEffectBuilder()
             .pointLight({
-              illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER
+              illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
             })
             .buildEffect())
 
@@ -502,7 +547,7 @@ export struct SettingsPage {
           .backgroundColor('#803c1464')
           .visualEffect(new hdsEffect.HdsEffectBuilder()
             .pointLight({
-              illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER
+              illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
             })
             .buildEffect())
 
@@ -531,7 +576,7 @@ export struct SettingsPage {
           .backgroundColor('#803c1464')
           .visualEffect(new hdsEffect.HdsEffectBuilder()
             .pointLight({
-              illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER
+              illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
             })
             .buildEffect())
         }
@@ -591,10 +636,10 @@ export struct SettingsPage {
       PolicySheetContent(getPolicySheetConfig(this.currentPolicySheet, this.appVersion), this.policyWebController, () => {
         this.closePolicySheet();
       }, getContext(this) as common.UIAbilityContext), {
-      detents: [SheetSize.MEDIUM, SheetSize.FIT_CONTENT , SheetSize.LARGE],
+      detents: [SheetSize.FIT_CONTENT, SheetSize.MEDIUM, SheetSize.LARGE],
       dragBar: true,
-      backgroundColor: '#e63c1464',
-      blurStyle: BlurStyle.BACKGROUND_REGULAR,
+      backgroundColor: Color.Transparent,
+      blurStyle: BlurStyle.BACKGROUND_THIN,
       enableOutsideInteractive: true,
     })
   }

@@ -1,10 +1,19 @@
-/**
+﻿/**
  * @fileoverview This file contains code related to AI content generation.
  * @compliance EU AI Act, US EO 14110, China Interim Measures for Generative AI Services
- * @metadata {"ai_generated_content": true, "sensitive_logic": true}
+ * @metadata {
+ *   "Label": "AI_Generated_Content",
+ *   "ContentProducer": "Voot_App",
+ *   "ProduceID": "VOOT_GEN_001",
+ *   "ReservedCode1": "RESERVED",
+ *   "ContentPropagator": "Voot_App",
+ *   "PropagateID": "VOOT_PROP_001",
+ *   "ReservedCode2": "RESERVED"
+ * }
  */
 
 import { hdsEffect, HdsNavigation, HdsNavigationAttribute, HdsNavigationTitleMode } from '@kit.UIDesignKit';
+import promptAction from '@ohos.promptAction';
 
 const TITLE_BAR_HEIGHT_MINI: number = 94;
 
@@ -18,12 +27,15 @@ export struct TranslationPage {
   @Prop isTranslating: boolean = false;
   @Prop currentApiLabel: string = '';
   @Prop currentLanguageLabel: string = '';
+  @Prop hasContinuityContent: boolean = false;
+  @Prop isLightEffectBright: boolean = true;
 
   // Callbacks
   onToggleCaptioning: () => void = () => {};
   onTranslateDemo: () => void = () => {};
   onOriginalTextChange: (value: string) => void = () => {};
   onTranslatedTextChange: (value: string) => void = () => {};
+  onContinuityTransfer: () => void = () => {};
 
   // State for Lighting Effect
   // 0 = None, 1 = Mic Button, 2 = Translate Button
@@ -36,6 +48,17 @@ export struct TranslationPage {
   @State btn1TextColor: ResourceColor = Color.White;
   @State btn2BgColor: ResourceColor = "#e63c1464";
   @State btn2TextColor: ResourceColor = Color.White;
+
+  @State button3Scale: number = 1.0;
+  @State btn3BgColor: ResourceColor = "#e63c1464";
+  @State btn3TextColor: ResourceColor = Color.White;
+
+  helpDialogController: CustomDialogController = new CustomDialogController({
+    builder: ContinuityHelpDialog(),
+    alignment: DialogAlignment.Center,
+    autoCancel: true,
+    customStyle: true
+  })
 
   onIsListeningChange() {
     animateTo({
@@ -77,7 +100,7 @@ export struct TranslationPage {
                 .layoutWeight(1)
                 .visualEffect(new hdsEffect.HdsEffectBuilder()
                   .pointLight({
-                    illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER
+                    illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
                   })
                   .buildEffect())
                 .margin({ right: this.currentLanguageLabel ? 8 : 0 });
@@ -100,7 +123,7 @@ export struct TranslationPage {
                 .layoutWeight(1)
                 .visualEffect(new hdsEffect.HdsEffectBuilder()
                   .pointLight({
-                    illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER
+                    illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
                   })
                   .buildEffect())
                 .margin({ left: this.currentApiLabel ? 8 : 0 });
@@ -130,10 +153,10 @@ export struct TranslationPage {
               .visualEffect(new hdsEffect.HdsEffectBuilder()
                 .pointLight({
                   sourceType: this.activeBtn === 1
-                    ? hdsEffect.PointLightSourceType.BRIGHT
+                    ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT)
                     : hdsEffect.PointLightSourceType.NONE,
                   illuminatedType: this.activeBtn !== 0
-                    ? hdsEffect.PointLightIlluminatedType.BORDER
+                    ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
                     : hdsEffect.PointLightIlluminatedType.NONE
                 })
                 .buildEffect())
@@ -171,19 +194,21 @@ export struct TranslationPage {
           .margin({ bottom: 16 });
 
           Row() {
-            Button(this.isTranslating ? '翻译中' : '使用API翻译')
-              .width('100%')
+            Button(this.isTranslating ? '翻译中' : '使用 API 翻译')
+              .layoutWeight(2)
+              .height(40)
               .backgroundColor(this.btn2BgColor)
               .fontColor(this.btn2TextColor)
               .scale({ x: this.button2Scale, y: this.button2Scale })
               .enabled(!this.isTranslating)
+              .margin({ right: 8 })
               .visualEffect(new hdsEffect.HdsEffectBuilder()
                 .pointLight({
                   sourceType: this.activeBtn === 2
-                    ? hdsEffect.PointLightSourceType.BRIGHT
+                    ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT)
                     : hdsEffect.PointLightSourceType.NONE,
                   illuminatedType: this.activeBtn !== 0
-                    ? hdsEffect.PointLightIlluminatedType.BORDER
+                    ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
                     : hdsEffect.PointLightIlluminatedType.NONE
                 })
                 .buildEffect())
@@ -197,6 +222,42 @@ export struct TranslationPage {
                 }
               })
               .onClick(() => this.onTranslateDemo());
+
+            Button() {
+              Row() {
+                SymbolGlyph($r('sys.symbol.arrow_2_circlepath'))
+                  .fontSize(18)
+                  .fontColor([this.btn3TextColor])
+                  .margin({ right: 8 })
+                Text('流转')
+                  .fontSize(16)
+                  .fontColor(this.btn3TextColor)
+              }
+            }
+            .layoutWeight(1)
+            .height(40)
+            .backgroundColor(this.btn3BgColor)
+            .scale({ x: this.button3Scale, y: this.button3Scale })
+            .visualEffect(new hdsEffect.HdsEffectBuilder()
+              .pointLight({
+                sourceType: this.activeBtn === 3
+                  ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT)
+                  : hdsEffect.PointLightSourceType.NONE,
+                illuminatedType: this.activeBtn !== 0
+                  ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
+                  : hdsEffect.PointLightIlluminatedType.NONE
+              })
+              .buildEffect())
+            .onTouch((event: TouchEvent) => {
+              if (event.type === TouchType.Down) {
+                this.pressButton(3); // Pass ID 3
+                this.activeBtn = 3;
+              } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+                this.leaveButton(3); // Pass ID 3
+                this.activeBtn = 0;
+              }
+            })
+            .onClick(() => this.onContinuityTransfer())
           }
           .width('100%')
           .padding(4)
@@ -253,10 +314,6 @@ export struct TranslationPage {
             menuStyle: {
               backgroundColor: $r('sys.color.comp_background_tertiary'),
               iconColor: $r('sys.color.icon_primary')
-            },
-            backIconStyle: {
-              backgroundColor: $r('sys.color.comp_background_tertiary'),
-              iconColor: $r('sys.color.icon_primary')
             }
           }
         },
@@ -265,15 +322,36 @@ export struct TranslationPage {
             titleStyle: {
               mainTitleColor: Color.White,
             },
-            backIconStyle: {
+            menuStyle: {
               backgroundColor: $r('sys.color.comp_background_tertiary'),
-              iconColor: $r('sys.color.icon_primary')
+              iconColor: Color.White
             }
           }
-        },
+        }
       },
       content: {
-        title: { mainTitle: '翻译' },
+        title: {
+          mainTitle: '翻译'
+        },
+        menu: {
+          value: [
+            {
+              content: {
+                label: '解释',
+                icon: $r('sys.symbol.info_circle'),
+                isEnabled: true,
+                action: () => {
+                  animateTo({
+                    duration: 300,
+                    curve: Curve.Smooth
+                  }, () => {
+                    this.helpDialogController.open();
+                  });
+                }
+              }
+            }
+          ]
+        },
       },
       avoidLayoutSafeArea: true
     })
@@ -293,6 +371,11 @@ export struct TranslationPage {
         this.button2Scale = 0.95;
         this.btn2BgColor = Color.White;
         this.btn2TextColor = "#e63c1464";
+      }
+      if (btnId === 3) {
+        this.button3Scale = 0.95;
+        this.btn3BgColor = Color.White;
+        this.btn3TextColor = "#e63c1464";
       }
     })
   }
@@ -317,6 +400,125 @@ export struct TranslationPage {
         this.btn2BgColor = "#e63c1464";
         this.btn2TextColor = Color.White;
       }
+      if (btnId === 3) {
+        this.button3Scale = 1.0;
+        this.btn3BgColor = "#e63c1464";
+        this.btn3TextColor = Color.White;
+      }
     })
+  }
+}
+
+@CustomDialog
+struct ContinuityHelpDialog {
+  controller: CustomDialogController;
+
+  build() {
+    Column() {
+      Text('跨端流转说明')
+        .fontSize(20)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(Color.Black)
+        .margin({ top: 24, bottom: 16 })
+        .textAlign(TextAlign.Center)
+
+      Column({ space: 12 }) {
+        Row({ space: 8 }) {
+          Column() {
+            SymbolGlyph($r('sys.symbol.person_crop_circle_fill_1'))
+              .fontSize(18)
+              .fontColor([Color.White])
+          }
+          .width(32)
+          .height(32)
+          .borderRadius(16)
+          .backgroundColor('#FF4D4F')
+          .justifyContent(FlexAlign.Center)
+
+          Text('确保两台设备登录同一华为账号')
+            .fontSize(14)
+            .fontColor('#333333')
+            .layoutWeight(1)
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Center)
+
+        Row({ space: 8 }) {
+          Column() {
+            SymbolGlyph($r('sys.symbol.wifi'))
+              .fontSize(18)
+              .fontColor([Color.White])
+          }
+          .width(32)
+          .height(32)
+          .borderRadius(16)
+          .backgroundColor('#FFB800')
+          .justifyContent(FlexAlign.Center)
+
+          Text('保持 Wi‑Fi 和蓝牙开启，便于发现设备')
+            .fontSize(14)
+            .fontColor('#333333')
+            .layoutWeight(1)
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Center)
+
+        Row({ space: 8 }) {
+          Column() {
+            SymbolGlyph($r('sys.symbol.arrow_2_circlepath'))
+              .fontSize(18)
+              .fontColor([Color.White])
+          }
+          .width(32)
+          .height(32)
+          .borderRadius(16)
+          .backgroundColor('#3c1684')
+          .justifyContent(FlexAlign.Center)
+
+          Text('点击“流转”按钮搜索并选择目标设备')
+            .fontSize(14)
+            .fontColor('#333333')
+            .layoutWeight(1)
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Center)
+
+        Row({ space: 8 }) {
+          Column() {
+            SymbolGlyph($r('sys.symbol.checkmark_circle'))
+              .fontSize(18)
+              .fontColor([Color.White])
+          }
+          .width(32)
+          .height(32)
+          .borderRadius(16)
+          .backgroundColor('#0c3891')
+          .justifyContent(FlexAlign.Center)
+
+          Text('同意连接后，字幕与翻译将无缝流转到目标设备')
+            .fontSize(14)
+            .fontColor('#333333')
+            .layoutWeight(1)
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Center)
+      }
+      .width('100%')
+      .padding({ left: 16, right: 16 })
+
+      Button('我知道了')
+        .width('80%')
+        .borderRadius(30)
+        .margin({ top: 20, bottom: 16 })
+        .backgroundColor('#3c1464')
+        .fontColor(Color.White)
+        .onClick(() => {
+          this.controller.close();
+        })
+    }
+    .width(320)
+    .backgroundColor(Color.White)
+    .borderRadius(30)
+    .alignItems(HorizontalAlign.Center)
   }
 }

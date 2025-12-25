@@ -1,21 +1,78 @@
 import router from '@ohos.router';
 import { Session } from '../model/Session';
 import { HistoryStorage } from '../storage/HistoryStorage';
-import { HdsNavigation, HdsNavigationAttribute, HdsNavigationTitleMode } from '@kit.UIDesignKit';
+import { HdsNavigation, HdsNavigationAttribute, HdsNavigationTitleMode, hdsEffect } from '@kit.UIDesignKit';
 import common from '@ohos.app.ability.common';
 import promptAction from '@ohos.promptAction';
 import { systemShare } from '@kit.ShareKit';
 import { uniformTypeDescriptor as utd } from '@kit.ArkData';
 
-const TITLE_BAR_HEIGHT_MINI: number = 94;
+const TITLE_BAR_HEIGHT_MINI: number = 100;
+
+@Component
+struct SwipeActionButton {
+  @Prop icon: Resource;
+  @Prop bgColor: ResourceColor;
+  @Prop iconColor: ResourceColor = Color.White;
+  @Prop btnId: number = 0;
+  @Prop isLightEffectBright: boolean = true;
+  @Link activeBtnId: number;
+  action: () => void = () => {};
+  
+  @State scaleValue: number = 1.0;
+
+  build() {
+    Column() {
+      SymbolGlyph(this.icon)
+        .fontSize(22)
+        .fontColor([this.iconColor])
+    }
+    .width(48)
+    .height(48)
+    .borderRadius(24)
+    .backgroundColor(this.bgColor)
+    .justifyContent(FlexAlign.Center)
+    .scale({ x: this.scaleValue, y: this.scaleValue })
+    .visualEffect(new hdsEffect.HdsEffectBuilder()
+      .pointLight({
+        sourceType: this.activeBtnId === this.btnId ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT) : hdsEffect.PointLightSourceType.NONE,
+        illuminatedType: this.activeBtnId !== 0 ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT : hdsEffect.PointLightIlluminatedType.NONE
+      })
+      .buildEffect())
+    .onTouch((event: TouchEvent) => {
+      if (event.type === TouchType.Down) {
+        this.activeBtnId = this.btnId;
+        animateTo({ duration: 100, curve: Curve.EaseIn }, () => {
+          this.scaleValue = 0.9;
+        });
+      } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+        this.activeBtnId = 0;
+        animateTo({ duration: 100, curve: Curve.EaseOut }, () => {
+          this.scaleValue = 1.0;
+        });
+      }
+    })
+    .onClick(() => {
+      this.action();
+    })
+  }
+}
 
 @Component
 export struct HistoryTabPage {
+  @Prop @Watch('onVisibleChange') isVisible: boolean = false;
+  @Prop isLightEffectBright: boolean = true;
   @State sessions: Session[] = [];
   @State pendingDeleteId: number = -1;
   @State deleteMessage: string = '确定要删除这条历史记录吗？';
   @State isDeleteAll: boolean = false;
   @State showFavorites: boolean = false;
+  @State activeSwipeBtnId: number = 0;
+
+  // Animation states
+  @State cardOffsets: number[] = [];
+  @State cardOpacities: number[] = [];
+  private animationTimeouts: number[] = [];
 
   dialogController: CustomDialogController = new CustomDialogController({
     builder: DeleteConfirmTabDialog({
@@ -58,10 +115,72 @@ export struct HistoryTabPage {
     } else {
       this.sessions = await HistoryStorage.getInstance().getSessions();
     }
+    
+    // Initialize animation arrays if needed
+    if (this.sessions.length > this.cardOffsets.length) {
+      const newLength = this.sessions.length;
+      const currentLength = this.cardOffsets.length;
+      for (let i = currentLength; i < newLength; i++) {
+        this.cardOffsets.push(-50); // Start from left
+        this.cardOpacities.push(0);
+      }
+    }
+
+    if (this.isVisible) {
+      this.playAnimations();
+    }
   }
 
   async aboutToAppear() {
     await this.refreshSessions();
+  }
+
+  aboutToDisappear() {
+    this.clearAnimationTimeouts();
+  }
+
+  onVisibleChange() {
+    if (this.isVisible) {
+      this.resetAnimations();
+      this.playAnimations();
+    } else {
+      this.clearAnimationTimeouts();
+    }
+  }
+
+  resetAnimations() {
+    this.clearAnimationTimeouts();
+    for (let i = 0; i < this.cardOffsets.length; i++) {
+      this.cardOffsets[i] = -50;
+      this.cardOpacities[i] = 0;
+    }
+  }
+
+  playAnimations() {
+    // Only animate visible items or a reasonable batch
+    const count = Math.min(this.sessions.length, 20); 
+    for (let i = 0; i < count; i++) {
+      let id = setTimeout(() => {
+        animateTo({
+          duration: 300,
+          curve: Curve.FastOutSlowIn
+        }, () => {
+          this.cardOffsets[i] = 0;
+          this.cardOpacities[i] = 1.0;
+        })
+      }, i * 50);
+      this.animationTimeouts.push(id);
+    }
+    // Immediately show remaining items to avoid them being hidden forever if list is long
+    for (let i = count; i < this.sessions.length; i++) {
+       this.cardOffsets[i] = 0;
+       this.cardOpacities[i] = 1.0;
+    }
+  }
+
+  clearAnimationTimeouts() {
+    this.animationTimeouts.forEach(id => clearTimeout(id));
+    this.animationTimeouts = [];
   }
 
   async toggleStar(session: Session) {
@@ -116,7 +235,7 @@ export struct HistoryTabPage {
   }
 
   @Builder
-  SessionItemBuilder(session: Session) {
+  SessionItemBuilder(session: Session, index: number) {
     Column() {
       Text(session.title)
         .fontSize(16)
@@ -135,11 +254,19 @@ export struct HistoryTabPage {
           .margin({ top: 8 })
       }
     }
-    .width('100%')
+    .width('calc(100% - 48vp)')
     .alignItems(HorizontalAlign.Start)
     .padding(16)
+    .margin({ left: 24, right: 24 })
     .backgroundColor('#803c1464')
     .borderRadius(24)
+    .opacity(this.cardOpacities[index] ?? 1)
+    .translate({ x: this.cardOffsets[index] ?? 0 })
+    .visualEffect(new hdsEffect.HdsEffectBuilder()
+      .pointLight({
+        illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
+      })
+      .buildEffect())
     .onClick(() => {
       router.pushUrl({
         url: 'pages/SessionDetailPage',
@@ -154,51 +281,42 @@ export struct HistoryTabPage {
   DeleteButton(id: number, session: Session) {
     Row({ space: 8 }) {
       // 删除按钮 - 红色
-      Column() {
-        SymbolGlyph($r('sys.symbol.trash'))
-          .fontSize(22)
-          .fontColor([Color.White])
-      }
-      .width(48)
-      .height(48)
-      .borderRadius(24)
-      .backgroundColor(Color.Red)
-      .justifyContent(FlexAlign.Center)
-      .onClick(() => {
-        this.pendingDeleteId = id;
-        this.deleteMessage = '确定要删除这条历史记录吗？';
-        this.isDeleteAll = false;
-        this.dialogController.open();
+      SwipeActionButton({
+        icon: $r('sys.symbol.trash'),
+        bgColor: Color.Red,
+        btnId: 1,
+        isLightEffectBright: this.isLightEffectBright,
+        activeBtnId: $activeSwipeBtnId,
+        action: () => {
+          this.pendingDeleteId = id;
+          this.deleteMessage = '确定要删除这条历史记录吗？';
+          this.isDeleteAll = false;
+          this.dialogController.open();
+        }
       })
 
       // 收藏按钮 - 黄色
-      Column() {
-        SymbolGlyph(session.isStarred ? $r('sys.symbol.star_fill') : $r('sys.symbol.star'))
-          .fontSize(22)
-          .fontColor([Color.White])
-      }
-      .width(48)
-      .height(48)
-      .borderRadius(24)
-      .backgroundColor('#FFB800')
-      .justifyContent(FlexAlign.Center)
-      .onClick(() => {
-        this.toggleStar(session);
+      SwipeActionButton({
+        icon: session.isStarred ? $r('sys.symbol.star_fill') : $r('sys.symbol.star'),
+        bgColor: '#FFB800',
+        btnId: 2,
+        isLightEffectBright: this.isLightEffectBright,
+        activeBtnId: $activeSwipeBtnId,
+        action: () => {
+          this.toggleStar(session);
+        }
       })
 
       // 分享按钮 - 绿色
-      Column() {
-        SymbolGlyph($r('sys.symbol.share'))
-          .fontSize(22)
-          .fontColor([Color.White])
-      }
-      .width(48)
-      .height(48)
-      .borderRadius(24)
-      .backgroundColor('#4CAF50')
-      .justifyContent(FlexAlign.Center)
-      .onClick(() => {
-        this.shareSession(session);
+      SwipeActionButton({
+        icon: $r('sys.symbol.share'),
+        bgColor: '#4CAF50',
+        btnId: 3,
+        isLightEffectBright: this.isLightEffectBright,
+        activeBtnId: $activeSwipeBtnId,
+        action: () => {
+          this.shareSession(session);
+        }
       })
     }
     .height('100%')
@@ -214,9 +332,9 @@ export struct HistoryTabPage {
           Column().height(TITLE_BAR_HEIGHT_MINI)
         }
 
-        ForEach(this.sessions, (session: Session) => {
+        ForEach(this.sessions, (session: Session, index: number) => {
           ListItem() {
-            this.SessionItemBuilder(session)
+            this.SessionItemBuilder(session, index)
           }
           .swipeAction({
             end: {
@@ -229,7 +347,7 @@ export struct HistoryTabPage {
       }
       .width('100%')
       .height('100%')
-      .padding({ left: 16, right: 16, bottom: 36 })
+      .padding({ bottom: 36 })
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
       .onVisibleAreaChange([0.0, 1.0], (isVisible: boolean, currentRatio: number) => {
@@ -285,7 +403,12 @@ export struct HistoryTabPage {
                 icon: $r('sys.symbol.info_circle'),
                 isEnabled: true,
                 action: () => {
-                  this.helpDialogController.open();
+                  animateTo({
+                    duration: 300,
+                    curve: Curve.Smooth
+                  }, () => {
+                    this.helpDialogController.open();
+                  });
                 }
               }
             },
@@ -295,8 +418,13 @@ export struct HistoryTabPage {
                 icon: this.showFavorites ? $r('sys.symbol.clock') : $r('sys.symbol.star_fill'),
                 isEnabled: true,
                 action: () => {
-                  this.showFavorites = !this.showFavorites;
-                  this.refreshSessions();
+                  animateTo({
+                    duration: 300,
+                    curve: Curve.Smooth
+                  }, () => {
+                    this.showFavorites = !this.showFavorites;
+                    this.refreshSessions();
+                  });
                 }
               }
             },
@@ -306,11 +434,16 @@ export struct HistoryTabPage {
                 icon: $r('sys.symbol.trash_fill'),
                 isEnabled: true,
                 action: () => {
-                  if (this.sessions.length > 0) {
-                    this.deleteMessage = this.showFavorites ? '确定要删除所有收藏记录吗？' : '确定要删除所有历史记录吗？';
-                    this.isDeleteAll = true;
-                    this.dialogController.open();
-                  }
+                  animateTo({
+                    duration: 300,
+                    curve: Curve.Smooth
+                  }, () => {
+                    if (this.sessions.length > 0) {
+                      this.deleteMessage = this.showFavorites ? '确定要删除所有收藏记录吗？' : '确定要删除所有历史记录吗？';
+                      this.isDeleteAll = true;
+                      this.dialogController.open();
+                    }
+                  });
                 }
               }
             }
@@ -499,7 +632,7 @@ struct HelpTabDialog {
       .width('100%')
       .padding({ left: 16, right: 16 })
 
-      Button('知道了')
+      Button('我知道了')
         .width('80%')
         .borderRadius(30)
         .margin({ top: 20, bottom: 16 })

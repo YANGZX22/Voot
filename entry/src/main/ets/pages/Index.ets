@@ -1,7 +1,15 @@
-/**
+﻿/**
  * @fileoverview This file contains code related to AI content generation.
  * @compliance EU AI Act, US EO 14110, China Interim Measures for Generative AI Services
- * @metadata {"ai_generated_content": true, "sensitive_logic": true}
+ * @metadata {
+ *   "Label": "AI_Generated_Content",
+ *   "ContentProducer": "Voot_App",
+ *   "ProduceID": "VOOT_GEN_001",
+ *   "ReservedCode1": "RESERVED",
+ *   "ContentPropagator": "Voot_App",
+ *   "PropagateID": "VOOT_PROP_001",
+ *   "ReservedCode2": "RESERVED"
+ * }
  */
 import http from '@ohos.net.http';
 import { TextReader } from '@kit.SpeechKit';
@@ -9,6 +17,9 @@ import { SherpaWhisperMicService, AsrResult, AsrResultCallback, AsrErrorCallback
 import abilityAccessCtrl, { Permissions, PermissionRequestResult } from '@ohos.abilityAccessCtrl';
 import type { BusinessError } from '@ohos.base';
 import common from '@ohos.app.ability.common';
+import AbilityConstant from '@ohos.app.ability.AbilityConstant';
+import Want from '@ohos.app.ability.Want';
+import wantConstant from '@ohos.app.ability.wantConstant';
 import { hdsEffect, HdsTabs, HdsTabsAttribute, HdsTabsController, DividerMode } from '@kit.UIDesignKit';
 import { webview } from '@kit.ArkWeb';
 import { ConfigurationPage } from './ConfigurationPage';
@@ -26,7 +37,20 @@ import window from '@ohos.window';
 import promptAction from '@ohos.promptAction';
 import { PipSubtitleManager, SubtitleParams } from '../services/PipSubtitleManager';
 import { PiPWindow } from '@kit.ArkUI';
+import { ContinuityService, ContinuityState, CONTINUITY_KEY, DeviceInfo, SubtitleStyleConfig } from '../services/ContinuityService';
+import { deviceInfo } from '@kit.BasicServicesKit';
 
+// 扩展流转状态（包含翻译状态和当前Tab）
+interface ContinuityStateExtended extends ContinuityState {
+  isTranslating?: boolean;
+  currentTab?: number;
+  // 实时朗读状态
+  isRealtimeReading?: boolean;
+  // PiP 悬浮窗状态
+  isPipEnabled?: boolean;
+  // 字幕样式配置
+  subtitleConfig?: SubtitleStyleConfig;
+}
 
 // ---------- Shared types for JSON parsing ----------
 
@@ -111,20 +135,46 @@ enum WelcomeStage {
 interface WelcomeFeature {
   title: string;
   description: string;
+  icon: Resource;
+  span: number; // 1 for Circle (x), 2 for Capsule (xx)
 }
 
 const WELCOME_FEATURES: Array<WelcomeFeature> = [
   {
     title: '自由配置',
-    description: '随心切换翻译引擎与字幕样式，匹配不同的交流场景。'
-  },
-  {
-    title: '隐私守护',
-    description: 'API 密钥与语音只在本地处理，不会上传到云端。'
+    description: '随心切换翻译引擎与字幕样式，匹配不同的交流场景。',
+    icon: $r('app.media.configuration'),
+    span: 2
   },
   {
     title: '多场景适配',
-    description: '会议、听障辅助、跨语对话皆可使用，实时沟通更轻松。'
+    description: '会议、听障辅助、跨语对话皆可使用，实时沟通更轻松。',
+    icon: $r('app.media.translation'),
+    span: 2
+  },
+  {
+    title: '隐私守护',
+    description: 'API 密钥与语音只在本地处理，不会上传到云端。',
+    icon: $r('app.media.privacy'),
+    span: 1
+  },
+  {
+    title: '历史记录',
+    description: '本地存储对话历史，随时回顾重要信息。',
+    icon: $r('app.media.history'),
+    span: 1
+  },
+  {
+    title: '悬浮窗',
+    description: '支持画中画模式，在其他应用上层显示字幕。',
+    icon: $r('app.media.pip'),
+    span: 2
+  },
+  {
+    title: '设备流转',
+    description: '手机、平板间翻译无缝流转。',
+    icon: $r('app.media.share'),
+    span: 2
   }
 ];
 
@@ -139,6 +189,10 @@ struct Index {
 
   // Configuration main-page state
   @State apiOptions: string[] = ['OpenAI', 'DeepL', 'Ollama', 'Doubao'];
+
+  // Continuity
+  @State showDeviceDialog: boolean = false;
+  @State deviceList: DeviceInfo[] = [];
   @State selectedApiIndex: number = 0;
 
   @State intervalOptions: string[] = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
@@ -178,6 +232,9 @@ struct Index {
   @State doubaoApiKey: string = '';
   @State doubaoModel: string = 'ep-20251221220646-rnx4c';
 
+  // Glossary
+  @State glossary: string = 'HarmonyOS = 鸿蒙';
+
   // Subtitle Style Config
   @State subtitleFontSize: number = 20;
   @State subtitleFontColor: string = '#FFFFFF';
@@ -198,11 +255,23 @@ struct Index {
 
   @State isWelcomeFlowActive: boolean = true;
   @State welcomeStage: WelcomeStage = WelcomeStage.Intro;
+
+  @State currentFeatureIndex: number = 0;
+  featureDialogController: CustomDialogController = new CustomDialogController({
+    builder: FeatureDialog({ index: $currentFeatureIndex }),
+    autoCancel: true,
+    alignment: DialogAlignment.Center,
+    customStyle: true
+  });
   @State isWelcomeSheetOpen: boolean = false;
   @State welcomeButtonScale: number = 1.0;
   @State isWelcomeButtonActive: boolean = false;
-  @State welcomeFeatureScales: number[] = [1.0, 1.0, 1.0];
+  @State welcomeFeatureScales: number[] = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0];
   @State activeWelcomeFeature: number = -1;
+  @State breathingScale: number = 1.0;
+
+  // Global light effect brightness: true = BRIGHT, false = SOFT
+  @State isLightEffectBright: boolean = true;
 
   // Subtitle Window State
   @State isRealtimeReadingEnabled: boolean = false;
@@ -251,6 +320,10 @@ struct Index {
   // 上次保存到数据库的时间戳
   private lastDbSaveTs: number = 0;
 
+  // 跨端流转状态监听
+  @StorageProp('voot_continuity_restored') @Watch('onContinuityRestored') continuityRestored: boolean = false;
+  private lastContinuityRestoreTs: number = 0;
+
   /**
    * Widget PiP toggle handler
    */
@@ -279,6 +352,189 @@ struct Index {
       TextReader.stop();
     }
     console.info('[Index] onWidgetReadingToggle new state: ' + this.isRealtimeReadingEnabled);
+  }
+
+  /**
+   * 跨端流转状态恢复回调（@Watch 触发）
+   */
+  onContinuityRestored(): void {
+    // 避免重复处理
+    const now = Date.now();
+    if (!this.continuityRestored || now - this.lastContinuityRestoreTs < 1000) {
+      return;
+    }
+    this.lastContinuityRestoreTs = now;
+    console.info('[Index] onContinuityRestored triggered via @Watch');
+
+    const stateJson = AppStorage.get<string>('voot_continuity_state');
+    if (!stateJson) {
+      console.info('[Index] No continuity state to restore');
+      return;
+    }
+
+    // 使用统一的恢复方法
+    this.restoreContinuityStateDirectly(stateJson);
+  }
+
+  /**
+   * 直接恢复流转状态（用于 aboutToAppear 和 onContinuityRestored）
+   */
+  private restoreContinuityStateDirectly(stateJson: string): void {
+    try {
+      const state = JSON.parse(stateJson) as ContinuityStateExtended;
+      console.info('[Index] restoreContinuityStateDirectly: ' +
+        'isListening=' + state.isListening +
+        ', currentTab=' + state.currentTab +
+        ', originalTextLen=' + state.originalText.length);
+
+      // 恢复显示文本（仅用于展示，不影响后续录音）
+      this.originalDemoText = state.originalText;
+      this.translatedDemoText = state.translatedText;
+      this.fullOriginalText = state.fullOriginalText;
+      this.fullTranslatedText = state.fullTranslatedText;
+      this.currentSessionId = state.sessionId;
+      
+      // 重要：不恢复 isTranslating 和 isListening 状态！
+      // 目标设备需要从干净状态开始，避免卡住
+      this.isTranslating = false;
+      this.isListening = false;
+      this.pendingTranslationText = ''; // 清空待翻译文本
+
+      // 恢复 API 配置
+      if (state.apiConfig && state.apiConfig !== '{}') {
+        try {
+          const apiConfig: ApiConfigSnapshot = JSON.parse(state.apiConfig) as ApiConfigSnapshot;
+          this.applyApiConfigSnapshot(apiConfig);
+        } catch (e) {
+          console.error('[Index] Failed to restore API config: ' + JSON.stringify(e));
+        }
+      }
+
+      // 恢复字幕样式配置
+      if (state.subtitleConfig) {
+        this.subtitleFontSize = state.subtitleConfig.fontSize;
+        this.subtitleFontColor = state.subtitleConfig.fontColor;
+        this.subtitleBackgroundColor = state.subtitleConfig.backgroundColor;
+        this.subtitleHeight = state.subtitleConfig.height;
+      }
+
+      // 恢复实时朗读状态
+      if (state.isRealtimeReading) {
+        this.isRealtimeReadingEnabled = true;
+      }
+
+      // 切换到翻译页（索引 1），确保流转后直接展示字幕/翻译状态
+      const targetTab = state.currentTab !== undefined && state.currentTab >= 1 ? state.currentTab : 1;
+      this.currentTab = targetTab;
+      // 延迟切换 Tab，确保 HdsTabs 渲染完成
+      setTimeout(() => {
+        this.switchToTab(targetTab);
+        console.info('[Index] Tab switched to: ' + targetTab);
+      }, 100);
+      setTimeout(() => {
+        this.switchToTab(targetTab);
+      }, 300);
+
+      // 恢复 PiP 悬浮窗状态
+      if (state.isPipEnabled || state.originalText.length > 0 || state.translatedText.length > 0) {
+        setTimeout(() => {
+          if (!this.isPipSubtitleEnabled) {
+            this.togglePipSubtitle(true);
+          }
+        }, 1000);
+      }
+
+      // 处理录音状态
+      if (state.isListening) {
+        this.showContinueRecordingDialog();
+      } else {
+        promptAction.showToast({
+          message: '已从其他设备接续字幕和翻译',
+          duration: 2000
+        });
+      }
+
+      // 清除恢复标记
+      AppStorage.setOrCreate('voot_continuity_restored', false);
+      AppStorage.setOrCreate('voot_continuity_state', '');
+
+    } catch (err) {
+      console.error('[Index] restoreContinuityStateDirectly error: ' + JSON.stringify(err));
+    }
+  }
+
+  /**
+   * 显示继续录音确认对话框
+   */
+  private showContinueRecordingDialog(): void {
+    promptAction.showDialog({
+      title: '接续传译',
+      message: '检测到源设备正在进行语音识别，是否在本设备继续录音？',
+      buttons: [
+        { text: '仅查看字幕', color: '#666666' },
+        { text: '继续录音', color: '#3c1464' }
+      ]
+    }).then((result) => {
+      if (result.index === 1) {
+        // 用户选择继续录音
+        this.startMicCaptioning();
+        promptAction.showToast({
+          message: '已开始录音',
+          duration: 2000
+        });
+      } else {
+        // 仅查看字幕，不开始录音
+        promptAction.showToast({
+          message: '已接续字幕，可随时点击麦克风开始录音',
+          duration: 2000
+        });
+      }
+    }).catch((err: BusinessError) => {
+      console.error('[Index] showContinueRecordingDialog error: ' + JSON.stringify(err));
+      // 对话框失败时默认显示提示
+      promptAction.showToast({
+        message: '已从其他设备接续字幕',
+        duration: 2000
+      });
+    });
+  }
+
+  // 封装 tab 切换，兼容不同控制器方法名
+  private switchToTab(targetTab: number): void {
+    try {
+      // HdsTabsController 使用 changeIndex 方法
+      this.tabsController.changeIndex(targetTab);
+      console.info('[Index] switchToTab via changeIndex: ' + targetTab);
+    } catch (e) {
+      console.warn('[Index] changeIndex failed, trying fallback: ' + JSON.stringify(e));
+      // 备用方式：直接设置 currentTab 状态
+      this.currentTab = targetTab;
+    }
+  }
+
+  /**
+   * 同步当前状态到 AppStorage（供流转使用）
+   */
+  private syncContinuityState(): void {
+    AppStorage.setOrCreate('voot_is_listening', this.isListening);
+    AppStorage.setOrCreate('voot_is_translating', this.isTranslating);
+    AppStorage.setOrCreate('voot_original_text', this.originalDemoText);
+    AppStorage.setOrCreate('voot_translated_text', this.translatedDemoText);
+    AppStorage.setOrCreate('voot_session_id', this.currentSessionId);
+    AppStorage.setOrCreate('voot_full_original_text', this.fullOriginalText);
+    AppStorage.setOrCreate('voot_full_translated_text', this.fullTranslatedText);
+    AppStorage.setOrCreate('voot_current_tab', this.currentTab);
+    AppStorage.setOrCreate('voot_api_config_json', JSON.stringify(this.buildApiConfigSnapshot()));
+    // 同步实时朗读和 PiP 状态
+    AppStorage.setOrCreate('voot_is_realtime_reading', this.isRealtimeReadingEnabled);
+    AppStorage.setOrCreate('voot_is_pip_enabled', this.isPipSubtitleEnabled);
+    // 同步字幕样式
+    AppStorage.setOrCreate('voot_subtitle_config', JSON.stringify({
+      fontSize: this.subtitleFontSize,
+      fontColor: this.subtitleFontColor,
+      backgroundColor: this.subtitleBackgroundColor,
+      height: this.subtitleHeight
+    }));
   }
 
   /**
@@ -499,8 +755,37 @@ struct Index {
   }
 
   async aboutToAppear(): Promise<void> {
-    this.evaluateFirstLaunch();
     AppStorage.setOrCreate('voot_translated_text', '');
+
+    // 检查是否有待恢复的流转状态（在组件初始化时就检查）
+    const pendingContinuity = AppStorage.get<boolean>('voot_continuity_restored');
+    const pendingStateJson = AppStorage.get<string>('voot_continuity_state');
+    
+    // 如果是流转恢复，直接跳过欢迎流程
+    if (pendingContinuity && pendingStateJson) {
+      console.info('[Index] Continuity restore detected, skipping welcome flow');
+      this.isWelcomeFlowActive = false;
+      this.hasStartedMainExperience = true;
+      // 延迟执行恢复，确保组件完全渲染
+      setTimeout(() => {
+        this.restoreContinuityStateDirectly(pendingStateJson);
+      }, 300);
+      // 同时初始化必要服务
+      this.requestMicPermission();
+      this.initSherpaAsr();
+    } else {
+      this.evaluateFirstLaunch();
+    }
+
+    // 设置应用为可迁移状态（官方接续指导）
+    try {
+      const ctx = getContext(this) as common.UIAbilityContext;
+      ctx.setMissionContinueState(AbilityConstant.ContinueState.ACTIVE, (result) => {
+        console.info('[Index] setMissionContinueState ACTIVE result: ' + JSON.stringify(result));
+      });
+    } catch (e) {
+      console.error('[Index] setMissionContinueState failed: ' + JSON.stringify(e));
+    }
 
     // Mark component as ready after a short delay to avoid initial @Watch triggers
     setTimeout(() => {
@@ -673,6 +958,7 @@ struct Index {
     this.subtitleFontColor = snapshot.subtitleFontColor;
     this.subtitleBackgroundColor = snapshot.subtitleBackgroundColor;
     this.subtitleHeight = snapshot.subtitleHeight !== undefined ? snapshot.subtitleHeight : 20;
+    this.glossary = snapshot.glossary !== undefined ? snapshot.glossary : '';
   }
 
   private buildApiConfigSnapshot(): ApiConfigSnapshot {
@@ -697,8 +983,19 @@ struct Index {
       subtitleFontSize: this.subtitleFontSize,
       subtitleFontColor: this.subtitleFontColor,
       subtitleBackgroundColor: this.subtitleBackgroundColor,
-      subtitleHeight: this.subtitleHeight
+      subtitleHeight: this.subtitleHeight,
+      glossary: this.glossary
     };
+  }
+
+  private buildSubtitleStyleConfig(): SubtitleStyleConfig {
+    const config: SubtitleStyleConfig = {
+      fontSize: this.subtitleFontSize,
+      fontColor: this.subtitleFontColor,
+      backgroundColor: this.subtitleBackgroundColor,
+      height: this.subtitleHeight
+    };
+    return config;
   }
 
   private persistApiConfigSnapshot(): void {
@@ -832,40 +1129,38 @@ struct Index {
   private WelcomeFeatureCard(feature: WelcomeFeature, index: number) {
     Button() {
       Column() {
-        Text(feature.title)
-          .fontSize(16)
-          .fontWeight(FontWeight.Medium)
-          .fontColor(Color.White)
-          .margin({ bottom: 6 })
-        Text(feature.description)
-          .fontSize(13)
-          .fontColor(Color.Grey)
-          .lineHeight(20)
+        Image(feature.icon)
+          .width(32)
+          .height(32)
+          .objectFit(ImageFit.Contain)
+          .fillColor((this.activeWelcomeFeature === index || feature.title === '隐私守护') ? '#3c1464' : Color.White)
       }
       .width('100%')
-      .alignItems(HorizontalAlign.Start)
+      .height('100%')
+      .justifyContent(FlexAlign.Center)
+      .alignItems(HorizontalAlign.Center)
     }
     .type(ButtonType.Normal)
-    .backgroundColor("#b33c1464")
-    .width('100%')
-    .padding({ left: 14, right: 14, top: 14, bottom: 14 })
-    .margin({ bottom: index === (WELCOME_FEATURES.length - 1) ? 0 : 12 })
-    .borderRadius(18)
+    .backgroundColor((this.activeWelcomeFeature === index || feature.title === '隐私守护') ? Color.White : "#b33c1464")
+    .layoutWeight(feature.span)
+    .aspectRatio(feature.span)
+    .borderRadius(999)
     .shadow({
       radius: 18,
       color: '#22000000',
       offsetY: 2,
       offsetX: 0
     })
-    .scale({ x: this.welcomeFeatureScales[index], y: this.welcomeFeatureScales[index] })
+    .scale({
+      x: this.welcomeFeatureScales[index] * this.breathingScale,
+      y: this.welcomeFeatureScales[index] * this.breathingScale
+    })
     .visualEffect(new hdsEffect.HdsEffectBuilder()
       .pointLight({
-        sourceType: this.activeWelcomeFeature === index
-          ? hdsEffect.PointLightSourceType.BRIGHT
+        sourceType: (this.activeWelcomeFeature === index || feature.title === '隐私守护')
+          ? hdsEffect.PointLightSourceType.SOFT
           : hdsEffect.PointLightSourceType.NONE,
-        illuminatedType: this.activeWelcomeFeature >= 0
-          ? hdsEffect.PointLightIlluminatedType.BORDER
-          : hdsEffect.PointLightIlluminatedType.NONE
+        illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
       })
       .buildEffect())
     .onTouch((event: TouchEvent) => {
@@ -875,45 +1170,209 @@ struct Index {
         this.releaseWelcomeFeature(index);
       }
     })
+    .onClick(() => {
+      this.currentFeatureIndex = index;
+      this.featureDialogController.open();
+    })
+  }
+
+  private getDeviceTypeLabel(type: number | string): string {
+    // Handle string types (from deviceInfo)
+    if (typeof type === 'string') {
+      const typeUpper = type.toUpperCase();
+      switch (typeUpper) {
+        case 'PHONE': return '手机';
+        case 'TABLET':
+        case 'PAD': return '平板';
+        case 'WEARABLE':
+        case 'WATCH': return '手表';
+        case 'TV': return '智慧屏';
+        case '2IN1': return '二合一';
+        case 'CAR': return '车机';
+        case 'PC': return '电脑';
+      }
+    }
+    return '其他设备';
+  }
+
+  private getDeviceIcon(type: number | string): Resource {
+    let typeStr = '';
+    if (typeof type === 'string') {
+      typeStr = type.toUpperCase();
+    }
+
+    switch (typeStr) {
+      case 'PHONE': return $r('sys.symbol.phone_1');
+      case 'TABLET': return $r('sys.symbol.unknown_device');
+      case 'PAD': return $r('sys.symbol.pad');
+      case 'WEARABLE': return $r('sys.symbol.unknown_device');
+      case 'WATCH': return $r('sys.symbol.watch');
+      case 'TV': return $r('sys.symbol.TV_tv');
+      case '2IN1': return $r('sys.symbol.unknown_device');
+      case 'PC': return $r('sys.symbol.pc');
+      case 'CAR': return $r('sys.symbol.car');
+      default: return $r('sys.symbol.bluetooth');
+    }
+  }
+
+  @Builder
+  private DeviceSelectionDialog() {
+    Column() {
+      Text('选择流转设备')
+        .fontSize(20)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(Color.White)
+        .margin({ bottom: 8, top: 16 })
+        .width('100%')
+        .textAlign(TextAlign.Center)
+
+      Text('暂仅支持手机与平板流转')
+        .fontSize(12)
+        .fontColor(Color.Gray)
+        .margin({ bottom: 16 })
+        .width('100%')
+        .textAlign(TextAlign.Center)
+
+      if (this.deviceList.length === 0) {
+        Column() {
+          LoadingProgress()
+            .width(40)
+            .height(40)
+            .margin({ bottom: 10 })
+          Text('正在搜索设备...')
+            .fontSize(14)
+            .fontColor(Color.Gray)
+        }
+        .height(150)
+        .justifyContent(FlexAlign.Center)
+      } else {
+        List() {
+          ForEach(this.deviceList, (device: DeviceInfo) => {
+            ListItem() {
+              Row() {
+                SymbolGlyph(this.getDeviceIcon(device.deviceType))
+                  .fontSize(24)
+                  .fontColor([Color.White])
+                  .margin({ right: 16 })
+
+                Column() {
+                  Text(device.deviceName)
+                    .fontSize(16)
+                    .fontColor(Color.White)
+                    .fontWeight(FontWeight.Medium)
+                  Text(this.getDeviceTypeLabel(device.deviceType))
+                    .fontSize(12)
+                    .fontColor(Color.Gray)
+                    .margin({ top: 4 })
+                }
+                .alignItems(HorizontalAlign.Start)
+
+                Blank()
+
+                Button('流转')
+                  .fontSize(14)
+                  .height(32)
+                  .backgroundColor("#3c1464")
+                  .onClick(() => {
+                    this.selectDevice(device);
+                  })
+              }
+              .width('100%')
+              .padding({ top: 12, bottom: 12, left: 16, right: 16 })
+            }
+          })
+        }
+        .constraintSize({ minHeight: 100, maxHeight: 300 })
+        .width('100%')
+      }
+
+      Button('取消')
+        .width('90%')
+        .margin({ top: 16, bottom: 16 })
+        .backgroundColor("#3c1464")
+        .onClick(() => {
+          this.showDeviceDialog = false;
+          ContinuityService.getInstance().stopDiscovering();
+        })
+    }
+    .width('100%')
+    .backgroundColor(Color.Transparent)
+    .borderRadius({ topLeft: 16, topRight: 16 })
   }
 
   @Builder
   private WelcomeScreen() {
     Column() {
-      Image($r('app.media.foreground'))
-        .width(96)
-        .height(96)
-        // .margin({ bottom: 6 })
-        .objectFit(ImageFit.Contain)
-        .alignSelf(ItemAlign.Center)
+      // 1. Header
       Column() {
+        Image($r('app.media.foreground'))
+          .width(96)
+          .height(96)
+          .objectFit(ImageFit.Contain)
+          .alignSelf(ItemAlign.Center)
+          .margin({ bottom: 24 })
+
         Text('欢迎使用 Voot')
           .fontSize(28)
           .fontWeight(FontWeight.Bold)
           .fontColor(Color.White)
           .margin({ bottom: 12 })
-        Text('Voot 的诞生致力于用LLM赋能同声传译')
+          .alignSelf(ItemAlign.Center)
+
+        Text('Voot 致力用语言模型赋能同声传译碎片化问题')
           .fontSize(15)
           .fontColor('#DDFFFFFF')
           .lineHeight(22)
-          .margin({ bottom: 24 })
+          .textAlign(TextAlign.Center)
+      }
+      .width('100%')
+
+      // 2. Feature Cards (Middle)
+      Column() {
         Column() {
-          ForEach(WELCOME_FEATURES, (feature: WelcomeFeature, index?: number) => {
-            this.WelcomeFeatureCard(feature, index ?? 0);
-          }, (feature: WelcomeFeature, index?: number) => `${index ?? 0}-${feature.title}`)
+          // Row 1: xx xx x
+          Row({ space: 12 }) {
+            ForEach(WELCOME_FEATURES.slice(0, 3), (feature: WelcomeFeature, index: number) => {
+              this.WelcomeFeatureCard(feature, index);
+            })
+          }
+          .width('100%')
+          .margin({ bottom: 12 })
+
+          // Row 2: x xx xx
+          Row({ space: 12 }) {
+            ForEach(WELCOME_FEATURES.slice(3, 6), (feature: WelcomeFeature, index: number) => {
+              this.WelcomeFeatureCard(feature, index + 3);
+            })
+          }
+          .width('100%')
         }
+        .visualEffect(new hdsEffect.HdsEffectBuilder()
+          .pointLight({
+            illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
+          })
+          .buildEffect())
         .width('100%')
         .padding({ left: 16, right: 16, top: 16, bottom: 16 })
         .backgroundColor('#333c1464')
         .borderRadius(18)
         .margin({ bottom: 12 })
 
-        Text('试着点击上面的卡片，感受HarmonyOS为您带来的的光！')
-          .fontSize(12)
-          .fontColor(Color.Gray)
-          .margin({ bottom: 12 });
+        Text('点击上面的按钮，了解更多 Voot 如何工作')
+          .visualEffect(new hdsEffect.HdsEffectBuilder()
+            .pointLight({
+              sourceType: hdsEffect.PointLightSourceType.SOFT,
+              illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
+            })
+            .buildEffect())
+          .fontSize(15)
+          .fontColor(Color.White)
+          .textAlign(TextAlign.Center)
+          .width('100%')
       }
       .width('100%')
+
+      // 3. Footer
       Column() {
         Button(this.getWelcomeButtonLabel())
           .type(ButtonType.Capsule)
@@ -925,10 +1384,10 @@ struct Index {
           .visualEffect(new hdsEffect.HdsEffectBuilder()
             .pointLight({
               sourceType: this.isWelcomeButtonActive
-                ? hdsEffect.PointLightSourceType.BRIGHT
+                ? hdsEffect.PointLightSourceType.SOFT
                 : hdsEffect.PointLightSourceType.NONE,
               illuminatedType: this.isWelcomeButtonActive
-                ? hdsEffect.PointLightIlluminatedType.BORDER
+                ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
                 : hdsEffect.PointLightIlluminatedType.NONE
             })
             .buildEffect())
@@ -956,8 +1415,36 @@ struct Index {
     }
     .width('100%')
     .height('100%')
+    .constraintSize({ maxWidth: 480 })
     .padding({ left: 32, right: 32, top: 80, bottom: 48 })
     .justifyContent(FlexAlign.SpaceBetween)
+    .onAppear(() => {
+      animateTo({
+        duration: 2000,
+        iterations: -1,
+        curve: Curve.EaseInOut,
+        playMode: PlayMode.Alternate
+      }, () => {
+        this.breathingScale = 1.05;
+      })
+    })
+    .bindSheet(
+      $$this.isWelcomeSheetOpen,
+      PolicySheetContent(
+        getPolicySheetConfig(this.welcomePolicyType),
+        this.welcomePolicyController,
+        () => {
+          this.handleWelcomeSheetConfirmed();
+        },
+        getContext(this) as common.UIAbilityContext
+      ), {
+        detents: [SheetSize.FIT_CONTENT, SheetSize.MEDIUM],
+        dragBar: true,
+        backgroundColor: '#e63c1464',
+        blurStyle: BlurStyle.BACKGROUND_REGULAR,
+        enableOutsideInteractive: false
+      }
+    )
   }
 
   build() {
@@ -988,6 +1475,8 @@ struct Index {
                 doubaoApiUrl: this.doubaoApiUrl,
                 doubaoApiKey: this.doubaoApiKey,
                 doubaoModel: this.doubaoModel,
+                glossary: this.glossary,
+                isLightEffectBright: this.isLightEffectBright,
                 onBack: () => {
                   this.currentTab = 0;
                   this.showApiSettings = false;
@@ -1037,10 +1526,15 @@ struct Index {
                   this.doubaoModel = value;
                   this.persistApiConfigSnapshot();
                 },
+                onUpdateGlossary: (value: string) => {
+                  this.glossary = value;
+                  this.persistApiConfigSnapshot();
+                },
                 getConfigTextAreaHeight: (rows: number) => this.getConfigTextAreaHeight(rows)
               });
             } else {
               ConfigurationPage({
+                isVisible: this.currentTab === 0,
                 apiOptions: this.apiOptions,
                 selectedApiIndex: this.selectedApiIndex,
                 languageOptions: this.languageOptions,
@@ -1054,6 +1548,7 @@ struct Index {
                 selectedContextsIndex: this.contextsIndex,
                 temperatureOptions: this.temperatureOptions,
                 selectedTemperatureIndex: this.temperatureIndex,
+                isLightEffectBright: this.isLightEffectBright,
                 onCycleApi: () => {
                   this.selectedApiIndex = (this.selectedApiIndex + 1) % this.apiOptions.length;
                   this.persistApiConfigSnapshot();
@@ -1104,6 +1599,8 @@ struct Index {
               isTranslating: this.isTranslating,
               currentApiLabel: this.getCurrentApiLabel(),
               currentLanguageLabel: this.getCurrentLanguageLabel(),
+              hasContinuityContent: this.originalDemoText.length > 0 || this.translatedDemoText.length > 0,
+              isLightEffectBright: this.isLightEffectBright,
               onToggleCaptioning: () => {
                 if (this.isListening) {
                   this.stopMicCaptioning();
@@ -1115,7 +1612,8 @@ struct Index {
               onOriginalTextChange: (value: string) => {
                 this.originalDemoText = this.trimRealtimeBuffer(value);
               },
-              onTranslatedTextChange: (value: string) => this.updateTranslationField(value)
+              onTranslatedTextChange: (value: string) => this.updateTranslationField(value),
+              onContinuityTransfer: () => this.startContinuityTransfer()
             });
           }
           .width('100%')
@@ -1128,7 +1626,10 @@ struct Index {
 
         TabContent() {
           Column() {
-            HistoryTabPage()
+            HistoryTabPage({
+              isVisible: this.currentTab === 2,
+              isLightEffectBright: this.isLightEffectBright
+            })
           }
           .width('100%')
         }
@@ -1147,6 +1648,7 @@ struct Index {
               subtitleFontColor: $subtitleFontColor,
               subtitleBackgroundColor: $subtitleBackgroundColor,
               subtitleHeight: $subtitleHeight,
+              isLightEffectBright: $isLightEffectBright,
               onTogglePipSubtitle: (isOn: boolean) => this.togglePipSubtitle(isOn),
               onToggleRealtimeReading: () => {
                 if (!this.isRealtimeReadingEnabled) {
@@ -1212,20 +1714,18 @@ struct Index {
       }
     }
     .bindSheet(
-      $$this.isWelcomeSheetOpen,
-      PolicySheetContent(
-        getPolicySheetConfig(this.welcomePolicyType),
-        this.welcomePolicyController,
-        () => {
-          this.handleWelcomeSheetConfirmed();
-        },
-        getContext(this) as common.UIAbilityContext
-      ), {
-        detents: [SheetSize.FIT_CONTENT, SheetSize.MEDIUM],
+      $$this.showDeviceDialog,
+      this.DeviceSelectionDialog(),
+      {
+        detents: [SheetSize.FIT_CONTENT, SheetSize.MEDIUM, SheetSize.LARGE],
         dragBar: true,
-        backgroundColor: '#e63c1464',
-        blurStyle: BlurStyle.BACKGROUND_REGULAR,
-        enableOutsideInteractive: false
+        backgroundColor: Color.Transparent,
+        blurStyle: BlurStyle.BACKGROUND_THIN,
+        enableOutsideInteractive: true,
+        onDisappear: () => {
+          this.showDeviceDialog = false;
+          ContinuityService.getInstance().stopDiscovering();
+        }
       }
     )
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP])
@@ -1264,7 +1764,13 @@ struct Index {
 
   private buildSystemPromptWithSource(text: string): string {
     const langName: string = this.getTargetLanguageName();
-    const promptWithLanguage: string = this.promptText.replace('{0}', langName);
+    let promptWithLanguage: string = this.promptText.replace('{0}', langName);
+
+    // Append Glossary instructions if available
+    if (this.glossary && this.glossary.trim().length > 0) {
+      promptWithLanguage += `\n\nStrictly follow this glossary:\n${this.glossary}`;
+    }
+
     const trimmedSource: string = text ? text.trim() : '';
 
     const numContexts: number = parseInt(this.contextsOptions[this.contextsIndex]);
@@ -1316,7 +1822,7 @@ struct Index {
       // 检查是否已包含此翻译（避免完全重复）
       if (this.fullTranslatedText.length === 0) {
         this.fullTranslatedText = newTranslation;
-      } else if (!this.fullTranslatedText.includes(newTranslation) && 
+      } else if (!this.fullTranslatedText.includes(newTranslation) &&
                  !newTranslation.includes(this.fullTranslatedText)) {
         // 只有当新翻译不是已有内容的子串或超集时才追加
         this.fullTranslatedText += '\n' + newTranslation;
@@ -1325,6 +1831,9 @@ struct Index {
         this.fullTranslatedText = newTranslation;
       }
     }
+
+    // 同步跨端流转状态
+    this.syncContinuityState();
 
     // 同步更新 PiP 字幕（不再依赖 isPipActive，避免状态延迟导致字幕不同步）
     if (this.isPipSubtitleEnabled && this.translatedDemoText) {
@@ -1615,7 +2124,7 @@ struct Index {
       const currentText = text.trim();
       if (this.fullOriginalText.length === 0) {
         this.fullOriginalText = currentText;
-      } else if (!this.fullOriginalText.includes(currentText) && 
+      } else if (!this.fullOriginalText.includes(currentText) &&
                  !currentText.includes(this.fullOriginalText)) {
         this.fullOriginalText += '\n' + currentText;
       } else if (currentText.length > this.fullOriginalText.length) {
@@ -1635,6 +2144,197 @@ struct Index {
     this.translateCurrentDemo();
   }
 
+  /**
+   * 启动跨端流转 - 将当前字幕会话流转到其他设备
+   */
+  private async startContinuityTransfer(): Promise<void> {
+    try {
+      const ctx = getContext(this) as common.UIAbilityContext;
+
+      // 确保状态已同步
+      this.syncContinuityState();
+
+      // 初始化设备管理服务
+      const service = ContinuityService.getInstance();
+      const initialized = await service.init(ctx);
+
+      if (!initialized) {
+        promptAction.showToast({ message: '无法初始化设备管理服务，请前往设置开启发现设备权限' });
+        return;
+      }
+
+      // 获取已信任设备
+      this.deviceList = service.getTrustedDevices();
+
+      // 注册回调
+      service.setOnDeviceFoundCallback((device: DeviceInfo) => {
+        // 检查是否已存在
+        const exists = this.deviceList.some(d => d.deviceId === device.deviceId);
+        if (!exists) {
+          this.deviceList.push(device);
+        }
+      });
+
+      service.setOnDeviceLostCallback((deviceId: string) => {
+        this.deviceList = this.deviceList.filter(d => d.deviceId !== deviceId);
+      });
+
+      // 开始发现设备
+      service.startDiscovering();
+
+      // 显示设备选择对话框
+      this.showDeviceDialog = true;
+
+    } catch (err) {
+      console.error('[Index] startContinuityTransfer error: ' + JSON.stringify(err));
+      promptAction.showToast({ message: '流转失败: ' + JSON.stringify(err) });
+    }
+  }
+
+  private async selectDevice(device: DeviceInfo): Promise<void> {
+    try {
+      const ctx = getContext(this) as common.UIAbilityContext;
+
+      promptAction.showToast({ message: '正在流转到 ' + device.deviceName });
+
+      console.info(`[Index] selectDevice: name=${device.deviceName}, type=${device.deviceType}, networkId=${device.networkId}, deviceId=${device.deviceId}`);
+
+      // 检查 networkId 是否有效
+      const service = ContinuityService.getInstance();
+
+      // 优先使用已有 networkId；若缺失再尝试绑定获取
+      let targetNetworkId: string = device.networkId || '';
+      if (!targetNetworkId || targetNetworkId.length === 0) {
+        const bound = await service.bindDevice(device.deviceId);
+        if (!bound) {
+          console.warn('[Index] bindDevice failed for ' + device.deviceId);
+        } else {
+          const refreshedDevices = service.getTrustedDevices();
+          const refreshed = refreshedDevices.find(d => d.deviceId === device.deviceId);
+          if (refreshed && refreshed.networkId) {
+            targetNetworkId = refreshed.networkId;
+            device.networkId = targetNetworkId;
+          }
+        }
+      }
+
+      if (!targetNetworkId || targetNetworkId.length === 0) {
+        targetNetworkId = device.deviceId;
+      }
+      if (!targetNetworkId || targetNetworkId.length === 0) {
+        promptAction.showToast({ message: '设备网络ID无效，请确认已配对并在同一网络' });
+        return;
+      }
+
+      // 同步当前状态到 AppStorage，供 onContinue 读取
+      this.syncContinuityState();
+
+      // 准备 API 配置快照（使用正确的属性名匹配 ApiConfigSnapshot）
+      const apiConfigSnapshot: ApiConfigSnapshot = {
+        promptText: this.promptText,
+        openAiApiUrl: this.openAiApiUrl,
+        openAiApiKey: this.openAiApiKey,
+        openAiModel: this.openAiModel,
+        deepLApiUrl: this.deepLApiUrl,
+        deepLApiKey: this.deepLApiKey,
+        ollamaApiUrl: this.ollamaApiUrl,
+        ollamaModel: this.ollamaModel,
+        doubaoApiUrl: this.doubaoApiUrl,
+        doubaoApiKey: this.doubaoApiKey,
+        doubaoModel: this.doubaoModel,
+        selectedApiIndex: this.selectedApiIndex,
+        selectedLanguageIndex: this.selectedLanguageIndex,
+        intervalIndex: this.intervalIndex,
+        contextsIndex: this.contextsIndex,
+        temperatureIndex: this.temperatureIndex,
+        maxTokensIndex: this.maxTokensIndex,
+        subtitleFontSize: this.subtitleFontSize,
+        subtitleFontColor: this.subtitleFontColor,
+        subtitleBackgroundColor: this.subtitleBackgroundColor,
+        subtitleHeight: this.subtitleHeight,
+        glossary: this.glossary
+      };
+
+      // 准备 continuation 数据（匹配 ContinuityState 接口）
+      const continuationState: ContinuityStateExtended = {
+        isListening: this.isListening,
+        isTranslating: this.isTranslating,
+        originalText: this.originalDemoText || this.fullOriginalText,
+        translatedText: this.translatedDemoText || this.fullTranslatedText,
+        sessionId: this.currentSessionId || 0,
+        fullOriginalText: this.fullOriginalText || this.originalDemoText,
+        fullTranslatedText: this.fullTranslatedText || this.translatedDemoText,
+        apiConfig: JSON.stringify(apiConfigSnapshot),
+        timestamp: Date.now(),
+        currentTab: this.currentTab,
+        // 新增：实时朗读和 PiP 状态
+        isRealtimeReading: this.isRealtimeReadingEnabled,
+        isPipEnabled: this.isPipSubtitleEnabled,
+        // 新增：字幕样式配置
+        subtitleConfig: this.buildSubtitleStyleConfig()
+      };
+
+      // 构建 want parameters，按文档使用字符串键以避免 ArkTS 限制
+      const wantParams: Record<string, Object> = {};
+      wantParams[CONTINUITY_KEY] = JSON.stringify(continuationState);
+
+      // 使用 startAbility 进行跨端流转（最小参数集）
+      const want: Want = {
+        deviceId: targetNetworkId || device.deviceId,
+        bundleName: 'com.zixiao.voot',
+        abilityName: 'EntryAbility',
+        moduleName: 'entry',
+        action: 'ohos.want.action.sendData',
+        flags: wantConstant.Flags.FLAG_INSTALL_ON_DEMAND,
+        parameters: wantParams
+      };
+
+      console.info(`[Index] startAbility want: deviceId=${targetNetworkId || device.deviceId}, bundleName=com.zixiao.voot, action=sendData`);
+
+      let startError: BusinessError | null = null;
+      try {
+        await ctx.startAbility(want);
+      } catch (e) {
+        startError = e as BusinessError;
+        console.warn('[Index] startAbility first attempt failed: code=' + startError.code + ', msg=' + startError.message);
+        if ((startError.code === 401 || startError.code === 16000011) && targetNetworkId !== device.deviceId) {
+          want.deviceId = device.deviceId;
+          console.info('[Index] retry startAbility with deviceId fallback');
+          await ctx.startAbility(want);
+          startError = null;
+        }
+      }
+
+      if (startError) {
+        throw new Error(`startAbility failed: code=${startError.code}, message=${startError.message}`);
+      }
+
+      this.showDeviceDialog = false;
+      ContinuityService.getInstance().stopDiscovering();
+
+      promptAction.showToast({ message: '流转成功' });
+
+    } catch (err) {
+      const e = err as BusinessError;
+      console.error('[Index] selectDevice error: code=' + e.code + ', message=' + e.message);
+
+      let msg = '流转失败';
+      if (e.code === 16000050) {
+        msg = '不支持该设备类型的流转';
+      } else if (e.code === 401) {
+        msg = '参数错误，请确保两设备登录同一华为账号、在同一网络，并在对端确认连接';
+      } else if (e.code === 16000001) {
+        msg = '目标设备上未安装 Voot';
+      } else if (e.code === 16000011) {
+        msg = '流转被拒绝，请检查设备连接';
+      } else {
+        msg = `流转失败: ${e.message || '未知错误'} (${e.code})`;
+      }
+
+      promptAction.showToast({ message: msg });
+    }
+  }
+
   private async startMicCaptioning(): Promise<void> {
     if (this.isListening) {
       return;
@@ -1642,18 +2342,40 @@ struct Index {
 
     // 1) Show immediate feedback
     this.isListening = true;
-    this.originalDemoText = this.trimRealtimeBuffer('[正在启动语音识别…]');
+    
+    // 彻底重置所有翻译相关状态，确保新录音能正常触发翻译
     this.lastTranslatedText = ''; // Reset to allow first translation
+    this.lastDisplayedText = ''; // Reset display tracking
+    this.lastAsrText = ''; // Reset ASR text tracking
+    this.lastAsrUpdateTs = 0; // Reset ASR timestamp
+    this.translatedDemoText = ''; // Clear old translation
+    this.originalDemoText = ''; // Clear old original text
+    this.contextHistory = []; // Clear context history
+    this.pendingTranslationText = ''; // Clear pending translation
+    this.isTranslating = false; // Ensure not stuck in translating state
+    
+    // Cancel any pending translation debounce
+    if (this.translationDebounceId !== undefined) {
+      clearTimeout(this.translationDebounceId);
+      this.translationDebounceId = undefined;
+    }
+
+    // Now show startup message
+    this.originalDemoText = this.trimRealtimeBuffer('[正在启动语音识别…]');
 
     // Start new session
     const now = new Date();
     const dateStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
     this.currentSessionId = await HistoryStorage.getInstance().createSession('新录音 ' + dateStr);
-    
+
     // 重置累积变量
     this.fullOriginalText = '';
     this.fullTranslatedText = '';
     this.lastDbSaveTs = Date.now();
+    this.lastRealtimeTranslateTs = 0; // 重置翻译时间戳
+
+    // 同步状态到 AppStorage（供跨端流转使用）
+    this.syncContinuityState();
 
     // 2) Try real mic + sherpa-onnx (Whisper)
     if (!this.isAsrReady || !this.micService) {
@@ -1683,14 +2405,14 @@ struct Index {
       if (displayText.length > 0 && displayText !== this.lastDisplayedText) {
         this.lastDisplayedText = displayText;
         this.originalDemoText = displayText;
-        
+
         // 累积原文到完整记录（智能追加，避免重复）
         if (res.text.trim().length > 0) {
           const currentText = res.text.trim();
           if (this.fullOriginalText.length === 0) {
             // 首次设置
             this.fullOriginalText = currentText;
-          } else if (!this.fullOriginalText.includes(currentText) && 
+          } else if (!this.fullOriginalText.includes(currentText) &&
                      !currentText.includes(this.fullOriginalText)) {
             // 新内容与已有内容没有包含关系，追加
             this.fullOriginalText += '\n' + currentText;
@@ -1700,7 +2422,7 @@ struct Index {
           }
           // 如果已有内容包含新内容，跳过（避免重复）
         }
-        
+
         // 按用户设置的间隔时间保存到数据库
         const now = Date.now();
         const saveIntervalMs = parseInt(this.intervalOptions[this.intervalIndex]) * 1000;
@@ -1712,7 +2434,7 @@ struct Index {
             this.fullTranslatedText
           );
         }
-        
+
         // Trigger translation
         this.scheduleRealtimeTranslation();
       }
@@ -1779,6 +2501,9 @@ struct Index {
     this.fullOriginalText = ''; // Reset full text
     this.fullTranslatedText = ''; // Reset full translation
 
+    // 同步停止状态到 AppStorage（流转时告知目标设备源已停止录音）
+    this.syncContinuityState();
+
     // Cancel pending debounce and do final translation
     if (this.translationDebounceId !== undefined) {
       clearTimeout(this.translationDebounceId);
@@ -1789,4 +2514,60 @@ struct Index {
     }
   }
 
+}
+
+@CustomDialog
+struct FeatureDialog {
+  controller: CustomDialogController
+  @Link index: number
+  @State scaleValue: number = 0.9
+
+  build() {
+    Column() {
+      // Animation: A gentle breathing effect
+      Image(WELCOME_FEATURES[this.index].icon)
+        .width(80)
+        .height(80)
+        .objectFit(ImageFit.Contain)
+        .fillColor('#3c1464')
+        .scale({ x: this.scaleValue, y: this.scaleValue })
+        .onAppear(() => {
+          animateTo({
+            duration: 1500,
+            iterations: -1,
+            curve: Curve.EaseInOut,
+            playMode: PlayMode.Alternate
+          }, () => {
+            this.scaleValue = 1.1
+          })
+        })
+        .margin({ bottom: 24 })
+
+      Text(WELCOME_FEATURES[this.index].title)
+        .fontSize(20)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(Color.Black)
+        .margin({ bottom: 12 })
+
+      Text(WELCOME_FEATURES[this.index].description)
+        .fontSize(16)
+        .fontColor(Color.Gray)
+        .textAlign(TextAlign.Center)
+        .lineHeight(24)
+        .margin({ bottom: 32 })
+
+      Button('了解')
+        .width('80%')
+        .height(48)
+        .backgroundColor('#3c1464')
+        .onClick(() => {
+          this.controller.close()
+        })
+    }
+    .width(300)
+    .padding(32)
+    .backgroundColor(Color.White)
+    .borderRadius(24)
+    .shadow({ radius: 32, color: '#44000000', offsetY: 8 })
+  }
 }

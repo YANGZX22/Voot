@@ -23,6 +23,7 @@ export interface ApiConfigSnapshot {
   subtitleFontColor: string;
   subtitleBackgroundColor: string;
   subtitleHeight: number;
+  glossary: string;
 }
 
 export interface PartialApiConfigSnapshot {
@@ -47,6 +48,7 @@ export interface PartialApiConfigSnapshot {
   subtitleFontColor?: string;
   subtitleBackgroundColor?: string;
   subtitleHeight?: number;
+  glossary?: string;
 }
 
 export class ApiConfigStorage {
@@ -118,6 +120,7 @@ export class ApiConfigStorage {
     sanitized.contextsIndex = ApiConfigStorage.pickNumber(candidate.contextsIndex, defaults.contextsIndex);
     sanitized.maxTokensIndex = ApiConfigStorage.pickNumber(candidate.maxTokensIndex, defaults.maxTokensIndex);
     sanitized.temperatureIndex = ApiConfigStorage.pickNumber(candidate.temperatureIndex, defaults.temperatureIndex);
+    sanitized.glossary = ApiConfigStorage.pickString(candidate.glossary, defaults.glossary);
     return sanitized;
   }
 
@@ -155,7 +158,8 @@ export class ApiConfigStorage {
       subtitleFontSize: snapshot.subtitleFontSize,
       subtitleFontColor: snapshot.subtitleFontColor,
       subtitleBackgroundColor: snapshot.subtitleBackgroundColor,
-      subtitleHeight: snapshot.subtitleHeight
+      subtitleHeight: snapshot.subtitleHeight,
+      glossary: snapshot.glossary
     };
   }
 }

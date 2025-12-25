@@ -59,7 +59,17 @@ It is designed with three core principles: **security, privacy, and simplicity**
 - 🌐 **Flexible language configuration**
   - Global “target language” selector.
   - Per-API configuration (prompt, system instructions, etc.).
+- 📚 **Glossary / Terminology Support**
+  - Define custom term pairs (e.g., `HarmonyOS=鸿蒙`) to force specific translations.
+  - Injected directly into the LLM system prompt for high adherence.
 
+- 🔄 **Device Continuation (流转)**
+  - Seamlessly transfer your active translation session to another HarmonyOS device (e.g., from Phone to Tablet).
+  - Keeps your current transcription and translation context intact.
+
+- 📂 **History & Favorites**
+  - Automatically saves your translation sessions locally.
+  - Review past conversations and star ⭐ important ones for quick access.
 - � **Token Usage Analytics**
   - Track your API usage and costs in real-time.
   - Visual charts for daily/weekly consumption.
@@ -173,6 +183,18 @@ In the **“目标语言 / Target language”** section:
 1. Select your default output language (e.g. 中文, English, etc.).
 2. The chosen target language is used for all translation APIs by default.
 
+### Glossary / Terminology
+
+In the **“术语库 / Glossary”** menu:
+
+1. Enter term pairs in the format `Original=Translation` (one per line).
+2. Example:
+   ```text
+   HarmonyOS=鸿蒙
+   AI=人工智能
+   ```
+3. These terms are automatically appended to the system prompt, instructing the LLM to strictly follow your terminology.
+
 
 ## Usage
 
@@ -222,6 +244,9 @@ Finished / planned / possible work:
 * Live Window on HarmonyOS (Realized ✅) 
 * Desktop Widgets (Realized ✅)
 * Token usage analytics (Realized ✅)
+* Glossary / Terminology Support (Realized ✅)
+* Device Continuation (Realized ✅)
+* History & Favorites (Realized ✅)
 * Support for more LLM / translation APIs (e.g. Google Translate)
 * Enhanced ASR and cutoff logic
 * More supported original languages

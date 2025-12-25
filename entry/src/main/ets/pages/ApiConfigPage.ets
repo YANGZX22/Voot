@@ -4,6 +4,7 @@ const TITLE_BAR_HEIGHT_MINI: number = 84;
 
 export enum ApiMenuType {
   Prompt = 0,
+  Glossary,
   OpenAI,
   DeepL,
   Ollama,
@@ -24,6 +25,7 @@ export interface ApiConfigPageProps {
   doubaoApiUrl: string;
   doubaoApiKey: string;
   doubaoModel: string;
+  glossary: string;
   onBack: () => void;
   onSelectMenu: (menu: ApiMenuType) => void;
   onUpdatePrompt: (value: string) => void;
@@ -37,6 +39,7 @@ export interface ApiConfigPageProps {
   onUpdateDoubaoApiUrl: (value: string) => void;
   onUpdateDoubaoApiKey: (value: string) => void;
   onUpdateDoubaoModel: (value: string) => void;
+  onUpdateGlossary: (value: string) => void;
   getConfigTextAreaHeight: (rows: number) => number;
 }
 
@@ -46,6 +49,7 @@ struct MenuButton {
   @Prop label: string;
   @Prop menuType: ApiMenuType;
   @Prop isSelected: boolean;
+  @Prop isLightEffectBright: boolean = true;
 
   // Lighting Props
   @Prop isSource: boolean;      // True if THIS button is touched
@@ -59,11 +63,11 @@ struct MenuButton {
   build() {
     Button() {
       Row() {
-        if (this.isSelected) {
-          Image($r('app.media.'+ this.label))
-            .width(20)
-            .height(20)
-        }
+        Image($r('app.media.'+ this.label))
+          .width(20)
+          .height(20)
+          .fillColor(Color.White)
+
         Text(" " + this.label)
           .layoutWeight(1)
           .fontSize(15)
@@ -84,17 +88,17 @@ struct MenuButton {
     .height(44)
     .padding({ left: 12, right: 12 })
     .margin({ bottom: 8 })
-    .backgroundColor(this.isSelected ? "#bf3c1464" : Color.Transparent)
+    .backgroundColor(Color.Transparent)
     .borderRadius(12)
-    .border({ width: 1, color: this.isSelected ? Color.Gray : Color.Transparent })
+    .border({ width: 0 })
     // --- APPLY VISUAL EFFECT HERE ---
     .visualEffect(new hdsEffect.HdsEffectBuilder()
       .pointLight({
         sourceType: this.isSource
-          ? hdsEffect.PointLightSourceType.SOFT
+          ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT)
           : hdsEffect.PointLightSourceType.NONE,
         illuminatedType: this.isIlluminated
-          ? hdsEffect.PointLightIlluminatedType.BORDER
+          ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
           : hdsEffect.PointLightIlluminatedType.NONE
       })
       .buildEffect())
@@ -124,6 +128,8 @@ export struct ApiConfigPage {
   @Prop doubaoApiUrl: string = "";
   @Prop doubaoApiKey: string = "";
   @Prop doubaoModel: string = "";
+  @Prop glossary: string = "";
+  @Prop isLightEffectBright: boolean = true;
 
   // Callbacks (Initialized to empty functions)
   onBack: () => void = () => {};
@@ -139,12 +145,15 @@ export struct ApiConfigPage {
   onUpdateDoubaoApiUrl: (value: string) => void = () => {};
   onUpdateDoubaoApiKey: (value: string) => void = () => {};
   onUpdateDoubaoModel: (value: string) => void = () => {};
+  onUpdateGlossary: (value: string) => void = () => {};
   // Helper for TextArea height
   getConfigTextAreaHeight: (rows: number) => number = (rows: number) => rows * 20;
 
   // --- STATE FOR LIGHTING EFFECT ---
   // Tracks which menu ID is currently being touched. -1 means none.
   @State activeMenuId: number = -1;
+  // State for sidebar visibility
+  @State isSideBarShown: boolean = false;
 
   build() {
     HdsNavigation() {
@@ -153,14 +162,28 @@ export struct ApiConfigPage {
 
         SideBarContainer(SideBarContainerType.Embed) {
           // --- Side Panel (Menu) ---
-          Column() {
-            Blank().height(24);
+          Stack({ alignContent: Alignment.TopStart }) {
+            // Selection Indicator
+            Column()
+              .width('100%')
+              .height(44)
+              .backgroundColor("#bf3c1464")
+              .borderRadius(22)
+              .border({ width: 1, color: Color.Gray })
+              .margin({ top: 24 }) // Match the initial Blank height
+              .translate({ y: this.selectedMenu * 52 }) // 44 (height) + 8 (margin)
+              .animation({ duration: 300, curve: Curve.EaseInOut })
+              .hitTestBehavior(HitTestMode.None) // Allow clicks to pass through to buttons
 
-            // Menu Item 1: Prompt
+            Column() {
+              Blank().height(24);
+
+              // Menu Item 1: Prompt
             MenuButton({
               label: 'Prompt',
               menuType: ApiMenuType.Prompt,
               isSelected: this.selectedMenu === ApiMenuType.Prompt,
+              isLightEffectBright: this.isLightEffectBright,
               isSource: this.activeMenuId === ApiMenuType.Prompt,
               isIlluminated: this.activeMenuId !== -1, // Illuminated if ANY button is touched
               onTouchStart: () => { this.activeMenuId = ApiMenuType.Prompt; },
@@ -168,11 +191,25 @@ export struct ApiConfigPage {
               onClickAction: () => this.onSelectMenu(ApiMenuType.Prompt)
             });
 
+            // Menu Item 6: Glossary
+            MenuButton({
+              label: 'Glossary',
+              menuType: ApiMenuType.Glossary,
+              isSelected: this.selectedMenu === ApiMenuType.Glossary,
+              isLightEffectBright: this.isLightEffectBright,
+              isSource: this.activeMenuId === ApiMenuType.Glossary,
+              isIlluminated: this.activeMenuId !== -1,
+              onTouchStart: () => { this.activeMenuId = ApiMenuType.Glossary; },
+              onTouchEnd: () => { this.activeMenuId = -1; },
+              onClickAction: () => this.onSelectMenu(ApiMenuType.Glossary)
+            });
+
             // Menu Item 2: OpenAI
             MenuButton({
               label: 'OpenAI',
               menuType: ApiMenuType.OpenAI,
               isSelected: this.selectedMenu === ApiMenuType.OpenAI,
+              isLightEffectBright: this.isLightEffectBright,
               isSource: this.activeMenuId === ApiMenuType.OpenAI,
               isIlluminated: this.activeMenuId !== -1,
               onTouchStart: () => { this.activeMenuId = ApiMenuType.OpenAI; },
@@ -185,6 +222,7 @@ export struct ApiConfigPage {
               label: 'DeepL',
               menuType: ApiMenuType.DeepL,
               isSelected: this.selectedMenu === ApiMenuType.DeepL,
+              isLightEffectBright: this.isLightEffectBright,
               isSource: this.activeMenuId === ApiMenuType.DeepL,
               isIlluminated: this.activeMenuId !== -1,
               onTouchStart: () => { this.activeMenuId = ApiMenuType.DeepL; },
@@ -197,6 +235,7 @@ export struct ApiConfigPage {
               label: 'Ollama',
               menuType: ApiMenuType.Ollama,
               isSelected: this.selectedMenu === ApiMenuType.Ollama,
+              isLightEffectBright: this.isLightEffectBright,
               isSource: this.activeMenuId === ApiMenuType.Ollama,
               isIlluminated: this.activeMenuId !== -1,
               onTouchStart: () => { this.activeMenuId = ApiMenuType.Ollama; },
@@ -209,6 +248,7 @@ export struct ApiConfigPage {
               label: 'Doubao',
               menuType: ApiMenuType.Doubao,
               isSelected: this.selectedMenu === ApiMenuType.Doubao,
+              isLightEffectBright: this.isLightEffectBright,
               isSource: this.activeMenuId === ApiMenuType.Doubao,
               isIlluminated: this.activeMenuId !== -1,
               onTouchStart: () => { this.activeMenuId = ApiMenuType.Doubao; },
@@ -219,9 +259,13 @@ export struct ApiConfigPage {
             Blank().height(16);
           }
           .width('100%')
-          .padding({ left: 4, right: 4, top: 24, bottom: 24 })
+          // .padding({ left: 4, right: 4, top: 24, bottom: 24 }) // Moved padding to Stack
           .justifyContent(FlexAlign.Start)
           .alignItems(HorizontalAlign.Start);
+          }
+          .width('100%')
+          .padding({ left: 4, right: 4, top: 24, bottom: 24 })
+          .alignContent(Alignment.TopStart)
 
           // --- Content Panel ---
           this.ContentPanel()
@@ -229,17 +273,9 @@ export struct ApiConfigPage {
         .sideBarWidth('160vp')
         .minContentWidth('360vp')
         .autoHide(true)
-        .showSideBar(false)
-        .controlButton({
-          top: 6, left: 22,
-          icons: {
-            shown: $r("app.media.sidebaron"),
-            hidden: $r("app.media.sidebaroff"),
-            switching: $r("app.media.sidebarmiddle")
-          },
-          width: 28,
-          height: 28
-        })
+        .showSideBar($$this.isSideBarShown)
+        .sideBarPosition(SideBarPosition.Start)
+        .showControlButton(false)
         .width('100%')
         .layoutWeight(1);
       }
@@ -263,7 +299,6 @@ export struct ApiConfigPage {
           contentStyle: {
             titleStyle: {
               mainTitleColor: $r('sys.color.font_primary'),
-              subTitleColor: $r('sys.color.font_secondary')
             },
             menuStyle: {
               backgroundColor: $r('sys.color.comp_background_tertiary'),
@@ -280,15 +315,38 @@ export struct ApiConfigPage {
             titleStyle: {
               mainTitleColor: Color.White,
             },
+            menuStyle: {
+              backgroundColor: $r('sys.color.comp_background_tertiary'),
+              iconColor: Color.White
+            },
             backIconStyle: {
               backgroundColor: $r('sys.color.comp_background_tertiary'),
               iconColor: Color.White
             }
           }
-        },
+        }
       },
       content: {
-        title: { mainTitle: '配置API' },
+        title: {
+          mainTitle: '配置 API',
+        },
+        menu: {
+          value: [{
+            content: {
+              label: this.isSideBarShown ? '关闭侧边栏' : '打开侧边栏',
+              icon: this.isSideBarShown ? $r('sys.symbol.open_sidebar') : $r('sys.symbol.close_sidebar'),
+              isEnabled: true,
+              action: () => {
+                animateTo({
+                  duration: 500,
+                  curve: Curve.EaseInOut
+                }, () => {
+                  this.isSideBarShown = !this.isSideBarShown;
+                });
+              }
+            }
+          }]
+        },
         backIcon: {
           label: 'Back',
           action: () => this.onBack()
@@ -315,17 +373,19 @@ export struct ApiConfigPage {
             // In a real app, converting sub-builders to @Component structs is better.
           } else {
             if (this.selectedMenu === ApiMenuType.OpenAI) {
-              this.RenderProviderHeader('OpenAI');
+              this.RenderProviderHeader('OpenAI', $r('app.media.OpenAI'));
               this.RenderOpenAiConfig();
             } else if (this.selectedMenu === ApiMenuType.DeepL) {
-              this.RenderProviderHeader('DeepL');
+              this.RenderProviderHeader('DeepL', $r('app.media.DeepL'));
               this.RenderDeepLConfig();
             } else if (this.selectedMenu === ApiMenuType.Ollama) {
-              this.RenderProviderHeader('Ollama');
+              this.RenderProviderHeader('Ollama', $r('app.media.Ollama'));
               this.RenderOllamaConfig();
             } else if (this.selectedMenu === ApiMenuType.Doubao) {
-              this.RenderProviderHeader('Doubao');
+              this.RenderProviderHeader('Doubao', $r('app.media.Doubao'));
               this.RenderDoubaoConfig();
+            } else if (this.selectedMenu === ApiMenuType.Glossary) {
+              this.RenderGlossaryConfig();
             }
           }
         }
@@ -340,12 +400,23 @@ export struct ApiConfigPage {
   }
 
   @Builder
-  RenderProviderHeader(title: string) {
-    Text(title)
-      .fontColor(Color.White)
-      .fontSize(20)
-      .fontWeight(FontWeight.Bold)
-      .margin({ bottom: 16 });
+  RenderProviderHeader(title: string, icon?: ResourceStr) {
+    Column() {
+      if (icon) {
+        Image(icon)
+          .width(48)
+          .height(48)
+          .margin({ bottom: 8 })
+          .fillColor(Color.White)
+      }
+      Text(title)
+        .fontColor(Color.White)
+        .fontSize(20)
+        .fontWeight(FontWeight.Bold)
+        .margin({ bottom: 16 })
+    }
+    .alignItems(HorizontalAlign.Center)
+    .width('100%')
   }
 
   @Builder
@@ -475,6 +546,33 @@ export struct ApiConfigPage {
     .padding(12)
     .borderRadius(12);
   }
+
+  @Builder
+  RenderGlossaryConfig() {
+    Column() {
+      Image($r('app.media.Glossary'))
+        .width(48)
+        .height(48)
+        .margin({ bottom: 8 })
+        .fillColor(Color.White)
+      Text('术语库 (Glossary)').fontSize(20).fontWeight(FontWeight.Bold).margin({ bottom: 12 }).fontColor(Color.White);
+      Text('每行输入一个术语对，格式为：原文=译文\n例如：\nHarmonyOS=鸿蒙\nAI=人工智能')
+        .fontSize(14)
+        .fontColor(Color.Gray)
+        .margin({ bottom: 12 });
+
+      TextArea({ text: this.glossary })
+        .fontColor(Color.White)
+        .width('100%')
+        .height(this.getConfigTextAreaHeight(10))
+        .maxLines(20)
+        .textAlign(TextAlign.Start)
+        .onChange((value: string) => this.onUpdateGlossary(value));
+    }
+    .width('100%')
+    .padding(12)
+    .borderRadius(12);
+  }
 }
 
 // Global Builder for PromptContent (needed because of the switch case in the previous code)
@@ -482,6 +580,11 @@ export struct ApiConfigPage {
 @Builder
 function PromptContent(props: ApiConfigPageProps) {
   Column() {
+    Image($r('app.media.Prompt'))
+      .width(48)
+      .height(48)
+      .margin({ bottom: 8 })
+      .fillColor(Color.White)
     Text('Prompt')
       .fontColor(Color.White)
       .fontSize(20)

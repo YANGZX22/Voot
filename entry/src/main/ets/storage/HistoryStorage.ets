@@ -80,6 +80,29 @@ export class HistoryStorage {
     await this.rdbStore.update(valueBucket, predicates);
   }
 
+  public async getSessionById(id: number): Promise<Session | undefined> {
+    if (!this.rdbStore) return undefined;
+    const predicates = new relationalStore.RdbPredicates('session');
+    predicates.equalTo('id', id);
+    const resultSet = await this.rdbStore.query(predicates);
+    if (resultSet.goToNextRow()) {
+      const session: Session = {
+        id: resultSet.getLong(resultSet.getColumnIndex('id')),
+        title: resultSet.getString(resultSet.getColumnIndex('title')),
+        startTime: resultSet.getLong(resultSet.getColumnIndex('startTime')),
+        endTime: resultSet.getLong(resultSet.getColumnIndex('endTime')),
+        originalText: resultSet.getString(resultSet.getColumnIndex('originalText')),
+        translatedText: resultSet.getString(resultSet.getColumnIndex('translatedText')),
+        summary: resultSet.getString(resultSet.getColumnIndex('summary')),
+        isStarred: resultSet.getLong(resultSet.getColumnIndex('isStarred')) === 1
+      };
+      resultSet.close();
+      return session;
+    }
+    resultSet.close();
+    return undefined;
+  }
+
   public async getSessions(): Promise<Session[]> {
     if (!this.rdbStore) return [];
     const predicates = new relationalStore.RdbPredicates('session');

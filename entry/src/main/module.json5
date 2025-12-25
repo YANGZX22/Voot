@@ -1,4 +1,4 @@
-{
+﻿{
   "module": {
     "requestPermissions": [
       {
@@ -19,6 +19,11 @@
         "name": "ohos.permission.KEEP_BACKGROUND_RUNNING",
         "reason": "$string:background_running_reason",
         "usedScene": { "when": "always" }
+      },
+      {
+        "name": "ohos.permission.DISTRIBUTED_DATASYNC",
+        "reason": "$string:distributed_reason",
+        "usedScene": { "when": "inuse" }
       }
     ],
     "name": "entry",
@@ -43,6 +48,10 @@
         "startWindowIcon": "$media:startIcon",
         "startWindowBackground": "$color:start_window_background",
         "exported": true,
+        "continuable": true,
+        "continueType": [
+          "voot_continue"
+        ],
         "backgroundModes": [
           "audioRecording",
           "audioPlayback"
@@ -54,6 +63,12 @@
             ],
             "actions": [
               "ohos.want.action.home"
+            ]
+          },
+          {
+            "actions": [
+              "ohos.want.action.sendData",
+              "ohos.want.action.continue"
             ]
           }
         ]
@@ -77,3 +92,4 @@
     "dependencies": []
   }
 }
+

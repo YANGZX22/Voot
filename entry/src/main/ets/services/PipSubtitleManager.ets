@@ -6,7 +6,15 @@
  *
  * @fileoverview This file contains code related to AI content generation.
  * @compliance EU AI Act, US EO 14110, China Interim Measures for Generative AI Services
- * @metadata {"ai_generated_content": true, "sensitive_logic": true}
+ * @metadata {
+ *   "Label": "AI_Generated_Content",
+ *   "ContentProducer": "Voot_App",
+ *   "ProduceID": "VOOT_GEN_001",
+ *   "ReservedCode1": "RESERVED",
+ *   "ContentPropagator": "Voot_App",
+ *   "PropagateID": "VOOT_PROP_001",
+ *   "ReservedCode2": "RESERVED"
+ * }
  */
 
 import { PiPWindow } from '@kit.ArkUI';
@@ -14,6 +22,7 @@ import { BusinessError } from '@ohos.base';
 import { NodeController, FrameNode, BuilderNode, UIContext } from '@kit.ArkUI';
 import { typeNode } from '@ohos.arkui.node';
 import common from '@ohos.app.ability.common';
+import { deviceInfo } from '@kit.BasicServicesKit';
 
 const TAG = '[PipSubtitle]';
 
@@ -184,14 +193,18 @@ export class PipSubtitleManager {
     }
 
     try {
+      // 根据设备类型动态调整 PiP 窗口宽度
+      // 平板设备使用更宽的窗口以便更好地显示字幕
+      const contentWidth = this.getOptimalPipWidth();
+      console.info(`${TAG} Device type: ${deviceInfo.deviceType}, PiP width: ${contentWidth}`);
+
       // Create PiP configuration
       // Use VIDEO_LIVE template, suitable for real-time content
-      // Width is fixed at 400, height is configurable for subtitle display
       const config: PiPWindow.PiPConfiguration = {
         context: ctx,
         componentController: this.xComponentController,
         templateType: PiPWindow.PiPTemplateType.VIDEO_LIVE,
-        contentWidth: 400,
+        contentWidth: contentWidth,
         contentHeight: contentHeight,
         // Use customUIController to display subtitles
         customUIController: this.nodeController
@@ -216,6 +229,21 @@ export class PipSubtitleManager {
       console.error(`${TAG} Failed to create PiP controller: ${error.code}, ${error.message}`);
       return false;
     }
+  }
+
+  /**
+   * 根据设备类型获取最佳 PiP 窗口宽度
+   * 平板设备使用更宽的窗口
+   */
+  private getOptimalPipWidth(): number {
+    const type = deviceInfo.deviceType;
+    // deviceType: 'phone', 'tablet', '2in1', 'default' 等
+    if (type === 'tablet' || type === '2in1') {
+      // 平板和2合1设备使用更宽的窗口
+      return 800;
+    }
+    // 手机使用默认宽度
+    return 400;
   }
 
   /**

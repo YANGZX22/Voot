@@ -61,6 +61,10 @@
     {
       "name": "widget_desc_3",
       "value": "控制画中画字幕和朗读功能"
+    },
+    {
+      "name": "distributed_reason",
+      "value": "Voot 需要分布式同步权限，用于将字幕流转到平板或电脑继续查看。"
     }
   ]
 }
