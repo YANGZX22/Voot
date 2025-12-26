@@ -14,6 +14,7 @@ struct ConfigCard {
   btnId: number = 0;
   isSymbol: boolean = false;
   @Prop isLightEffectBright: boolean = true;
+  @Prop isDarkMode: boolean = true;
   callback: () => void = () => {};
   onInfoClick?: () => void = undefined;
   
@@ -74,12 +75,14 @@ struct ConfigCard {
       })
       .visualEffect(new hdsEffect.HdsEffectBuilder()
         .pointLight({
-          sourceType: this.activeBtn === this.btnId
+          sourceType: this.isDarkMode ? hdsEffect.PointLightSourceType.NONE :
+            (this.activeBtn === this.btnId
             ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT)
-            : hdsEffect.PointLightSourceType.NONE,
-          illuminatedType: this.activeBtn !== 0
+            : hdsEffect.PointLightSourceType.NONE),
+          illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE :
+            (this.activeBtn !== 0
             ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
-            : hdsEffect.PointLightIlluminatedType.NONE
+            : hdsEffect.PointLightIlluminatedType.NONE)
         })
         .buildEffect())
     }
@@ -148,6 +151,7 @@ export struct ConfigurationPage {
   @Prop selectedMaxTokensIndex: number = 0;
   @Prop @Watch('onVisibleChange') isVisible: boolean = false;
   @Prop isLightEffectBright: boolean = true;
+  @Prop isDarkMode: boolean = true;
 
   // Callbacks
   onCycleApi: () => void = () => {};
@@ -359,6 +363,7 @@ export struct ConfigurationPage {
                 content: this.apiOptions[this.selectedApiIndex],
                 btnId: 1,
                 isLightEffectBright: this.isLightEffectBright,
+                isDarkMode: this.isDarkMode,
                 callback: () => this.onCycleApi(),
                 activeBtn: $activeBtn,
                 onInfoClick: () => {
@@ -383,6 +388,7 @@ export struct ConfigurationPage {
                 content: '',
                 btnId: 2,
                 isLightEffectBright: this.isLightEffectBright,
+                isDarkMode: this.isDarkMode,
                 callback: () => this.handleConfigApi(),
                 isSymbol: true,
                 activeBtn: $activeBtn,
@@ -408,6 +414,7 @@ export struct ConfigurationPage {
                 content: '英语',
                 btnId: 3,
                 isLightEffectBright: this.isLightEffectBright,
+                isDarkMode: this.isDarkMode,
                 callback: () => {
                   // ToastUtil.showToast('当前仅支持英语作为原始语言 😭');
                 },
@@ -434,6 +441,7 @@ export struct ConfigurationPage {
                 content: this.getLanguageLabels()[this.selectedLanguageIndex],
                 btnId: 4,
                 isLightEffectBright: this.isLightEffectBright,
+                isDarkMode: this.isDarkMode,
                 callback: () => this.onCycleLanguage(),
                 activeBtn: $activeBtn,
                 onInfoClick: () => {
@@ -458,6 +466,7 @@ export struct ConfigurationPage {
                 content: this.intervalOptions[this.selectedIntervalIndex],
                 btnId: 5,
                 isLightEffectBright: this.isLightEffectBright,
+                isDarkMode: this.isDarkMode,
                 callback: () => this.showTextPicker(this.intervalOptions, this.selectedIntervalIndex, this.onSelectInterval),
                 activeBtn: $activeBtn,
                 onInfoClick: () => {
@@ -482,6 +491,7 @@ export struct ConfigurationPage {
                 content: this.contextsOptions[this.selectedContextsIndex],
                 btnId: 6,
                 isLightEffectBright: this.isLightEffectBright,
+                isDarkMode: this.isDarkMode,
                 callback: () => this.showTextPicker(this.contextsOptions, this.selectedContextsIndex, this.onSelectContexts),
                 activeBtn: $activeBtn,
                 onInfoClick: () => {
@@ -506,6 +516,7 @@ export struct ConfigurationPage {
                 content: this.temperatureOptions[this.selectedTemperatureIndex],
                 btnId: 7,
                 isLightEffectBright: this.isLightEffectBright,
+                isDarkMode: this.isDarkMode,
                 callback: () => this.showTextPicker(this.temperatureOptions, this.selectedTemperatureIndex, this.onSelectTemperature),
                 activeBtn: $activeBtn,
                 onInfoClick: () => {
@@ -530,6 +541,7 @@ export struct ConfigurationPage {
                 content: this.maxTokensOptions[this.selectedMaxTokensIndex],
                 btnId: 8,
                 isLightEffectBright: this.isLightEffectBright,
+                isDarkMode: this.isDarkMode,
                 callback: () => this.showTextPicker(this.maxTokensOptions, this.selectedMaxTokensIndex, this.onSelectMaxTokens),
                 activeBtn: $activeBtn,
                 onInfoClick: () => {

@@ -18,6 +18,7 @@ import abilityAccessCtrl, { Permissions, PermissionRequestResult } from '@ohos.a
 import type { BusinessError } from '@ohos.base';
 import common from '@ohos.app.ability.common';
 import AbilityConstant from '@ohos.app.ability.AbilityConstant';
+import ConfigurationConstant from '@ohos.app.ability.ConfigurationConstant';
 import Want from '@ohos.app.ability.Want';
 import wantConstant from '@ohos.app.ability.wantConstant';
 import { hdsEffect, HdsTabs, HdsTabsAttribute, HdsTabsController, DividerMode } from '@kit.UIDesignKit';
@@ -256,6 +257,18 @@ struct Index {
 
   // Global light effect brightness: true = BRIGHT, false = SOFT
   @State isLightEffectBright: boolean = true;
+  // Dark mode: true = dark, false = light
+  @State isDarkMode: boolean = true;
+  
+  @StorageProp('currentColorMode') @Watch('onColorModeChange') currentMode: number = ConfigurationConstant.ColorMode.COLOR_MODE_NOT_SET;
+
+  onColorModeChange() {
+    if (this.currentMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK) {
+      this.isDarkMode = true;
+    } else if (this.currentMode === ConfigurationConstant.ColorMode.COLOR_MODE_LIGHT) {
+      this.isDarkMode = false;
+    }
+  }
 
   // Subtitle Window State
   @State isRealtimeReadingEnabled: boolean = false;
@@ -736,6 +749,13 @@ struct Index {
   }
 
   async aboutToAppear(): Promise<void> {
+    // Initialize dark mode from system setting
+    if (this.currentMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK) {
+      this.isDarkMode = true;
+    } else if (this.currentMode === ConfigurationConstant.ColorMode.COLOR_MODE_LIGHT) {
+      this.isDarkMode = false;
+    }
+
     AppStorage.setOrCreate('voot_translated_text', '');
 
     // 检查是否有待恢复的流转状态（在组件初始化时就检查）
@@ -1141,8 +1161,11 @@ struct Index {
         .fill(Color.Transparent)
         .linearGradient({
           angle: 180,
-          colors: [['#8818052d', 0.0], ['#443c1464', 1.0]]
+          colors: this.isDarkMode 
+            ? [['#f2140334', 0.0], ['#e62a1243', 1.0]]
+            : [['#4418052d', 0.0], ['#223c1464', 1.0]]
         })
+        .animation({ duration: 500, curve: Curve.EaseInOut })
 
       Column() {
         HdsTabs({ controller: this.tabsController }) {
@@ -1164,6 +1187,7 @@ struct Index {
                 doubaoModel: this.doubaoModel,
                 glossary: this.glossary,
                 isLightEffectBright: this.isLightEffectBright,
+                isDarkMode: this.isDarkMode,
                 onBack: () => {
                   this.currentTab = 0;
                   this.showApiSettings = false;
@@ -1236,6 +1260,7 @@ struct Index {
                 temperatureOptions: this.temperatureOptions,
                 selectedTemperatureIndex: this.temperatureIndex,
                 isLightEffectBright: this.isLightEffectBright,
+                isDarkMode: this.isDarkMode,
                 onCycleApi: () => {
                   this.selectedApiIndex = (this.selectedApiIndex + 1) % this.apiOptions.length;
                   this.persistApiConfigSnapshot();
@@ -1288,6 +1313,7 @@ struct Index {
               currentLanguageLabel: this.getCurrentLanguageLabel(),
               hasContinuityContent: this.originalDemoText.length > 0 || this.translatedDemoText.length > 0,
               isLightEffectBright: this.isLightEffectBright,
+              isDarkMode: this.isDarkMode,
               onToggleCaptioning: () => {
                 if (this.isListening) {
                   this.stopMicCaptioning();
@@ -1315,7 +1341,8 @@ struct Index {
           Column() {
             HistoryTabPage({
               isVisible: this.currentTab === 2,
-              isLightEffectBright: this.isLightEffectBright
+              isLightEffectBright: this.isLightEffectBright,
+              isDarkMode: this.isDarkMode
             })
           }
           .width('100%')
@@ -1336,6 +1363,7 @@ struct Index {
               subtitleBackgroundColor: $subtitleBackgroundColor,
               subtitleHeight: $subtitleHeight,
               isLightEffectBright: $isLightEffectBright,
+              isDarkMode: $isDarkMode,
               onTogglePipSubtitle: (isOn: boolean) => this.togglePipSubtitle(isOn),
               onToggleRealtimeReading: () => {
                 if (!this.isRealtimeReadingEnabled) {
@@ -1454,7 +1482,7 @@ struct Index {
 
     // Append Glossary instructions if available
     if (this.glossary && this.glossary.trim().length > 0) {
-      promptWithLanguage += `\n\nStrictly follow this glossary:\n${this.glossary}`;
+      promptWithLanguage += `\n\nStrictly follow this glossary only when you hear the relevant terms:\n${this.glossary}`;
     }
 
     const trimmedSource: string = text ? text.trim() : '';

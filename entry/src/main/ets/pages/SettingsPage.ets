@@ -204,6 +204,7 @@ export struct SettingsPage {
   @Link subtitleBackgroundColor: string;
   @Link subtitleHeight: number;
   @Link isLightEffectBright: boolean;
+  @Link isDarkMode: boolean;
 
   // Callbacks
   onTogglePipSubtitle: (isOn: boolean) => void = () => {}; // PiP 字幕切换回调
@@ -253,6 +254,22 @@ export struct SettingsPage {
   @State settingsBtnTextColor: ResourceColor = Color.White;
   @State isSettingsBtnActive: boolean = false;
 
+  // State for Dark Mode button
+  @State darkModeBtnScale: number = 1.0;
+  @State isDarkModeBtnActive: boolean = false;
+
+  // State for Terms button
+  @State termsBtnScale: number = 1.0;
+  @State isTermsBtnActive: boolean = false;
+
+  // State for Privacy button
+  @State privacyBtnScale: number = 1.0;
+  @State isPrivacyBtnActive: boolean = false;
+
+  // State for About button
+  @State aboutBtnScale: number = 1.0;
+  @State isAboutBtnActive: boolean = false;
+
   private liveWindowDialogController?: CustomDialogController;
   private policyWebController: webview.WebviewController = new webview.WebviewController();
 
@@ -287,6 +304,24 @@ export struct SettingsPage {
       this.settingsBtnScale = 1.0;
       this.settingsBtnBgColor = '#3c1464';
       this.settingsBtnTextColor = Color.White;
+    });
+  }
+
+  private pressButtonEffect(btnId: number): void {
+    animateTo({ duration: 100, curve: Curve.EaseIn }, () => {
+      if (btnId === 1) { this.isDarkModeBtnActive = true; this.darkModeBtnScale = 0.9; }
+      if (btnId === 2) { this.isTermsBtnActive = true; this.termsBtnScale = 0.9; }
+      if (btnId === 3) { this.isPrivacyBtnActive = true; this.privacyBtnScale = 0.9; }
+      if (btnId === 4) { this.isAboutBtnActive = true; this.aboutBtnScale = 0.9; }
+    });
+  }
+
+  private releaseButtonEffect(btnId: number): void {
+    animateTo({ duration: 200, curve: Curve.EaseOut }, () => {
+      if (btnId === 1) { this.isDarkModeBtnActive = false; this.darkModeBtnScale = 1.0; }
+      if (btnId === 2) { this.isTermsBtnActive = false; this.termsBtnScale = 1.0; }
+      if (btnId === 3) { this.isPrivacyBtnActive = false; this.privacyBtnScale = 1.0; }
+      if (btnId === 4) { this.isAboutBtnActive = false; this.aboutBtnScale = 1.0; }
     });
   }
 
@@ -336,7 +371,7 @@ export struct SettingsPage {
           .opacity(this.isPipAvailable ? 1.0 : 0.6)
           .visualEffect(new hdsEffect.HdsEffectBuilder()
             .pointLight({
-              illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
+              illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE : hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
             })
             .buildEffect())
 
@@ -355,8 +390,10 @@ export struct SettingsPage {
               .scale({ x: this.settingsBtnScale, y: this.settingsBtnScale })
               .visualEffect(new hdsEffect.HdsEffectBuilder()
                 .pointLight({
-                  sourceType: this.isSettingsBtnActive ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT) : hdsEffect.PointLightSourceType.NONE,
-                  illuminatedType: this.isSettingsBtnActive ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT : hdsEffect.PointLightIlluminatedType.NONE
+                  sourceType: this.isDarkMode ? hdsEffect.PointLightSourceType.NONE :
+                    (this.isSettingsBtnActive ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT) : hdsEffect.PointLightSourceType.NONE),
+                  illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE :
+                    (this.isSettingsBtnActive ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT : hdsEffect.PointLightIlluminatedType.NONE)
                 })
                 .buildEffect())
               .onTouch((event: TouchEvent) => {
@@ -380,7 +417,7 @@ export struct SettingsPage {
           .backgroundColor('#803c1464')
           .visualEffect(new hdsEffect.HdsEffectBuilder()
             .pointLight({
-              illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
+              illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE : hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
             })
             .buildEffect())
 
@@ -438,13 +475,13 @@ export struct SettingsPage {
           .backgroundColor('#803c1464')
           .visualEffect(new hdsEffect.HdsEffectBuilder()
             .pointLight({
-              illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
+              illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE : hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
             })
             .buildEffect())
 
           Blank().height(12)
 
-          Text('光效')
+          Text('外观')
             .fontColor(Color.White)
             .fontSize(16)
             .fontWeight(FontWeight.Medium)
@@ -452,7 +489,64 @@ export struct SettingsPage {
 
           Row() {
             Blank().width(12)
-            Text('光效亮度').fontColor(Color.White)
+            Column() {
+              Text('深色模式').fontColor(Color.White).alignSelf(ItemAlign.Start)
+              Text('深色模式下光效被禁用')
+                .fontColor('#80FFFFFF')
+                .fontSize(12)
+                .alignSelf(ItemAlign.Start)
+            }
+
+            Blank()
+
+            Button({ type: ButtonType.Circle }) {
+              SymbolGlyph(this.isDarkMode ? $r('sys.symbol.moon_fill') : $r('sys.symbol.sun_max_fill'))
+                .fontSize(24)
+                .fontColor(["#3c1464"])
+                .symbolEffect(new ReplaceSymbolEffect(EffectScope.WHOLE))
+            }
+            .backgroundColor(Color.White)
+            .width(40)
+            .height(40)
+            .scale({ x: this.darkModeBtnScale, y: this.darkModeBtnScale })
+            .visualEffect(new hdsEffect.HdsEffectBuilder()
+              .pointLight({
+                sourceType: this.isDarkMode ? hdsEffect.PointLightSourceType.NONE :
+                  (this.isDarkModeBtnActive ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT) : hdsEffect.PointLightSourceType.NONE),
+                illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE :
+                  (this.isDarkModeBtnActive ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT : hdsEffect.PointLightIlluminatedType.NONE)
+              })
+              .buildEffect())
+            .onTouch((event: TouchEvent) => {
+              if (event.type === TouchType.Down) {
+                this.pressButtonEffect(1);
+              } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+                this.releaseButtonEffect(1);
+              }
+            })
+            .onClick(() => {
+              animateTo({ duration: 300 }, () => {
+                this.isDarkMode = !this.isDarkMode;
+              })
+            })
+
+            Blank().width(12)
+          }
+          .width('100%')
+          .height(70)
+          .padding(4)
+          .margin({ bottom: 12 })
+          .borderRadius(24)
+          .backgroundColor('#803c1464')
+          .visualEffect(new hdsEffect.HdsEffectBuilder()
+            .pointLight({
+              illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE : hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
+            })
+            .buildEffect())
+
+          Row() {
+            Blank().width(12)
+            Text('光效亮度').fontColor(this.isDarkMode ? '#80FFFFFF' : Color.White)
 
             Blank()
 
@@ -470,6 +564,8 @@ export struct SettingsPage {
               // buttonBackgroundEffect: {radius: 24}
             })
             .width(140)
+            .enabled(!this.isDarkMode)
+            .opacity(this.isDarkMode ? 0.5 : 1.0)
 
             Blank().width(12)
           }
@@ -479,9 +575,10 @@ export struct SettingsPage {
           .margin({ bottom: 12 })
           .borderRadius(24)
           .backgroundColor('#803c1464')
+          .opacity(this.isDarkMode ? 0.5 : 1.0)
           .visualEffect(new hdsEffect.HdsEffectBuilder()
             .pointLight({
-              illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
+              illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE : hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
             })
             .buildEffect())
 
@@ -507,6 +604,22 @@ export struct SettingsPage {
             .height(30)
             .margin(20)
             .backgroundColor(Color.White)
+            .scale({ x: this.termsBtnScale, y: this.termsBtnScale })
+            .visualEffect(new hdsEffect.HdsEffectBuilder()
+              .pointLight({
+                sourceType: this.isDarkMode ? hdsEffect.PointLightSourceType.NONE :
+                  (this.isTermsBtnActive ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT) : hdsEffect.PointLightSourceType.NONE),
+                illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE :
+                  (this.isTermsBtnActive ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT : hdsEffect.PointLightIlluminatedType.NONE)
+              })
+              .buildEffect())
+            .onTouch((event: TouchEvent) => {
+              if (event.type === TouchType.Down) {
+                this.pressButtonEffect(2);
+              } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+                this.releaseButtonEffect(2);
+              }
+            })
             .onClick(() => this.openPolicySheet(PolicySheetType.Terms))
 
           }
@@ -518,7 +631,7 @@ export struct SettingsPage {
           .backgroundColor('#803c1464')
           .visualEffect(new hdsEffect.HdsEffectBuilder()
             .pointLight({
-              illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
+              illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE : hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
             })
             .buildEffect())
 
@@ -536,6 +649,22 @@ export struct SettingsPage {
               .height(30)
               .margin(20)
               .backgroundColor(Color.White)
+              .scale({ x: this.privacyBtnScale, y: this.privacyBtnScale })
+              .visualEffect(new hdsEffect.HdsEffectBuilder()
+                .pointLight({
+                  sourceType: this.isDarkMode ? hdsEffect.PointLightSourceType.NONE :
+                    (this.isPrivacyBtnActive ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT) : hdsEffect.PointLightSourceType.NONE),
+                  illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE :
+                    (this.isPrivacyBtnActive ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT : hdsEffect.PointLightIlluminatedType.NONE)
+                })
+                .buildEffect())
+              .onTouch((event: TouchEvent) => {
+                if (event.type === TouchType.Down) {
+                  this.pressButtonEffect(3);
+                } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+                  this.releaseButtonEffect(3);
+                }
+              })
               .onClick(() => this.openPolicySheet(PolicySheetType.Privacy))
 
           }
@@ -547,7 +676,7 @@ export struct SettingsPage {
           .backgroundColor('#803c1464')
           .visualEffect(new hdsEffect.HdsEffectBuilder()
             .pointLight({
-              illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
+              illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE : hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
             })
             .buildEffect())
 
@@ -565,6 +694,22 @@ export struct SettingsPage {
               .height(30)
               .margin(20)
               .backgroundColor(Color.White)
+              .scale({ x: this.aboutBtnScale, y: this.aboutBtnScale })
+              .visualEffect(new hdsEffect.HdsEffectBuilder()
+                .pointLight({
+                  sourceType: this.isDarkMode ? hdsEffect.PointLightSourceType.NONE :
+                    (this.isAboutBtnActive ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT) : hdsEffect.PointLightSourceType.NONE),
+                  illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE :
+                    (this.isAboutBtnActive ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT : hdsEffect.PointLightIlluminatedType.NONE)
+                })
+                .buildEffect())
+              .onTouch((event: TouchEvent) => {
+                if (event.type === TouchType.Down) {
+                  this.pressButtonEffect(4);
+                } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+                  this.releaseButtonEffect(4);
+                }
+              })
               .onClick(() => this.openPolicySheet(PolicySheetType.About))
 
           }
@@ -576,7 +721,7 @@ export struct SettingsPage {
           .backgroundColor('#803c1464')
           .visualEffect(new hdsEffect.HdsEffectBuilder()
             .pointLight({
-              illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
+              illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE : hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
             })
             .buildEffect())
         }

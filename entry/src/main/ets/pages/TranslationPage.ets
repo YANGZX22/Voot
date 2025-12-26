@@ -29,6 +29,7 @@ export struct TranslationPage {
   @Prop currentLanguageLabel: string = '';
   @Prop hasContinuityContent: boolean = false;
   @Prop isLightEffectBright: boolean = true;
+  @Prop isDarkMode: boolean = true;
 
   // Callbacks
   onToggleCaptioning: () => void = () => {};
@@ -152,12 +153,14 @@ export struct TranslationPage {
               .enabled(this.isAsrReady || !this.isListening)
               .visualEffect(new hdsEffect.HdsEffectBuilder()
                 .pointLight({
-                  sourceType: this.activeBtn === 1
+                  sourceType: this.isDarkMode ? hdsEffect.PointLightSourceType.NONE :
+                    (this.activeBtn === 1
                     ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT)
-                    : hdsEffect.PointLightSourceType.NONE,
-                  illuminatedType: this.activeBtn !== 0
+                    : hdsEffect.PointLightSourceType.NONE),
+                  illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE :
+                    (this.activeBtn !== 0
                     ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
-                    : hdsEffect.PointLightIlluminatedType.NONE
+                    : hdsEffect.PointLightIlluminatedType.NONE)
                 })
                 .buildEffect())
               .onTouch((event: TouchEvent) => {
@@ -183,11 +186,13 @@ export struct TranslationPage {
           Column() {
             Text('原始文本')
               .fontSize(16)
+              .fontColor(this.isDarkMode ? Color.White : Color.Black)
               .margin({ bottom: 6 });
 
             TextArea({ text: this.originalDemoText })
               .width('100%')
               .height(160)
+              .fontColor(this.isDarkMode ? Color.White : Color.Black)
               .onChange((value: string) => this.onOriginalTextChange(value));
           }
           .width('100%')
@@ -204,12 +209,14 @@ export struct TranslationPage {
               .margin({ right: 8 })
               .visualEffect(new hdsEffect.HdsEffectBuilder()
                 .pointLight({
-                  sourceType: this.activeBtn === 2
+                  sourceType: this.isDarkMode ? hdsEffect.PointLightSourceType.NONE :
+                    (this.activeBtn === 2
                     ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT)
-                    : hdsEffect.PointLightSourceType.NONE,
-                  illuminatedType: this.activeBtn !== 0
+                    : hdsEffect.PointLightSourceType.NONE),
+                  illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE :
+                    (this.activeBtn !== 0
                     ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
-                    : hdsEffect.PointLightIlluminatedType.NONE
+                    : hdsEffect.PointLightIlluminatedType.NONE)
                 })
                 .buildEffect())
               .onTouch((event: TouchEvent) => {
@@ -240,12 +247,14 @@ export struct TranslationPage {
             .scale({ x: this.button3Scale, y: this.button3Scale })
             .visualEffect(new hdsEffect.HdsEffectBuilder()
               .pointLight({
-                sourceType: this.activeBtn === 3
+                sourceType: this.isDarkMode ? hdsEffect.PointLightSourceType.NONE :
+                  (this.activeBtn === 3
                   ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT)
-                  : hdsEffect.PointLightSourceType.NONE,
-                illuminatedType: this.activeBtn !== 0
+                  : hdsEffect.PointLightSourceType.NONE),
+                illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE :
+                  (this.activeBtn !== 0
                   ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
-                  : hdsEffect.PointLightIlluminatedType.NONE
+                  : hdsEffect.PointLightIlluminatedType.NONE)
               })
               .buildEffect())
             .onTouch((event: TouchEvent) => {
@@ -268,11 +277,13 @@ export struct TranslationPage {
           Column() {
             Text('翻译文本')
               .fontSize(16)
+              .fontColor(this.isDarkMode ? Color.White : Color.Black)
               .margin({ bottom: 6 });
 
             TextArea({ text: this.translatedDemoText })
               .width('100%')
               .height(160)
+              .fontColor(this.isDarkMode ? Color.White : Color.Black)
               .onChange((value: string) => this.onTranslatedTextChange(value));
 
             Row() {
@@ -338,7 +349,7 @@ export struct TranslationPage {
             {
               content: {
                 label: '解释',
-                icon: $r('sys.symbol.info_circle'),
+                icon: $r('sys.symbol.questionmark_circle'),
                 isEnabled: true,
                 action: () => {
                   animateTo({

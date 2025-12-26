@@ -50,6 +50,7 @@ struct MenuButton {
   @Prop menuType: ApiMenuType;
   @Prop isSelected: boolean;
   @Prop isLightEffectBright: boolean = true;
+  @Prop isDarkMode: boolean = true;
 
   // Lighting Props
   @Prop isSource: boolean;      // True if THIS button is touched
@@ -94,12 +95,14 @@ struct MenuButton {
     // --- APPLY VISUAL EFFECT HERE ---
     .visualEffect(new hdsEffect.HdsEffectBuilder()
       .pointLight({
-        sourceType: this.isSource
+        sourceType: this.isDarkMode ? hdsEffect.PointLightSourceType.NONE :
+          (this.isSource
           ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT)
-          : hdsEffect.PointLightSourceType.NONE,
-        illuminatedType: this.isIlluminated
+          : hdsEffect.PointLightSourceType.NONE),
+        illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE :
+          (this.isIlluminated
           ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
-          : hdsEffect.PointLightIlluminatedType.NONE
+          : hdsEffect.PointLightIlluminatedType.NONE)
       })
       .buildEffect())
     .onTouch((event: TouchEvent) => {
@@ -130,6 +133,7 @@ export struct ApiConfigPage {
   @Prop doubaoModel: string = "";
   @Prop glossary: string = "";
   @Prop isLightEffectBright: boolean = true;
+  @Prop isDarkMode: boolean = true;
 
   // Callbacks (Initialized to empty functions)
   onBack: () => void = () => {};
@@ -184,6 +188,7 @@ export struct ApiConfigPage {
               menuType: ApiMenuType.Prompt,
               isSelected: this.selectedMenu === ApiMenuType.Prompt,
               isLightEffectBright: this.isLightEffectBright,
+              isDarkMode: this.isDarkMode,
               isSource: this.activeMenuId === ApiMenuType.Prompt,
               isIlluminated: this.activeMenuId !== -1, // Illuminated if ANY button is touched
               onTouchStart: () => { this.activeMenuId = ApiMenuType.Prompt; },
@@ -197,6 +202,7 @@ export struct ApiConfigPage {
               menuType: ApiMenuType.Glossary,
               isSelected: this.selectedMenu === ApiMenuType.Glossary,
               isLightEffectBright: this.isLightEffectBright,
+              isDarkMode: this.isDarkMode,
               isSource: this.activeMenuId === ApiMenuType.Glossary,
               isIlluminated: this.activeMenuId !== -1,
               onTouchStart: () => { this.activeMenuId = ApiMenuType.Glossary; },
@@ -210,6 +216,7 @@ export struct ApiConfigPage {
               menuType: ApiMenuType.OpenAI,
               isSelected: this.selectedMenu === ApiMenuType.OpenAI,
               isLightEffectBright: this.isLightEffectBright,
+              isDarkMode: this.isDarkMode,
               isSource: this.activeMenuId === ApiMenuType.OpenAI,
               isIlluminated: this.activeMenuId !== -1,
               onTouchStart: () => { this.activeMenuId = ApiMenuType.OpenAI; },
@@ -223,6 +230,7 @@ export struct ApiConfigPage {
               menuType: ApiMenuType.DeepL,
               isSelected: this.selectedMenu === ApiMenuType.DeepL,
               isLightEffectBright: this.isLightEffectBright,
+              isDarkMode: this.isDarkMode,
               isSource: this.activeMenuId === ApiMenuType.DeepL,
               isIlluminated: this.activeMenuId !== -1,
               onTouchStart: () => { this.activeMenuId = ApiMenuType.DeepL; },
@@ -236,6 +244,7 @@ export struct ApiConfigPage {
               menuType: ApiMenuType.Ollama,
               isSelected: this.selectedMenu === ApiMenuType.Ollama,
               isLightEffectBright: this.isLightEffectBright,
+              isDarkMode: this.isDarkMode,
               isSource: this.activeMenuId === ApiMenuType.Ollama,
               isIlluminated: this.activeMenuId !== -1,
               onTouchStart: () => { this.activeMenuId = ApiMenuType.Ollama; },
@@ -249,6 +258,7 @@ export struct ApiConfigPage {
               menuType: ApiMenuType.Doubao,
               isSelected: this.selectedMenu === ApiMenuType.Doubao,
               isLightEffectBright: this.isLightEffectBright,
+              isDarkMode: this.isDarkMode,
               isSource: this.activeMenuId === ApiMenuType.Doubao,
               isIlluminated: this.activeMenuId !== -1,
               onTouchStart: () => { this.activeMenuId = ApiMenuType.Doubao; },

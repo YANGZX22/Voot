@@ -16,6 +16,7 @@ struct SwipeActionButton {
   @Prop iconColor: ResourceColor = Color.White;
   @Prop btnId: number = 0;
   @Prop isLightEffectBright: boolean = true;
+  @Prop isDarkMode: boolean = true;
   @Link activeBtnId: number;
   action: () => void = () => {};
   
@@ -35,8 +36,10 @@ struct SwipeActionButton {
     .scale({ x: this.scaleValue, y: this.scaleValue })
     .visualEffect(new hdsEffect.HdsEffectBuilder()
       .pointLight({
-        sourceType: this.activeBtnId === this.btnId ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT) : hdsEffect.PointLightSourceType.NONE,
-        illuminatedType: this.activeBtnId !== 0 ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT : hdsEffect.PointLightIlluminatedType.NONE
+        sourceType: this.isDarkMode ? hdsEffect.PointLightSourceType.NONE :
+          (this.activeBtnId === this.btnId ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT) : hdsEffect.PointLightSourceType.NONE),
+        illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE :
+          (this.activeBtnId !== 0 ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT : hdsEffect.PointLightIlluminatedType.NONE)
       })
       .buildEffect())
     .onTouch((event: TouchEvent) => {
@@ -62,6 +65,7 @@ struct SwipeActionButton {
 export struct HistoryTabPage {
   @Prop @Watch('onVisibleChange') isVisible: boolean = false;
   @Prop isLightEffectBright: boolean = true;
+  @Prop isDarkMode: boolean = true;
   @State sessions: Session[] = [];
   @State pendingDeleteId: number = -1;
   @State deleteMessage: string = '确定要删除这条历史记录吗？';
@@ -286,6 +290,7 @@ export struct HistoryTabPage {
         bgColor: Color.Red,
         btnId: 1,
         isLightEffectBright: this.isLightEffectBright,
+        isDarkMode: this.isDarkMode,
         activeBtnId: $activeSwipeBtnId,
         action: () => {
           this.pendingDeleteId = id;
@@ -301,6 +306,7 @@ export struct HistoryTabPage {
         bgColor: '#FFB800',
         btnId: 2,
         isLightEffectBright: this.isLightEffectBright,
+        isDarkMode: this.isDarkMode,
         activeBtnId: $activeSwipeBtnId,
         action: () => {
           this.toggleStar(session);
@@ -313,6 +319,7 @@ export struct HistoryTabPage {
         bgColor: '#4CAF50',
         btnId: 3,
         isLightEffectBright: this.isLightEffectBright,
+        isDarkMode: this.isDarkMode,
         activeBtnId: $activeSwipeBtnId,
         action: () => {
           this.shareSession(session);
@@ -400,7 +407,7 @@ export struct HistoryTabPage {
             {
               content: {
                 label: '解释',
-                icon: $r('sys.symbol.info_circle'),
+                icon: $r('sys.symbol.questionmark_circle'),
                 isEnabled: true,
                 action: () => {
                   animateTo({

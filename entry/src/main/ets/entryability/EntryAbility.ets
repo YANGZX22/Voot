@@ -1,4 +1,5 @@
 import UIAbility from '@ohos.app.ability.UIAbility';
+import { Configuration } from '@ohos.app.ability.Configuration';
 import window from '@ohos.window';
 import type Want from '@ohos.app.ability.Want';
 import AbilityConstant from '@ohos.app.ability.AbilityConstant';
@@ -32,6 +33,10 @@ export default class EntryAbility extends UIAbility {
 
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     console.info('[EntryAbility] onCreate, launchReason: ' + launchParam.launchReason);
+    
+    // Initialize color mode
+    AppStorage.setOrCreate('currentColorMode', this.context.config.colorMode);
+    
     this.startContinuousTask();
     this.handleWidgetAction(want);
 
@@ -68,6 +73,11 @@ export default class EntryAbility extends UIAbility {
     } catch (e) {
       console.error('[EntryAbility] Failed to register callee: ' + JSON.stringify(e));
     }
+  }
+
+  onConfigurationUpdate(newConfig: Configuration): void {
+    console.info('[EntryAbility] onConfigurationUpdate, colorMode: ' + newConfig.colorMode);
+    AppStorage.setOrCreate('currentColorMode', newConfig.colorMode);
   }
 
   onNewWant(want: Want, launchParam: AbilityConstant.LaunchParam): void {

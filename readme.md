@@ -71,7 +71,7 @@ It is designed with three core principles: **security, privacy, and simplicity**
 - 📂 **History & Favorites**
   - Automatically saves your translation sessions locally.
   - Review past conversations and star ⭐ important ones for quick access.
-- � **Token Usage Analytics**
+- 🎛️ **Token Usage Analytics**
   - Track your API usage and costs in real-time.
   - Visual charts for daily/weekly consumption.
   - Desktop widgets to monitor usage at a glance.
