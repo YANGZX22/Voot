@@ -11,6 +11,7 @@ import formBindingData from '@ohos.app.form.formBindingData';
 import formProvider from '@ohos.app.form.formProvider';
 import formInfo from '@ohos.app.form.formInfo';
 import { TokenUsageStorage } from '../storage/TokenUsageStorage';
+import { OnboardingStorage } from '../storage/OnboardingStorage';
 import { ContinuityState, CONTINUITY_KEY, SubtitleStyleConfig } from '../services/ContinuityService';
 
 // 扩展流转状态，包含翻译状态与当前Tab信息
@@ -211,27 +212,56 @@ export default class EntryAbility extends UIAbility {
     // Save windowStage for later use (e.g. creating subwindows)
     AppStorage.setOrCreate('windowStage', windowStage);
 
-    windowStage.loadContent('pages/Index', (err, data) => {
-      if (err && err.code !== 0) {
-        console.error('[EntryAbility] loadContent failed: ' + JSON.stringify(err));
-        return;
-      }
+    // 根据是否首次启动决定加载页面
+    this.loadInitialPage(windowStage);
+  }
 
-      // 开启全屏沉浸式导航模式
-      const win = windowStage.getMainWindowSync()
-      win.setWindowLayoutFullScreen(true)
+  /**
+   * 根据引导状态决定加载哪个页面
+   */
+  private async loadInitialPage(windowStage: window.WindowStage): Promise<void> {
+    try {
+      const isFirstLaunch = await OnboardingStorage.isFirstLaunch(this.context);
+      const targetPage = isFirstLaunch ? 'pages/WelcomePage' : 'pages/Index';
+      console.info('[EntryAbility] loadInitialPage: isFirstLaunch=' + isFirstLaunch + ', targetPage=' + targetPage);
 
-      // 获取顶部规避区域，并记录到 AppStorage 中
-      const top = win.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM)
-        .topRect
-      AppStorage.setOrCreate<number>('safeTop', px2vp(top.height))
-      // 获取底部规避区域，并记录到 AppStorage 中
-      const bottom = win.getWindowAvoidArea(window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR)
-        .bottomRect
-      AppStorage.setOrCreate<number>('safeBottom', px2vp(bottom.height))
+      windowStage.loadContent(targetPage, (err, data) => {
+        if (err && err.code !== 0) {
+          console.error('[EntryAbility] loadContent failed: ' + JSON.stringify(err));
+          return;
+        }
 
-      console.info('[EntryAbility] loadContent success');
-    });
+        // 开启全屏沉浸式导航模式
+        const win = windowStage.getMainWindowSync()
+        win.setWindowLayoutFullScreen(true)
+
+        // 获取顶部规避区域，并记录到 AppStorage 中
+        const top = win.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM)
+          .topRect
+        AppStorage.setOrCreate<number>('safeTop', px2vp(top.height))
+        // 获取底部规避区域，并记录到 AppStorage 中
+        const bottom = win.getWindowAvoidArea(window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR)
+          .bottomRect
+        AppStorage.setOrCreate<number>('safeBottom', px2vp(bottom.height))
+
+        console.info('[EntryAbility] loadContent success: ' + targetPage);
+      });
+    } catch (error) {
+      console.error('[EntryAbility] loadInitialPage error: ' + JSON.stringify(error));
+      // 出错时默认加载 Index
+      windowStage.loadContent('pages/Index', (err, data) => {
+        if (err && err.code !== 0) {
+          console.error('[EntryAbility] loadContent fallback failed: ' + JSON.stringify(err));
+          return;
+        }
+        const win = windowStage.getMainWindowSync()
+        win.setWindowLayoutFullScreen(true)
+        const top = win.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM).topRect
+        AppStorage.setOrCreate<number>('safeTop', px2vp(top.height))
+        const bottom = win.getWindowAvoidArea(window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR).bottomRect
+        AppStorage.setOrCreate<number>('safeBottom', px2vp(bottom.height))
+      });
+    }
   }
 
   onWindowStageDestroy(): void {

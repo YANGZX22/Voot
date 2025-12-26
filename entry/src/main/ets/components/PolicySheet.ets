@@ -92,13 +92,17 @@ export function PolicySheetContent(
       .textAlign(TextAlign.Start)
       .margin({ bottom: 16 })
     if (config.useWeb && config.asset) {
-      Web({
-        src: config.asset,
-        controller
-      })
-        .width('100%')
-        .height(260)
-        .margin({ bottom: 24 })
+      Stack() {
+        Web({
+          src: config.asset,
+          controller
+        })
+          .width('100%')
+          .height('100%')
+      }
+      .width('100%')
+      .height(260)
+      .margin({ bottom: 24 })
     } else if (config.highlights && config.highlights.length > 0) {
       Column() {
         List() {
@@ -150,7 +154,8 @@ export function PolicySheetContent(
     }
     Button(config.action)
       .type(ButtonType.Capsule)
-      .backgroundColor('#e63c1464')
+      .backgroundColor(Color.White)
+      .fontColor('#3c1464')
       .width('100%')
       .height(44)
       .onClick(() => {

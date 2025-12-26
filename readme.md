@@ -30,6 +30,7 @@ It is designed with three core principles: **security, privacy, and simplicity**
 - [Roadmap](#roadmap)
 - [Contributing](#contributing)
 - [Known Issues](#known-issues)
+- [Acknowledgements](#acknowledgements)
 - [License](#license)
 - [Disclaimer](#disclaimer)
 
@@ -276,6 +277,11 @@ Before submitting, please:
 * Subtitle floating window may have layout issues on certain screen sizes, e.g. Pad.\
   You can try to adjust the size of the floating window manually. An update may fix this in the future.
 * Doubao API always gives latente responses when use Lite models. This may be due to the server side of Doubao, not the app itself. [To be confirmed]
+
+## Acknowledgements
+
+- Inspiration: https://github.com/SakiRinn/LiveCaptions-Translator (Windows live captions translator).
+- This project is an independent implementation and does not reuse any code from that repository.
 
 ## License
 

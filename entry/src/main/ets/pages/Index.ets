@@ -21,7 +21,6 @@ import AbilityConstant from '@ohos.app.ability.AbilityConstant';
 import Want from '@ohos.app.ability.Want';
 import wantConstant from '@ohos.app.ability.wantConstant';
 import { hdsEffect, HdsTabs, HdsTabsAttribute, HdsTabsController, DividerMode } from '@kit.UIDesignKit';
-import { webview } from '@kit.ArkWeb';
 import { ConfigurationPage } from './ConfigurationPage';
 import { TranslationPage } from './TranslationPage';
 import { HistoryTabPage } from './HistoryTabPage';
@@ -29,10 +28,8 @@ import { SettingsPage } from './SettingsPage';
 import { ApiConfigPage, ApiMenuType } from './ApiConfigPage';
 import App from '@system.app';
 import { ApiConfigStorage, ApiConfigSnapshot } from '../storage/ApiConfigStorage';
-import { OnboardingStorage } from '../storage/OnboardingStorage';
 import { TokenUsageStorage } from '../storage/TokenUsageStorage';
 import { HistoryStorage } from '../storage/HistoryStorage';
-import { PolicySheetType, PolicySheetContent, getPolicySheetConfig } from '../components/PolicySheet';
 import window from '@ohos.window';
 import promptAction from '@ohos.promptAction';
 import { PipSubtitleManager, SubtitleParams } from '../services/PipSubtitleManager';
@@ -126,17 +123,12 @@ interface DoubaoChatResponse {
   usage?: DoubaoUsage;
 }
 
-enum WelcomeStage {
-  Intro = 0,
-  TermsAccepted,
-  PrivacyAccepted
-}
-
+// 功能特性（用于 FeatureDialog）
 interface WelcomeFeature {
   title: string;
   description: string;
   icon: Resource;
-  span: number; // 1 for Circle (x), 2 for Capsule (xx)
+  span: number;
 }
 
 const WELCOME_FEATURES: Array<WelcomeFeature> = [
@@ -253,9 +245,7 @@ struct Index {
   @State translatedDemoText: string = '';
   @State isTranslating: boolean = false;
 
-  @State isWelcomeFlowActive: boolean = true;
-  @State welcomeStage: WelcomeStage = WelcomeStage.Intro;
-
+  // Feature dialog（保留用于配置页面中的帮助）
   @State currentFeatureIndex: number = 0;
   featureDialogController: CustomDialogController = new CustomDialogController({
     builder: FeatureDialog({ index: $currentFeatureIndex }),
@@ -263,12 +253,6 @@ struct Index {
     alignment: DialogAlignment.Center,
     customStyle: true
   });
-  @State isWelcomeSheetOpen: boolean = false;
-  @State welcomeButtonScale: number = 1.0;
-  @State isWelcomeButtonActive: boolean = false;
-  @State welcomeFeatureScales: number[] = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0];
-  @State activeWelcomeFeature: number = -1;
-  @State breathingScale: number = 1.0;
 
   // Global light effect brightness: true = BRIGHT, false = SOFT
   @State isLightEffectBright: boolean = true;
@@ -302,9 +286,6 @@ struct Index {
 
   private tabsController: HdsTabsController = new HdsTabsController();
   private tabsAttr?: HdsTabsAttribute;
-
-  private welcomePolicyType: PolicySheetType = PolicySheetType.Terms;
-  private welcomePolicyController: webview.WebviewController = new webview.WebviewController();
   private hasStartedMainExperience: boolean = false;
 
   // Mic captioning / ASR state
@@ -761,10 +742,9 @@ struct Index {
     const pendingContinuity = AppStorage.get<boolean>('voot_continuity_restored');
     const pendingStateJson = AppStorage.get<string>('voot_continuity_state');
     
-    // 如果是流转恢复，直接跳过欢迎流程
+    // 如果是流转恢复，直接恢复状态
     if (pendingContinuity && pendingStateJson) {
-      console.info('[Index] Continuity restore detected, skipping welcome flow');
-      this.isWelcomeFlowActive = false;
+      console.info('[Index] Continuity restore detected');
       this.hasStartedMainExperience = true;
       // 延迟执行恢复，确保组件完全渲染
       setTimeout(() => {
@@ -774,7 +754,8 @@ struct Index {
       this.requestMicPermission();
       this.initSherpaAsr();
     } else {
-      this.evaluateFirstLaunch();
+      // 正常启动，直接初始化主体验
+      this.startMainExperience();
     }
 
     // 设置应用为可迁移状态（官方接续指导）
@@ -1010,21 +991,7 @@ struct Index {
     }
   }
 
-  private async evaluateFirstLaunch(): Promise<void> {
-    try {
-      const ctx = getContext(this) as common.UIAbilityContext;
-      const isFirstLaunch: boolean = await OnboardingStorage.isFirstLaunch(ctx);
-      this.isWelcomeFlowActive = isFirstLaunch;
-      if (!isFirstLaunch) {
-        this.startMainExperience();
-      }
-    } catch (error) {
-      console.error('[Onboarding] evaluateFirstLaunch error: ' + JSON.stringify(error));
-      this.isWelcomeFlowActive = false;
-      this.startMainExperience();
-    }
-  }
-
+  // Index 页面不再处理欢迎流程，直接启动主体验
   private startMainExperience(): void {
     if (this.hasStartedMainExperience) {
       return;
@@ -1033,147 +1000,6 @@ struct Index {
     this.requestMicPermission();
     this.initSherpaAsr();
     this.hydrateStoredApiConfig();
-  }
-
-  private handleWelcomeContinue(): void {
-    if (this.welcomeStage === WelcomeStage.Intro) {
-      this.openWelcomePolicySheet(PolicySheetType.Terms);
-      return;
-    }
-    if (this.welcomeStage === WelcomeStage.TermsAccepted) {
-      this.openWelcomePolicySheet(PolicySheetType.Privacy);
-      return;
-    }
-    if (this.welcomeStage === WelcomeStage.PrivacyAccepted) {
-      this.completeWelcomeFlow();
-    }
-  }
-
-  private getWelcomeButtonLabel(): string {
-    return this.welcomeStage === WelcomeStage.PrivacyAccepted ? '进入应用' : '继续';
-  }
-
-  private openWelcomePolicySheet(sheet: PolicySheetType): void {
-    this.welcomePolicyType = sheet;
-    this.welcomePolicyController = new webview.WebviewController();
-    this.isWelcomeSheetOpen = true;
-  }
-
-  private handleWelcomeSheetConfirmed(): void {
-    this.isWelcomeSheetOpen = false;
-    if (this.welcomePolicyType === PolicySheetType.Terms) {
-      this.welcomeStage = WelcomeStage.TermsAccepted;
-      return;
-    }
-    if (this.welcomePolicyType === PolicySheetType.Privacy) {
-      this.welcomeStage = WelcomeStage.PrivacyAccepted;
-    }
-  }
-
-  private async completeWelcomeFlow(): Promise<void> {
-    try {
-      const ctx = getContext(this) as common.UIAbilityContext;
-      await OnboardingStorage.markCompleted(ctx);
-    } catch (error) {
-      console.error('[Onboarding] markCompleted error: ' + JSON.stringify(error));
-    }
-    this.isWelcomeFlowActive = false;
-    this.startMainExperience();
-  }
-
-  private pressWelcomeButton(): void {
-    this.isWelcomeButtonActive = true;
-    animateTo({
-      duration: 100,
-      curve: Curve.EaseIn
-    }, () => {
-      this.welcomeButtonScale = 0.9;
-    });
-  }
-
-  private releaseWelcomeButton(): void {
-    this.isWelcomeButtonActive = false;
-    animateTo({
-      duration: 200,
-      curve: Curve.EaseOut
-    }, () => {
-      this.welcomeButtonScale = 1.0;
-    });
-  }
-
-  private pressWelcomeFeature(index: number): void {
-    this.activeWelcomeFeature = index;
-    animateTo({
-      duration: 100,
-      curve: Curve.EaseIn
-    }, () => {
-      const nextScales: number[] = [...this.welcomeFeatureScales];
-      nextScales[index] = 0.9;
-      this.welcomeFeatureScales = nextScales;
-    });
-  }
-
-  private releaseWelcomeFeature(index: number): void {
-    this.activeWelcomeFeature = -1;
-    animateTo({
-      duration: 200,
-      curve: Curve.EaseOut
-    }, () => {
-      const nextScales: number[] = [...this.welcomeFeatureScales];
-      nextScales[index] = 1.0;
-      this.welcomeFeatureScales = nextScales;
-    });
-  }
-
-  @Builder
-  private WelcomeFeatureCard(feature: WelcomeFeature, index: number) {
-    Button() {
-      Column() {
-        Image(feature.icon)
-          .width(32)
-          .height(32)
-          .objectFit(ImageFit.Contain)
-          .fillColor((this.activeWelcomeFeature === index || feature.title === '隐私守护') ? '#3c1464' : Color.White)
-      }
-      .width('100%')
-      .height('100%')
-      .justifyContent(FlexAlign.Center)
-      .alignItems(HorizontalAlign.Center)
-    }
-    .type(ButtonType.Normal)
-    .backgroundColor((this.activeWelcomeFeature === index || feature.title === '隐私守护') ? Color.White : "#b33c1464")
-    .layoutWeight(feature.span)
-    .aspectRatio(feature.span)
-    .borderRadius(999)
-    .shadow({
-      radius: 18,
-      color: '#22000000',
-      offsetY: 2,
-      offsetX: 0
-    })
-    .scale({
-      x: this.welcomeFeatureScales[index] * this.breathingScale,
-      y: this.welcomeFeatureScales[index] * this.breathingScale
-    })
-    .visualEffect(new hdsEffect.HdsEffectBuilder()
-      .pointLight({
-        sourceType: (this.activeWelcomeFeature === index || feature.title === '隐私守护')
-          ? hdsEffect.PointLightSourceType.SOFT
-          : hdsEffect.PointLightSourceType.NONE,
-        illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
-      })
-      .buildEffect())
-    .onTouch((event: TouchEvent) => {
-      if (event.type === TouchType.Down) {
-        this.pressWelcomeFeature(index);
-      } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
-        this.releaseWelcomeFeature(index);
-      }
-    })
-    .onClick(() => {
-      this.currentFeatureIndex = index;
-      this.featureDialogController.open();
-    })
   }
 
   private getDeviceTypeLabel(type: number | string): string {
@@ -1300,164 +1126,25 @@ struct Index {
     .borderRadius({ topLeft: 16, topRight: 16 })
   }
 
-  @Builder
-  private WelcomeScreen() {
-    Column() {
-      // 1. Header
-      Column() {
-        Image($r('app.media.foreground'))
-          .width(96)
-          .height(96)
-          .objectFit(ImageFit.Contain)
-          .alignSelf(ItemAlign.Center)
-          .margin({ bottom: 24 })
-
-        Text('欢迎使用 Voot')
-          .fontSize(28)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(Color.White)
-          .margin({ bottom: 12 })
-          .alignSelf(ItemAlign.Center)
-
-        Text('Voot 致力用语言模型赋能同声传译碎片化问题')
-          .fontSize(15)
-          .fontColor('#DDFFFFFF')
-          .lineHeight(22)
-          .textAlign(TextAlign.Center)
-      }
-      .width('100%')
-
-      // 2. Feature Cards (Middle)
-      Column() {
-        Column() {
-          // Row 1: xx xx x
-          Row({ space: 12 }) {
-            ForEach(WELCOME_FEATURES.slice(0, 3), (feature: WelcomeFeature, index: number) => {
-              this.WelcomeFeatureCard(feature, index);
-            })
-          }
-          .width('100%')
-          .margin({ bottom: 12 })
-
-          // Row 2: x xx xx
-          Row({ space: 12 }) {
-            ForEach(WELCOME_FEATURES.slice(3, 6), (feature: WelcomeFeature, index: number) => {
-              this.WelcomeFeatureCard(feature, index + 3);
-            })
-          }
-          .width('100%')
-        }
-        .visualEffect(new hdsEffect.HdsEffectBuilder()
-          .pointLight({
-            illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
-          })
-          .buildEffect())
-        .width('100%')
-        .padding({ left: 16, right: 16, top: 16, bottom: 16 })
-        .backgroundColor('#333c1464')
-        .borderRadius(18)
-        .margin({ bottom: 12 })
-
-        Text('点击上面的按钮，了解更多 Voot 如何工作')
-          .visualEffect(new hdsEffect.HdsEffectBuilder()
-            .pointLight({
-              sourceType: hdsEffect.PointLightSourceType.SOFT,
-              illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
-            })
-            .buildEffect())
-          .fontSize(15)
-          .fontColor(Color.White)
-          .textAlign(TextAlign.Center)
-          .width('100%')
-      }
-      .width('100%')
-
-      // 3. Footer
-      Column() {
-        Button(this.getWelcomeButtonLabel())
-          .type(ButtonType.Capsule)
-          .backgroundColor('#e63c1464')
-          .width('100%')
-          .height(48)
-          .fontSize(16)
-          .scale({ x: this.welcomeButtonScale, y: this.welcomeButtonScale })
-          .visualEffect(new hdsEffect.HdsEffectBuilder()
-            .pointLight({
-              sourceType: this.isWelcomeButtonActive
-                ? hdsEffect.PointLightSourceType.SOFT
-                : hdsEffect.PointLightSourceType.NONE,
-              illuminatedType: this.isWelcomeButtonActive
-                ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
-                : hdsEffect.PointLightIlluminatedType.NONE
-            })
-            .buildEffect())
-          .onTouch((event: TouchEvent) => {
-            if (event.type === TouchType.Down) {
-              this.pressWelcomeButton();
-            } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
-              this.releaseWelcomeButton();
-            }
-          })
-          .onClick(() => {
-            this.handleWelcomeContinue();
-          })
-        Text(
-          this.welcomeStage === WelcomeStage.PrivacyAccepted
-            ? '政策确认完毕，可进入应用配置界面。'
-            : '首次使用需依次确认《用户协议》和《隐私政策》。'
-        )
-          .fontSize(12)
-          .fontColor(Color.Grey)
-          .textAlign(TextAlign.Center)
-          .margin({ top: 12 })
-      }
-      .width('100%')
-    }
-    .width('100%')
-    .height('100%')
-    .constraintSize({ maxWidth: 480 })
-    .padding({ left: 32, right: 32, top: 80, bottom: 48 })
-    .justifyContent(FlexAlign.SpaceBetween)
-    .onAppear(() => {
-      animateTo({
-        duration: 2000,
-        iterations: -1,
-        curve: Curve.EaseInOut,
-        playMode: PlayMode.Alternate
-      }, () => {
-        this.breathingScale = 1.05;
-      })
-    })
-    .bindSheet(
-      $$this.isWelcomeSheetOpen,
-      PolicySheetContent(
-        getPolicySheetConfig(this.welcomePolicyType),
-        this.welcomePolicyController,
-        () => {
-          this.handleWelcomeSheetConfirmed();
-        },
-        getContext(this) as common.UIAbilityContext
-      ), {
-        detents: [SheetSize.FIT_CONTENT, SheetSize.MEDIUM],
-        dragBar: true,
-        backgroundColor: '#e63c1464',
-        blurStyle: BlurStyle.BACKGROUND_REGULAR,
-        enableOutsideInteractive: false
-      }
-    )
-  }
-
   build() {
     Stack() {
       Image($r('app.media.app_background_pic'))
         .width('100%')
         .height('100%')
-        .objectFit(ImageFit.Cover);
+        .objectFit(ImageFit.Cover)
+        .blur(20);
 
-      if (this.isWelcomeFlowActive) {
-        this.WelcomeScreen();
-      } else {
-        Column() {
+      // Overlay gradient
+      Rect()
+        .width('100%')
+        .height('100%')
+        .fill(Color.Transparent)
+        .linearGradient({
+          angle: 180,
+          colors: [['#8818052d', 0.0], ['#443c1464', 1.0]]
+        })
+
+      Column() {
         HdsTabs({ controller: this.tabsController }) {
         TabContent() {
           Column() {
@@ -1706,12 +1393,11 @@ struct Index {
           this.showApiSettings = false;
         }
       });
-        }
-        .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP])
-        // .backgroundColor("#ff0f5f5f")
-        .width('100%')
-        .height('100%')
       }
+      .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP])
+      // .backgroundColor("#ff0f5f5f")
+      .width('100%')
+      .height('100%')
     }
     .bindSheet(
       $$this.showDeviceDialog,
