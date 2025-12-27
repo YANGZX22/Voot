@@ -292,8 +292,8 @@ export struct SettingsPage {
   }
 
   private pressSettingsButton(): void {
-    this.isSettingsBtnActive = true;
-    animateTo({ duration: 100, curve: Curve.EaseIn }, () => {
+    animateTo({ duration: 250, curve: Curve.EaseIn }, () => {
+      this.isSettingsBtnActive = true;
       this.settingsBtnScale = 0.9;
       this.settingsBtnBgColor = Color.White;
       this.settingsBtnTextColor = '#3c1464';
@@ -301,8 +301,8 @@ export struct SettingsPage {
   }
 
   private releaseSettingsButton(): void {
-    this.isSettingsBtnActive = false;
     animateTo({ duration: 200, curve: Curve.EaseOut }, () => {
+      this.isSettingsBtnActive = false;
       this.settingsBtnScale = 1.0;
       this.settingsBtnBgColor = '#3c1464';
       this.settingsBtnTextColor = Color.White;
@@ -310,7 +310,7 @@ export struct SettingsPage {
   }
 
   private pressButtonEffect(btnId: number): void {
-    animateTo({ duration: 100, curve: Curve.EaseIn }, () => {
+    animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => {
       if (btnId === 1) { this.isDarkModeBtnActive = true; this.darkModeBtnScale = 0.9; }
       if (btnId === 2) { this.isTermsBtnActive = true; this.termsBtnScale = 0.9; }
       if (btnId === 3) { this.isPrivacyBtnActive = true; this.privacyBtnScale = 0.9; }

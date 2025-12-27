@@ -652,8 +652,8 @@ export struct ApiConfigPage {
               isDarkMode: this.isDarkMode,
               isSource: this.activeMenuId === ApiMenuType.Prompt,
               isIlluminated: this.activeMenuId !== -1, // Illuminated if ANY button is touched
-              onTouchStart: () => { this.activeMenuId = ApiMenuType.Prompt; },
-              onTouchEnd: () => { this.activeMenuId = -1; },
+              onTouchStart: () => { animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeMenuId = ApiMenuType.Prompt; }) },
+              onTouchEnd: () => { animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeMenuId = -1; }) },
               onClickAction: () => this.onSelectMenu(ApiMenuType.Prompt)
             });
 
@@ -666,8 +666,8 @@ export struct ApiConfigPage {
               isDarkMode: this.isDarkMode,
               isSource: this.activeMenuId === ApiMenuType.Glossary,
               isIlluminated: this.activeMenuId !== -1,
-              onTouchStart: () => { this.activeMenuId = ApiMenuType.Glossary; },
-              onTouchEnd: () => { this.activeMenuId = -1; },
+              onTouchStart: () => { animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeMenuId = ApiMenuType.Glossary; }) },
+              onTouchEnd: () => { animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeMenuId = -1; }) },
               onClickAction: () => this.onSelectMenu(ApiMenuType.Glossary)
             });
 
@@ -680,8 +680,8 @@ export struct ApiConfigPage {
               isDarkMode: this.isDarkMode,
               isSource: this.activeMenuId === ApiMenuType.OpenAI,
               isIlluminated: this.activeMenuId !== -1,
-              onTouchStart: () => { this.activeMenuId = ApiMenuType.OpenAI; },
-              onTouchEnd: () => { this.activeMenuId = -1; },
+              onTouchStart: () => { animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeMenuId = ApiMenuType.OpenAI; }) },
+              onTouchEnd: () => { animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeMenuId = -1; }) },
               onClickAction: () => this.onSelectMenu(ApiMenuType.OpenAI)
             });
 
@@ -694,8 +694,8 @@ export struct ApiConfigPage {
               isDarkMode: this.isDarkMode,
               isSource: this.activeMenuId === ApiMenuType.DeepL,
               isIlluminated: this.activeMenuId !== -1,
-              onTouchStart: () => { this.activeMenuId = ApiMenuType.DeepL; },
-              onTouchEnd: () => { this.activeMenuId = -1; },
+              onTouchStart: () => { animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeMenuId = ApiMenuType.DeepL; }) },
+              onTouchEnd: () => { animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeMenuId = -1; }) },
               onClickAction: () => this.onSelectMenu(ApiMenuType.DeepL)
             });
 
@@ -708,8 +708,8 @@ export struct ApiConfigPage {
               isDarkMode: this.isDarkMode,
               isSource: this.activeMenuId === ApiMenuType.Ollama,
               isIlluminated: this.activeMenuId !== -1,
-              onTouchStart: () => { this.activeMenuId = ApiMenuType.Ollama; },
-              onTouchEnd: () => { this.activeMenuId = -1; },
+              onTouchStart: () => { animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeMenuId = ApiMenuType.Ollama; }) },
+              onTouchEnd: () => { animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeMenuId = -1; }) },
               onClickAction: () => this.onSelectMenu(ApiMenuType.Ollama)
             });
 
@@ -722,8 +722,8 @@ export struct ApiConfigPage {
               isDarkMode: this.isDarkMode,
               isSource: this.activeMenuId === ApiMenuType.Doubao,
               isIlluminated: this.activeMenuId !== -1,
-              onTouchStart: () => { this.activeMenuId = ApiMenuType.Doubao; },
-              onTouchEnd: () => { this.activeMenuId = -1; },
+              onTouchStart: () => { animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeMenuId = ApiMenuType.Doubao; }) },
+              onTouchEnd: () => { animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeMenuId = -1; }) },
               onClickAction: () => this.onSelectMenu(ApiMenuType.Doubao)
             });
 

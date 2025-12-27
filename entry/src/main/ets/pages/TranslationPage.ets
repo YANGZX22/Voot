@@ -166,13 +166,13 @@ export struct TranslationPage {
               .onTouch((event: TouchEvent) => {
                 if (event.type === TouchType.Down) {
                   this.pressButton(1); // Pass ID 1
-                  this.activeBtn = 1;
+                  animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeBtn = 1; });
                 } else if (event.type === TouchType.Up) {
                   this.leaveButton(1, true); // Pass ID 1, isUp=true
-                  this.activeBtn = 0;
+                  animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeBtn = 0; });
                 } else if (event.type === TouchType.Cancel) {
                   this.leaveButton(1, false); // Pass ID 1, isUp=false
-                  this.activeBtn = 0;
+                  animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeBtn = 0; });
                 }
               })
               .onClick(() => this.onToggleCaptioning());
@@ -222,10 +222,10 @@ export struct TranslationPage {
               .onTouch((event: TouchEvent) => {
                 if (event.type === TouchType.Down) {
                   this.pressButton(2); // Pass ID 2
-                  this.activeBtn = 2;
+                  animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeBtn = 2; });
                 } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
                   this.leaveButton(2); // Pass ID 2
-                  this.activeBtn = 0;
+                  animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeBtn = 0; });
                 }
               })
               .onClick(() => this.onTranslateDemo());
@@ -260,10 +260,10 @@ export struct TranslationPage {
             .onTouch((event: TouchEvent) => {
               if (event.type === TouchType.Down) {
                 this.pressButton(3); // Pass ID 3
-                this.activeBtn = 3;
+                animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeBtn = 3; });
               } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
                 this.leaveButton(3); // Pass ID 3
-                this.activeBtn = 0;
+                animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeBtn = 0; });
               }
             })
             .onClick(() => this.onContinuityTransfer())

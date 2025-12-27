@@ -102,18 +102,17 @@ struct ConfigCard {
   handleTouch(event: TouchEvent): void {
     if (event.type === TouchType.Down) {
       this.pressButton();
-      this.activeBtn = this.btnId;
     } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
       this.leaveButton();
-      this.activeBtn = 0;
     }
   }
 
   pressButton(): void {
     animateTo({
-      duration: 100,
-      curve: Curve.EaseIn
+      duration: 200,
+      curve: Curve.FastOutSlowIn
     }, () => {
+      this.activeBtn = this.btnId;
       this.scaleValue = 0.95;
       this.bgColor = Color.White;
       this.textColor = "#e63c1464";
@@ -122,9 +121,10 @@ struct ConfigCard {
 
   leaveButton(): void {
     animateTo({
-      duration: 100,
+      duration: 200,
       curve: Curve.EaseOut
     }, () => {
+      this.activeBtn = 0;
       this.scaleValue = 1.0;
       this.bgColor = "#e63c1464";
       this.textColor = Color.White;

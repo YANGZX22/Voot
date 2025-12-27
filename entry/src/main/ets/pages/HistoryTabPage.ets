@@ -44,13 +44,13 @@ struct SwipeActionButton {
       .buildEffect())
     .onTouch((event: TouchEvent) => {
       if (event.type === TouchType.Down) {
-        this.activeBtnId = this.btnId;
-        animateTo({ duration: 100, curve: Curve.EaseIn }, () => {
+        animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => {
+          this.activeBtnId = this.btnId;
           this.scaleValue = 0.9;
         });
       } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
-        this.activeBtnId = 0;
-        animateTo({ duration: 100, curve: Curve.EaseOut }, () => {
+        animateTo({ duration: 200, curve: Curve.EaseOut }, () => {
+          this.activeBtnId = 0;
           this.scaleValue = 1.0;
         });
       }

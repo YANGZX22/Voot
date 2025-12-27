@@ -426,33 +426,33 @@ struct WelcomePage {
 
   // 按钮按下效果
   private pressButton(): void {
-    this.isButtonActive = true;
     animateTo({
-      duration: 100,
-      curve: Curve.EaseIn
+      duration: 200,
+      curve: Curve.FastOutSlowIn
     }, () => {
+      this.isButtonActive = true;
       this.buttonScale = 0.95;
     });
   }
 
   // 按钮释放效果
   private releaseButton(): void {
-    this.isButtonActive = false;
     animateTo({
       duration: 200,
       curve: Curve.EaseOut
     }, () => {
+      this.isButtonActive = false;
       this.buttonScale = 1.0;
     });
   }
 
   // 功能卡片按下效果
   private pressFeatureCard(index: number): void {
-    this.activeFeatureCard = index;
     animateTo({
-      duration: 100,
-      curve: Curve.EaseIn
+      duration: 200,
+      curve: Curve.FastOutSlowIn
     }, () => {
+      this.activeFeatureCard = index;
       const nextScales: number[] = [...this.featureCardScales];
       nextScales[index] = 0.9;
       this.featureCardScales = nextScales;
@@ -461,11 +461,11 @@ struct WelcomePage {
 
   // 功能卡片释放效果
   private releaseFeatureCard(index: number): void {
-    this.activeFeatureCard = -1;
     animateTo({
       duration: 200,
       curve: Curve.EaseOut
     }, () => {
+      this.activeFeatureCard = -1;
       const nextScales: number[] = [...this.featureCardScales];
       nextScales[index] = 1.0;
       this.featureCardScales = nextScales;
@@ -613,15 +613,15 @@ struct WelcomePage {
 
   // Back Button Press
   private pressBackButton(): void {
-    this.isBackButtonActive = true;
-    animateTo({ duration: 100, curve: Curve.EaseIn }, () => {
+    animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => {
+      this.isBackButtonActive = true;
       this.backButtonScale = 0.9;
     });
   }
 
   private releaseBackButton(): void {
-    this.isBackButtonActive = false;
     animateTo({ duration: 200, curve: Curve.EaseOut }, () => {
+      this.isBackButtonActive = false;
       this.backButtonScale = 1.0;
     });
   }
