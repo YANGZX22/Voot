@@ -769,15 +769,15 @@ export struct ApiConfigPage {
           },
           contentStyle: {
             titleStyle: {
-              mainTitleColor: $r('sys.color.font_primary'),
+              mainTitleColor: $r('sys.color.font_on_tertiary'),
             },
             menuStyle: {
               backgroundColor: $r('sys.color.comp_background_tertiary'),
-              iconColor: $r('sys.color.icon_primary')
+              iconColor: $r('sys.color.icon_tertiary')
             },
             backIconStyle: {
               backgroundColor: $r('sys.color.comp_background_tertiary'),
-              iconColor: $r('sys.color.icon_primary')
+              iconColor: $r('sys.color.icon_tertiary')
             }
           }
         },
@@ -1097,9 +1097,9 @@ export struct ApiConfigPage {
         .margin({ bottom: 8 })
         .fillColor(Color.White)
       Text('术语库 (Glossary)').fontSize(20).fontWeight(FontWeight.Bold).margin({ bottom: 12 }).fontColor(Color.White);
-      Text('每行输入一个术语对，格式为：原文=译文\n例如：\nHarmonyOS=鸿蒙\nAI=人工智能')
+      Text('每行输入一个术语对，格式为：原文 = 译文，例如：\nHarmonyOS = 鸿蒙\nAI = 人工智能')
         .fontSize(14)
-        .fontColor(Color.Gray)
+        .fontColor($r('sys.color.font_on_secondary'))
         .margin({ bottom: 12 });
 
       TextArea({ text: this.glossary })
@@ -1126,7 +1126,7 @@ function PromptContent(props: ApiConfigPageProps) {
       .height(48)
       .margin({ bottom: 8 })
       .fillColor(Color.White)
-    Text('Prompt')
+    Text('提示词 (Prompt)')
       .fontColor(Color.White)
       .fontSize(20)
       .fontWeight(FontWeight.Bold)
@@ -1134,7 +1134,7 @@ function PromptContent(props: ApiConfigPageProps) {
 
     Column() {
       Text('请确保 Prompt (提示词) 包含 {0} 与 [abc]。{0} 代表目标语言，[abc] 代表原始文本。')
-        .fontColor(Color.Grey)
+        .fontColor($r('sys.color.font_on_secondary'))
         .fontSize(14)
     }
     .width('100%')

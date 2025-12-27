@@ -28,6 +28,7 @@ It is designed with three core principles: **security, privacy, and simplicity**
 - [Usage](#usage)
 - [Security & Privacy](#security--privacy)
 - [Roadmap](#roadmap)
+- [Blueprints](#blueprints)
 - [Contributing](#contributing)
 - [Model Performance](#model-performance)
 - [Known Issues](#known-issues)
@@ -240,7 +241,7 @@ Short summary (see in-app privacy policy / `PRIVACY.html` for details):
 
 ## Roadmap
 
-Finished / planned / possible work:
+Finished / planned / possible steps:
 
 * Subtitle (Realized ✅) 
 * Live Window on HarmonyOS (Realized ✅) 
@@ -254,6 +255,14 @@ Finished / planned / possible work:
 * More supported original languages
 
 Feel free to open issues or PRs with feature requests.
+
+## Blueprints
+
+* *Dual-Track + Audio-Direct Multimodal + Feedback Loop:*  
+  Future versions may explore a dual-track architecture where ASR and translation run in parallel, with audio-direct multimodal inputs to improve context understanding. A feedback loop could allow users to correct translations on-the-fly, enhancing accuracy over time.
+
+* *Confidence Scoring & Colors Highlighting:*
+  Implement a confidence scoring system that highlights translated text based on the model's certainty. Low-confidence segments could be visually marked, prompting users to review or re-translate those parts for better accuracy.
 
 
 ## Contributing

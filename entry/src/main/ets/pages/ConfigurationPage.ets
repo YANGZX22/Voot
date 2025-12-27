@@ -588,16 +588,15 @@ export struct ConfigurationPage {
           },
           contentStyle: {
             titleStyle: {
-              mainTitleColor: $r('sys.color.font_primary'),
-              subTitleColor: $r('sys.color.font_secondary')
+              mainTitleColor: $r('sys.color.font_on_tertiary'),
             },
             menuStyle: {
               backgroundColor: $r('sys.color.comp_background_tertiary'),
-              iconColor: $r('sys.color.icon_primary')
+              iconColor: $r('sys.color.icon_tertiary')
             },
             backIconStyle: {
               backgroundColor: $r('sys.color.comp_background_tertiary'),
-              iconColor: $r('sys.color.icon_primary')
+              iconColor: $r('sys.color.icon_tertiary')
             }
           }
         },

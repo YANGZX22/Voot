@@ -1241,7 +1241,7 @@ struct Index {
 
       Text('暂仅支持手机与平板流转')
         .fontSize(12)
-        .fontColor(Color.Gray)
+        .fontColor($r('sys.color.font_on_secondary'))
         .margin({ bottom: 16 })
         .width('100%')
         .textAlign(TextAlign.Center)
@@ -1254,7 +1254,7 @@ struct Index {
             .margin({ bottom: 10 })
           Text('正在搜索设备...')
             .fontSize(14)
-            .fontColor(Color.Gray)
+            .fontColor($r('sys.color.font_on_secondary'))
         }
         .height(150)
         .justifyContent(FlexAlign.Center)
@@ -1275,7 +1275,7 @@ struct Index {
                     .fontWeight(FontWeight.Medium)
                   Text(this.getDeviceTypeLabel(device.deviceType))
                     .fontSize(12)
-                    .fontColor(Color.Gray)
+                    .fontColor($r('sys.color.font_on_secondary'))
                     .margin({ top: 4 })
                 }
                 .alignItems(HorizontalAlign.Start)
@@ -1328,8 +1328,8 @@ struct Index {
         .fill(Color.Transparent)
         .linearGradient({
           angle: 180,
-          colors: this.isDarkMode 
-            ? [['#f2140334', 0.0], ['#e62a1243', 1.0]]
+          colors: this.isDarkMode
+            ? [['#e618052d', 0.0], ['#bf2a1243', 1.0]]
             : [['#4418052d', 0.0], ['#223c1464', 1.0]]
         })
         .animation({ duration: 500, curve: Curve.EaseInOut })

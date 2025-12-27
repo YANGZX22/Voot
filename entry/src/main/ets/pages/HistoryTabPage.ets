@@ -247,12 +247,12 @@ export struct HistoryTabPage {
         .fontColor(Color.White)
       Text(new Date(session.startTime).toLocaleString())
         .fontSize(14)
-        .fontColor('#AAAAAA')
+        .fontColor($r('sys.color.font_on_secondary'))
         .margin({ top: 4, bottom: 4 })
       if (session.summary) {
         Text(session.summary)
           .fontSize(14)
-          .fontColor('#888888')
+          .fontColor($r('sys.color.font_on_secondary'))
           .maxLines(2)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .margin({ top: 8 })
@@ -377,12 +377,15 @@ export struct HistoryTabPage {
           },
           contentStyle: {
             titleStyle: {
-              mainTitleColor: $r('sys.color.font_primary'),
-              subTitleColor: $r('sys.color.font_secondary')
+              mainTitleColor: $r('sys.color.font_on_tertiary'),
             },
             menuStyle: {
               backgroundColor: $r('sys.color.comp_background_tertiary'),
-              iconColor: $r('sys.color.icon_primary')
+              iconColor: $r('sys.color.icon_tertiary')
+            },
+            backIconStyle: {
+              backgroundColor: $r('sys.color.comp_background_tertiary'),
+              iconColor: $r('sys.color.icon_tertiary')
             }
           }
         },

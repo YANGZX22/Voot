@@ -93,9 +93,20 @@ struct SubtitleStyleDialog {
   @Link subtitleBackgroundColor: string
   @Link subtitleHeight: number
   onConfirm: () => void = () => {}
+  onChange: () => void = () => {}
 
-  // Predefined colors
-  private colors: string[] = ['#FFFFFF', '#000000', '#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#00FFFF', '#FF00FF', '#3c1464']
+  // Predefined colors - Modern Palette
+  private colors: string[] = [
+    '#FFFFFF', // White
+    '#1A1A1A', // Soft Black
+    '#3c1464', // Brand Purple
+    '#ED3A55', // Huawei Brand Red
+    '#2ED573', // Emerald Green
+    '#0A59F7', // Huawei Brand Blue
+    '#FFA502', // Orange
+    '#747D8C', // Grey
+    '#5352ED'  // Indigo
+  ]
 
   build() {
     Column() {
@@ -110,6 +121,7 @@ struct SubtitleStyleDialog {
         Slider({ value: this.fontSize, min: 10, max: 50, step: 1 })
           .onChange((value: number) => {
             this.fontSize = value
+            this.onChange()
           })
           .selectedColor('#3c1464')
           .layoutWeight(1)
@@ -123,9 +135,10 @@ struct SubtitleStyleDialog {
       // Subtitle Height
       Row() {
         Text('字幕高度')
-        Slider({ value: this.subtitleHeight, min: 10, max: 30, step: 1 })
+        Slider({ value: this.subtitleHeight, min: 5, max: 30, step: 1 })
           .onChange((value: number) => {
             this.subtitleHeight = value
+            this.onChange()
           })
           .selectedColor('#3c1464')
           .layoutWeight(1)
@@ -150,6 +163,7 @@ struct SubtitleStyleDialog {
               .margin(5)
               .onClick(() => {
                 this.fontColor = color
+                this.onChange()
               })
           })
         }
@@ -171,6 +185,7 @@ struct SubtitleStyleDialog {
               .margin(5)
               .onClick(() => {
                 this.subtitleBackgroundColor = color
+                this.onChange()
               })
           })
         }
@@ -221,6 +236,9 @@ export struct SettingsPage {
       subtitleBackgroundColor: $subtitleBackgroundColor,
       subtitleHeight: $subtitleHeight,
       onConfirm: () => {
+        this.onStyleChange();
+      },
+      onChange: () => {
         this.onStyleChange();
       }
     }),
@@ -345,7 +363,7 @@ export struct SettingsPage {
             Column() {
               Text('画中画字幕').fontColor(Color.White).alignSelf(ItemAlign.Start)
               Text('在应用外也可显示翻译')
-                .fontColor('#80FFFFFF')
+                .fontColor($r('sys.color.font_on_secondary'))
                 .fontSize(12)
                 .alignSelf(ItemAlign.Start)
             }
@@ -494,7 +512,7 @@ export struct SettingsPage {
             Column() {
               Text('主题模式').fontColor(Color.White).alignSelf(ItemAlign.Start)
               Text('深色模式下光效被禁用')
-                .fontColor('#80FFFFFF')
+                .fontColor($r('sys.color.font_on_secondary'))
                 .fontSize(12)
                 .alignSelf(ItemAlign.Start)
             }
@@ -512,8 +530,9 @@ export struct SettingsPage {
                 this.themeMode = index;
                 this.onThemeModeChange(index);
               },
-              buttonBackgroundColor: ColorMetrics.resourceColor($r('sys.color.comp_background_tertiary')),
+              buttonBackgroundColor: ColorMetrics.resourceColor($r('sys.color.comp_background_secondary')),
               itemSelectedBackgroundColor: ColorMetrics.rgba(60, 20, 100, 1),
+              itemFontColor: ColorMetrics.resourceColor($r('sys.color.font_on_secondary'))
             })
             .width(150)
 
@@ -546,8 +565,9 @@ export struct SettingsPage {
               $selectedIndex: (index: number) => {
                 this.isLightEffectBright = index === 0;
               },
-              buttonBackgroundColor: ColorMetrics.resourceColor($r('sys.color.comp_background_tertiary')),
+              buttonBackgroundColor: ColorMetrics.resourceColor($r('sys.color.comp_background_secondary')),
               itemSelectedBackgroundColor: ColorMetrics.rgba(60, 20, 100, 1),
+              itemFontColor: ColorMetrics.resourceColor($r('sys.color.font_on_secondary'))
               // buttonBackgroundEffect: {radius: 24}
             })
             .width(100)
@@ -733,16 +753,15 @@ export struct SettingsPage {
           },
           contentStyle: {
             titleStyle: {
-              mainTitleColor: $r('sys.color.font_primary'),
-              subTitleColor: $r('sys.color.font_secondary')
+              mainTitleColor: $r('sys.color.font_on_tertiary'),
             },
             menuStyle: {
               backgroundColor: $r('sys.color.comp_background_tertiary'),
-              iconColor: $r('sys.color.icon_primary')
+              iconColor: $r('sys.color.icon_tertiary')
             },
             backIconStyle: {
               backgroundColor: $r('sys.color.comp_background_tertiary'),
-              iconColor: $r('sys.color.icon_primary')
+              iconColor: $r('sys.color.icon_tertiary')
             }
           }
         },

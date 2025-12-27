@@ -88,7 +88,7 @@ export struct TranslationPage {
                 Column() {
                   Text('当前选择API')
                     .fontSize(12)
-                    .fontColor(Color.Gray)
+                    .fontColor($r('sys.color.font_on_secondary'))
                     .margin({ bottom: 4 });
                   Text(this.currentApiLabel)
                     .fontSize(14)
@@ -111,7 +111,7 @@ export struct TranslationPage {
                 Column() {
                   Text('当前目标语言')
                     .fontSize(12)
-                    .fontColor(Color.Gray)
+                    .fontColor($r('sys.color.font_on_secondary'))
                     .margin({ bottom: 4 });
                   Text(this.currentLanguageLabel)
                     .fontSize(14)
@@ -319,12 +319,15 @@ export struct TranslationPage {
           },
           contentStyle: {
             titleStyle: {
-              mainTitleColor: $r('sys.color.font_primary'),
-              subTitleColor: $r('sys.color.font_secondary')
+              mainTitleColor: $r('sys.color.font_on_tertiary'),
             },
             menuStyle: {
               backgroundColor: $r('sys.color.comp_background_tertiary'),
-              iconColor: $r('sys.color.icon_primary')
+              iconColor: $r('sys.color.icon_tertiary')
+            },
+            backIconStyle: {
+              backgroundColor: $r('sys.color.comp_background_tertiary'),
+              iconColor: $r('sys.color.icon_tertiary')
             }
           }
         },
