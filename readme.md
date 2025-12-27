@@ -258,11 +258,31 @@ Feel free to open issues or PRs with feature requests.
 
 ## Blueprints
 
-* *Dual-Track + Audio-Direct Multimodal + Feedback Loop:*  
-  Future versions may explore a dual-track architecture where ASR and translation run in parallel, with audio-direct multimodal inputs to improve context understanding. A feedback loop could allow users to correct translations on-the-fly, enhancing accuracy over time.
+### 1. Dual-Track Translation (双轨制翻译)
+A hybrid architecture to balance speed and quality:
+*   **Fast Track (实时轨)**:
+    *   **Goal**: Low latency, "keep up" with the speaker.
+    *   **Mechanism**: Local ASR (Sherpa) -> Lightweight LLM (gpt-4o-mini/Ollama).
+    *   **Output**: Instant, literal translation streams to keep users oriented.
+*   **Slow Track (深思轨)**:
+    *   **Goal**: High fidelity, semantic understanding, and cultural context.
+    *   **Mechanism**: Audio/Text Context -> Reasoning Models (o1/o3) or Multimodal Models.
+    *   **Output**: Asynchronous "AI Commentary," summaries, or refined translations that replace/annotate the fast track output after a short delay (10-30s).
 
-* *Confidence Scoring & Colors Highlighting:*
-  Implement a confidence scoring system that highlights translated text based on the model's certainty. Low-confidence segments could be visually marked, prompting users to review or re-translate those parts for better accuracy.
+### 2. Audio-Direct Multimodal (音频直投多模态)
+Moving beyond "Speech-to-Text-to-Translation" lossy pipelines:
+*   **Direct Audio Input**: Sending VAD-filtered audio segments directly to multimodal models (e.g., GPT-4o Audio, Gemini 1.5 Pro).
+*   **Nuance Capture**: Preserving tone, emotion (sarcasm, urgency), and speaker identity which are often lost in ASR.
+*   **Feedback Loop**: Using the rich understanding from the multimodal engine to "feed back" into the frontend, correcting previous ASR errors or updating the context for the Fast Track.
+
+### 3. HarmonyOS Distributed Synergy (鸿蒙分布式协同)
+Leveraging the "Super Device" capabilities to solve compute/display constraints:
+*   **Phone (The Ear)**: Handles microphone input, VAD, and the lightweight Fast Track (low power, high mobility).
+*   **Tablet/PC (The Brain & Display)**: Receives the audio stream via Continuity, runs the heavy Slow Track (Reasoning/Multimodal models), and displays the dual-track interface (Subtitles + AI Summary/Mind Map).
+
+### 4. Confidence Scoring & Visual Feedback
+*   Implement a confidence scoring system that highlights translated text based on the model's certainty.
+*   Low-confidence segments could be visually marked (e.g., grayed out or underlined), prompting users to review or wait for the Slow Track refinement.
 
 
 ## Contributing
