@@ -1,8 +1,44 @@
 import preferences from '@ohos.data.preferences';
 import common from '@ohos.app.ability.common';
 
+// 每个API模型的密钥槽位配置（最多3个）
+export interface ApiKeySlot {
+  apiUrl: string;
+  apiKey: string;
+  model: string;
+}
+
+// 多密钥槽位配置
+export interface MultiKeySlots {
+  slots: ApiKeySlot[];        // 最多3个槽位
+  currentSlotIndex: number;   // 当前选中的槽位索引 (0-2)
+}
+
+export const MAX_KEY_SLOTS: number = 3;
+
+// 创建默认的多密钥槽位
+export function createDefaultMultiKeySlots(defaultUrl: string, defaultKey: string, defaultModel: string): MultiKeySlots {
+  return {
+    slots: [
+      { apiUrl: defaultUrl, apiKey: defaultKey, model: defaultModel },
+      { apiUrl: defaultUrl, apiKey: '', model: defaultModel },
+      { apiUrl: defaultUrl, apiKey: '', model: defaultModel }
+    ],
+    currentSlotIndex: 0
+  };
+}
+
 export interface ApiConfigSnapshot {
   promptText: string;
+  // OpenAI 多密钥槽位
+  openAiKeySlots: MultiKeySlots;
+  // DeepL 多密钥槽位
+  deepLKeySlots: MultiKeySlots;
+  // Ollama 多密钥槽位
+  ollamaKeySlots: MultiKeySlots;
+  // Doubao 多密钥槽位
+  doubaoKeySlots: MultiKeySlots;
+  // 兼容旧版本的单密钥字段（用于迁移）
   openAiApiUrl: string;
   openAiApiKey: string;
   openAiModel: string;
@@ -24,10 +60,18 @@ export interface ApiConfigSnapshot {
   subtitleBackgroundColor: string;
   subtitleHeight: number;
   glossary: string;
+  // 主题模式: 0 = 浅色, 1 = 深色, 2 = 跟随系统
+  themeMode: number;
 }
 
 export interface PartialApiConfigSnapshot {
   promptText?: string;
+  // 多密钥槽位
+  openAiKeySlots?: MultiKeySlots;
+  deepLKeySlots?: MultiKeySlots;
+  ollamaKeySlots?: MultiKeySlots;
+  doubaoKeySlots?: MultiKeySlots;
+  // 兼容旧版本
   openAiApiUrl?: string;
   openAiApiKey?: string;
   openAiModel?: string;
@@ -49,6 +93,8 @@ export interface PartialApiConfigSnapshot {
   subtitleBackgroundColor?: string;
   subtitleHeight?: number;
   glossary?: string;
+  // 主题模式
+  themeMode?: number;
 }
 
 export class ApiConfigStorage {
@@ -100,16 +146,56 @@ export class ApiConfigStorage {
     }
 
     sanitized.promptText = ApiConfigStorage.pickString(candidate.promptText, defaults.promptText);
-    sanitized.openAiApiUrl = ApiConfigStorage.pickString(candidate.openAiApiUrl, defaults.openAiApiUrl);
-    sanitized.openAiApiKey = ApiConfigStorage.pickString(candidate.openAiApiKey, defaults.openAiApiKey);
-    sanitized.openAiModel = ApiConfigStorage.pickString(candidate.openAiModel, defaults.openAiModel);
-    sanitized.deepLApiUrl = ApiConfigStorage.pickString(candidate.deepLApiUrl, defaults.deepLApiUrl);
-    sanitized.deepLApiKey = ApiConfigStorage.pickString(candidate.deepLApiKey, defaults.deepLApiKey);
-    sanitized.ollamaApiUrl = ApiConfigStorage.pickString(candidate.ollamaApiUrl, defaults.ollamaApiUrl);
-    sanitized.ollamaModel = ApiConfigStorage.pickString(candidate.ollamaModel, defaults.ollamaModel);
-    sanitized.doubaoApiUrl = ApiConfigStorage.pickString(candidate.doubaoApiUrl, defaults.doubaoApiUrl);
-    sanitized.doubaoApiKey = ApiConfigStorage.pickString(candidate.doubaoApiKey, defaults.doubaoApiKey);
-    sanitized.doubaoModel = ApiConfigStorage.pickString(candidate.doubaoModel, defaults.doubaoModel);
+    
+    // 处理多密钥槽位（支持旧版本迁移）
+    sanitized.openAiKeySlots = ApiConfigStorage.migrateKeySlots(
+      candidate.openAiKeySlots,
+      candidate.openAiApiUrl,
+      candidate.openAiApiKey,
+      candidate.openAiModel,
+      defaults.openAiKeySlots
+    );
+    sanitized.deepLKeySlots = ApiConfigStorage.migrateKeySlots(
+      candidate.deepLKeySlots,
+      candidate.deepLApiUrl,
+      candidate.deepLApiKey,
+      '', // DeepL 没有 model
+      defaults.deepLKeySlots
+    );
+    sanitized.ollamaKeySlots = ApiConfigStorage.migrateKeySlots(
+      candidate.ollamaKeySlots,
+      candidate.ollamaApiUrl,
+      '', // Ollama 没有 apiKey
+      candidate.ollamaModel,
+      defaults.ollamaKeySlots
+    );
+    sanitized.doubaoKeySlots = ApiConfigStorage.migrateKeySlots(
+      candidate.doubaoKeySlots,
+      candidate.doubaoApiUrl,
+      candidate.doubaoApiKey,
+      candidate.doubaoModel,
+      defaults.doubaoKeySlots
+    );
+    
+    // 兼容字段（从当前槽位同步）
+    const openAiSlot = sanitized.openAiKeySlots.slots[sanitized.openAiKeySlots.currentSlotIndex];
+    sanitized.openAiApiUrl = openAiSlot?.apiUrl ?? defaults.openAiApiUrl;
+    sanitized.openAiApiKey = openAiSlot?.apiKey ?? defaults.openAiApiKey;
+    sanitized.openAiModel = openAiSlot?.model ?? defaults.openAiModel;
+    
+    const deepLSlot = sanitized.deepLKeySlots.slots[sanitized.deepLKeySlots.currentSlotIndex];
+    sanitized.deepLApiUrl = deepLSlot?.apiUrl ?? defaults.deepLApiUrl;
+    sanitized.deepLApiKey = deepLSlot?.apiKey ?? defaults.deepLApiKey;
+    
+    const ollamaSlot = sanitized.ollamaKeySlots.slots[sanitized.ollamaKeySlots.currentSlotIndex];
+    sanitized.ollamaApiUrl = ollamaSlot?.apiUrl ?? defaults.ollamaApiUrl;
+    sanitized.ollamaModel = ollamaSlot?.model ?? defaults.ollamaModel;
+    
+    const doubaoSlot = sanitized.doubaoKeySlots.slots[sanitized.doubaoKeySlots.currentSlotIndex];
+    sanitized.doubaoApiUrl = doubaoSlot?.apiUrl ?? defaults.doubaoApiUrl;
+    sanitized.doubaoApiKey = doubaoSlot?.apiKey ?? defaults.doubaoApiKey;
+    sanitized.doubaoModel = doubaoSlot?.model ?? defaults.doubaoModel;
+    
     sanitized.subtitleFontSize = ApiConfigStorage.pickNumber(candidate.subtitleFontSize, defaults.subtitleFontSize);
     sanitized.subtitleFontColor = ApiConfigStorage.pickString(candidate.subtitleFontColor, defaults.subtitleFontColor);
     sanitized.subtitleBackgroundColor = ApiConfigStorage.pickString(candidate.subtitleBackgroundColor, defaults.subtitleBackgroundColor);
@@ -121,7 +207,54 @@ export class ApiConfigStorage {
     sanitized.maxTokensIndex = ApiConfigStorage.pickNumber(candidate.maxTokensIndex, defaults.maxTokensIndex);
     sanitized.temperatureIndex = ApiConfigStorage.pickNumber(candidate.temperatureIndex, defaults.temperatureIndex);
     sanitized.glossary = ApiConfigStorage.pickString(candidate.glossary, defaults.glossary);
+    sanitized.themeMode = ApiConfigStorage.pickNumber(candidate.themeMode, defaults.themeMode);
     return sanitized;
+  }
+  
+  // 迁移旧版本单密钥到多密钥槽位
+  private static migrateKeySlots(
+    newSlots: MultiKeySlots | undefined,
+    oldUrl: string | undefined,
+    oldKey: string | undefined,
+    oldModel: string | undefined,
+    defaults: MultiKeySlots
+  ): MultiKeySlots {
+    // 如果已有新格式数据，直接使用
+    if (newSlots && newSlots.slots && newSlots.slots.length > 0) {
+      // 确保有3个槽位
+      while (newSlots.slots.length < MAX_KEY_SLOTS) {
+        newSlots.slots.push({
+          apiUrl: defaults.slots[0]?.apiUrl ?? '',
+          apiKey: '',
+          model: defaults.slots[0]?.model ?? ''
+        });
+      }
+      return newSlots;
+    }
+    
+    // 旧版本迁移：将旧数据放到第一个槽位
+    const result: MultiKeySlots = {
+      slots: [],
+      currentSlotIndex: 0
+    };
+    
+    // 第一个槽位使用旧数据（如果有）或默认值
+    result.slots.push({
+      apiUrl: oldUrl ?? defaults.slots[0]?.apiUrl ?? '',
+      apiKey: oldKey ?? defaults.slots[0]?.apiKey ?? '',
+      model: oldModel ?? defaults.slots[0]?.model ?? ''
+    });
+    
+    // 其余槽位使用默认URL和model，key为空
+    for (let i = 1; i < MAX_KEY_SLOTS; i++) {
+      result.slots.push({
+        apiUrl: defaults.slots[0]?.apiUrl ?? '',
+        apiKey: '',
+        model: defaults.slots[0]?.model ?? ''
+      });
+    }
+    
+    return result;
   }
 
   private static pickString(value: string | undefined, fallback: string): string {
@@ -139,6 +272,10 @@ export class ApiConfigStorage {
   private static cloneSnapshot(snapshot: ApiConfigSnapshot): ApiConfigSnapshot {
     return {
       promptText: snapshot.promptText,
+      openAiKeySlots: ApiConfigStorage.cloneMultiKeySlots(snapshot.openAiKeySlots),
+      deepLKeySlots: ApiConfigStorage.cloneMultiKeySlots(snapshot.deepLKeySlots),
+      ollamaKeySlots: ApiConfigStorage.cloneMultiKeySlots(snapshot.ollamaKeySlots),
+      doubaoKeySlots: ApiConfigStorage.cloneMultiKeySlots(snapshot.doubaoKeySlots),
       openAiApiUrl: snapshot.openAiApiUrl,
       openAiApiKey: snapshot.openAiApiKey,
       openAiModel: snapshot.openAiModel,
@@ -159,7 +296,24 @@ export class ApiConfigStorage {
       subtitleFontColor: snapshot.subtitleFontColor,
       subtitleBackgroundColor: snapshot.subtitleBackgroundColor,
       subtitleHeight: snapshot.subtitleHeight,
-      glossary: snapshot.glossary
+      glossary: snapshot.glossary,
+      themeMode: snapshot.themeMode
     };
+  }
+  
+  private static cloneMultiKeySlots(slots: MultiKeySlots): MultiKeySlots {
+    const clonedSlots: ApiKeySlot[] = slots.slots.map((s: ApiKeySlot): ApiKeySlot => {
+      const slot: ApiKeySlot = {
+        apiUrl: s.apiUrl,
+        apiKey: s.apiKey,
+        model: s.model
+      };
+      return slot;
+    });
+    const result: MultiKeySlots = {
+      slots: clonedSlots,
+      currentSlotIndex: slots.currentSlotIndex
+    };
+    return result;
   }
 }

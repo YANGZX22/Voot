@@ -204,12 +204,14 @@ export struct SettingsPage {
   @Link subtitleBackgroundColor: string;
   @Link subtitleHeight: number;
   @Link isLightEffectBright: boolean;
-  @Link isDarkMode: boolean;
+  @Link themeMode: number;  // 0 = 浅色, 1 = 深色, 2 = 跟随系统
+  @Prop isDarkMode: boolean = true;  // 计算后的暗色模式状态（用于光效）
 
   // Callbacks
   onTogglePipSubtitle: (isOn: boolean) => void = () => {}; // PiP 字幕切换回调
   onToggleRealtimeReading: () => void = () => {};
   onStyleChange: () => void = () => {};
+  onThemeModeChange: (mode: number) => void = () => {};
 
   // Struct
   dialogController: CustomDialogController = new CustomDialogController({
@@ -490,7 +492,7 @@ export struct SettingsPage {
           Row() {
             Blank().width(12)
             Column() {
-              Text('深色模式').fontColor(Color.White).alignSelf(ItemAlign.Start)
+              Text('主题模式').fontColor(Color.White).alignSelf(ItemAlign.Start)
               Text('深色模式下光效被禁用')
                 .fontColor('#80FFFFFF')
                 .fontSize(12)
@@ -499,36 +501,21 @@ export struct SettingsPage {
 
             Blank()
 
-            Button({ type: ButtonType.Circle }) {
-              SymbolGlyph(this.isDarkMode ? $r('sys.symbol.moon_fill') : $r('sys.symbol.sun_max_fill'))
-                .fontSize(24)
-                .fontColor(["#3c1464"])
-                .symbolEffect(new ReplaceSymbolEffect(EffectScope.WHOLE))
-            }
-            .backgroundColor(Color.White)
-            .width(40)
-            .height(40)
-            .scale({ x: this.darkModeBtnScale, y: this.darkModeBtnScale })
-            .visualEffect(new hdsEffect.HdsEffectBuilder()
-              .pointLight({
-                sourceType: this.isDarkMode ? hdsEffect.PointLightSourceType.NONE :
-                  (this.isDarkModeBtnActive ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT) : hdsEffect.PointLightSourceType.NONE),
-                illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE :
-                  (this.isDarkModeBtnActive ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT : hdsEffect.PointLightIlluminatedType.NONE)
-              })
-              .buildEffect())
-            .onTouch((event: TouchEvent) => {
-              if (event.type === TouchType.Down) {
-                this.pressButtonEffect(1);
-              } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
-                this.releaseButtonEffect(1);
-              }
+            CapsuleSegmentButtonV2({
+              items: new SegmentButtonV2Items([
+                { text: '浅色' },
+                { text: '深色' },
+                { text: '自动' }
+              ]),
+              selectedIndex: this.themeMode,
+              $selectedIndex: (index: number) => {
+                this.themeMode = index;
+                this.onThemeModeChange(index);
+              },
+              buttonBackgroundColor: ColorMetrics.resourceColor($r('sys.color.comp_background_tertiary')),
+              itemSelectedBackgroundColor: ColorMetrics.rgba(60, 20, 100, 1),
             })
-            .onClick(() => {
-              animateTo({ duration: 300 }, () => {
-                this.isDarkMode = !this.isDarkMode;
-              })
-            })
+            .width(150)
 
             Blank().width(12)
           }
@@ -563,7 +550,7 @@ export struct SettingsPage {
               itemSelectedBackgroundColor: ColorMetrics.rgba(60, 20, 100, 1),
               // buttonBackgroundEffect: {radius: 24}
             })
-            .width(140)
+            .width(100)
             .enabled(!this.isDarkMode)
             .opacity(this.isDarkMode ? 0.5 : 1.0)
 

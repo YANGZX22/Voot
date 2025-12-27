@@ -443,7 +443,7 @@ struct ContinuityHelpDialog {
           .width(32)
           .height(32)
           .borderRadius(16)
-          .backgroundColor('#FF4D4F')
+          .backgroundColor($r('sys.color.brand'))
           .justifyContent(FlexAlign.Center)
 
           Text('确保两台设备登录同一华为账号')
@@ -503,7 +503,7 @@ struct ContinuityHelpDialog {
           .width(32)
           .height(32)
           .borderRadius(16)
-          .backgroundColor('#0c3891')
+          .backgroundColor($r('sys.color.confirm'))
           .justifyContent(FlexAlign.Center)
 
           Text('同意连接后，字幕与翻译将无缝流转到目标设备')

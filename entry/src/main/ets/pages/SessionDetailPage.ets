@@ -15,7 +15,7 @@
 import router from '@ohos.router';
 import { Session } from '../model/Session';
 import { HistoryStorage } from '../storage/HistoryStorage';
-import { ApiConfigStorage, ApiConfigSnapshot } from '../storage/ApiConfigStorage';
+import { ApiConfigStorage, ApiConfigSnapshot, createDefaultMultiKeySlots } from '../storage/ApiConfigStorage';
 import { TokenUsageStorage } from '../storage/TokenUsageStorage';
 import { ApiMenuType } from './ApiConfigPage';
 import http from '@ohos.net.http';
@@ -92,13 +92,17 @@ interface DoubaoChatResponse {
 
 const DEFAULT_CONFIG: ApiConfigSnapshot = {
   promptText: 'You are a helpful assistant.',
+  openAiKeySlots: createDefaultMultiKeySlots('https://api.openai.com', '', 'gpt-3.5-turbo'),
+  deepLKeySlots: createDefaultMultiKeySlots('https://api-free.deepl.com/v2/translate', '', ''),
+  ollamaKeySlots: createDefaultMultiKeySlots('http://localhost:11434', '', ''),
+  doubaoKeySlots: createDefaultMultiKeySlots('https://ark.cn-beijing.volces.com', '', ''),
   openAiApiUrl: 'https://api.openai.com',
   openAiApiKey: '',
   openAiModel: 'gpt-3.5-turbo',
   deepLApiUrl: 'https://api-free.deepl.com/v2/translate',
   deepLApiKey: '',
   ollamaApiUrl: 'http://localhost:11434',
-  ollamaModel: 'llama2',
+  ollamaModel: '',
   doubaoApiUrl: 'https://ark.cn-beijing.volces.com',
   doubaoApiKey: '',
   doubaoModel: '',
@@ -112,7 +116,8 @@ const DEFAULT_CONFIG: ApiConfigSnapshot = {
   subtitleFontColor: '#FFFFFF',
   subtitleBackgroundColor: '#80000000',
   subtitleHeight: 20,
-  glossary: 'HarmonyOS = 鸿蒙'
+  glossary: 'HarmonyOS = 鸿蒙',
+  themeMode: 2  // 默认跟随系统
 };
 
 @Entry

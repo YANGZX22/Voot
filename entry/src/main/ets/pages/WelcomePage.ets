@@ -10,7 +10,7 @@ import common from '@ohos.app.ability.common';
 import { webview } from '@kit.ArkWeb';
 import { PolicySheetType, PolicySheetContent, getPolicySheetConfig, PolicySheetConfig } from '../components/PolicySheet';
 import { OnboardingStorage } from '../storage/OnboardingStorage';
-import { ApiConfigStorage, ApiConfigSnapshot } from '../storage/ApiConfigStorage';
+import { ApiConfigStorage, ApiConfigSnapshot, createDefaultMultiKeySlots } from '../storage/ApiConfigStorage';
 
 // API 提供商类型
 enum ApiProvider {
@@ -67,9 +67,9 @@ const PROVIDERS: ProviderInfo[] = [
     needsApiKey: false,
     needsModel: true,
     defaultUrl: 'http://localhost:11434/api/chat',
-    defaultModel: 'llama3.1:latest',
+    defaultModel: '',
     urlPlaceholder: 'http://localhost:11434/api/chat',
-    modelPlaceholder: 'llama3.1:latest'
+    modelPlaceholder: '请输入模型名称'
   },
   {
     id: ApiProvider.Doubao,
@@ -213,7 +213,7 @@ struct WelcomePage {
         extraData = {
           'model': this.model,
           'messages': [msg],
-          'max_tokens': 1
+          'max_tokens': 50
         };
       } else if (this.selectedProvider === ApiProvider.DeepL) {
         headers['Authorization'] = `DeepL-Auth-Key ${this.apiKey}`;
@@ -230,13 +230,34 @@ struct WelcomePage {
         };
       }
 
-      const response = await httpRequest.request(url, {
+      let response = await httpRequest.request(url, {
         method: method,
         header: headers,
         extraData: extraData,
         connectTimeout: 5000,
         readTimeout: 5000
       });
+
+      // OpenAI 兼容：部分模型在 chat/completions 下不支持 max_tokens，要求 max_completion_tokens
+      if ((this.selectedProvider === ApiProvider.OpenAI || this.selectedProvider === ApiProvider.Doubao) &&
+        response.responseCode === 400) {
+        const resultStr: string = typeof response.result === 'string' ? (response.result as string) : JSON.stringify(response.result);
+        if (resultStr.includes('max_completion_tokens') && resultStr.includes('max_tokens')) {
+          let msg: Record<string, Object> = { 'role': 'user', 'content': 'Hi' };
+          extraData = {
+            'model': this.model,
+            'messages': [msg],
+            'max_completion_tokens': 50
+          };
+          response = await httpRequest.request(url, {
+            method: method,
+            header: headers,
+            extraData: extraData,
+            connectTimeout: 5000,
+            readTimeout: 5000
+          });
+        }
+      }
 
       httpRequest.destroy();
 
@@ -279,13 +300,17 @@ struct WelcomePage {
       promptText: 'Act as an elite simultaneous interpreter who only hears imperfect microphone pickups. ' +
       'You receive roughly five-second snippets of speech, so rely on the snippet enclosed in [abc] and reasonably infer missing words while staying faithful to the speaker. ' +
       'Translate that snippet into {0} in a single fluent line, preserving intent and tone even when the audio is noisy. No matter how, you must output the translation directly.',
+      openAiKeySlots: createDefaultMultiKeySlots('https://api.openai.com/v1/chat/completions', '', 'gpt-4o-mini'),
+      deepLKeySlots: createDefaultMultiKeySlots('https://api-free.deepl.com/v2/translate', '', ''),
+      ollamaKeySlots: createDefaultMultiKeySlots('http://localhost:11434/api/chat', '', ''),
+      doubaoKeySlots: createDefaultMultiKeySlots('https://ark.cn-beijing.volces.com/api/v3/chat/completions', '', ''),
       openAiApiUrl: 'https://api.openai.com/v1/chat/completions',
       openAiApiKey: '',
       openAiModel: 'gpt-4o-mini',
       deepLApiUrl: 'https://api-free.deepl.com/v2/translate',
       deepLApiKey: '',
       ollamaApiUrl: 'http://localhost:11434/api/chat',
-      ollamaModel: 'llama3.1:latest',
+      ollamaModel: '',
       doubaoApiUrl: 'https://ark.cn-beijing.volces.com/api/v3/chat/completions',
       doubaoApiKey: '',
       doubaoModel: '',
@@ -299,7 +324,8 @@ struct WelcomePage {
       subtitleFontColor: '#FFFFFF',
       subtitleBackgroundColor: '#3c1464',
       subtitleHeight: 20,
-      glossary: 'HarmonyOS = 鸿蒙'
+      glossary: 'HarmonyOS = 鸿蒙',
+      themeMode: 2  // 默认跟随系统
     };
 
     const currentConfig = await ApiConfigStorage.loadSnapshot(context, defaults);
@@ -309,22 +335,52 @@ struct WelcomePage {
 
     switch (this.selectedProvider) {
       case ApiProvider.OpenAI:
+        // 更新兼容字段
         currentConfig.openAiApiUrl = this.apiUrl;
         currentConfig.openAiApiKey = this.apiKey;
         currentConfig.openAiModel = this.model;
+        // 同时更新第一个槽位
+        if (currentConfig.openAiKeySlots && currentConfig.openAiKeySlots.slots.length > 0) {
+          currentConfig.openAiKeySlots.slots[0].apiUrl = this.apiUrl;
+          currentConfig.openAiKeySlots.slots[0].apiKey = this.apiKey;
+          currentConfig.openAiKeySlots.slots[0].model = this.model;
+          currentConfig.openAiKeySlots.currentSlotIndex = 0;
+        }
         break;
       case ApiProvider.DeepL:
+        // 更新兼容字段
         currentConfig.deepLApiUrl = this.apiUrl;
         currentConfig.deepLApiKey = this.apiKey;
+        // 同时更新第一个槽位
+        if (currentConfig.deepLKeySlots && currentConfig.deepLKeySlots.slots.length > 0) {
+          currentConfig.deepLKeySlots.slots[0].apiUrl = this.apiUrl;
+          currentConfig.deepLKeySlots.slots[0].apiKey = this.apiKey;
+          currentConfig.deepLKeySlots.currentSlotIndex = 0;
+        }
         break;
       case ApiProvider.Ollama:
+        // 更新兼容字段
         currentConfig.ollamaApiUrl = this.apiUrl;
         currentConfig.ollamaModel = this.model;
+        // 同时更新第一个槽位
+        if (currentConfig.ollamaKeySlots && currentConfig.ollamaKeySlots.slots.length > 0) {
+          currentConfig.ollamaKeySlots.slots[0].apiUrl = this.apiUrl;
+          currentConfig.ollamaKeySlots.slots[0].model = this.model;
+          currentConfig.ollamaKeySlots.currentSlotIndex = 0;
+        }
         break;
       case ApiProvider.Doubao:
+        // 更新兼容字段
         currentConfig.doubaoApiUrl = this.apiUrl;
         currentConfig.doubaoApiKey = this.apiKey;
         currentConfig.doubaoModel = this.model;
+        // 同时更新第一个槽位
+        if (currentConfig.doubaoKeySlots && currentConfig.doubaoKeySlots.slots.length > 0) {
+          currentConfig.doubaoKeySlots.slots[0].apiUrl = this.apiUrl;
+          currentConfig.doubaoKeySlots.slots[0].apiKey = this.apiKey;
+          currentConfig.doubaoKeySlots.slots[0].model = this.model;
+          currentConfig.doubaoKeySlots.currentSlotIndex = 0;
+        }
         break;
     }
 

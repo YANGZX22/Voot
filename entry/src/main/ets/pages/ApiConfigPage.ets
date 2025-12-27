@@ -1,4 +1,8 @@
-import { hdsEffect, HdsNavigation, HdsNavigationAttribute, HdsNavigationTitleMode } from '@kit.UIDesignKit';
+import { hdsEffect, HdsNavigation, HdsNavigationAttribute, HdsNavigationTitleMode, HdsActionBar, ActionBarButton, ActionBarStyle } from '@kit.UIDesignKit';
+import { MultiKeySlots, MAX_KEY_SLOTS } from '../storage/ApiConfigStorage';
+import http from '@ohos.net.http';
+import promptAction from '@ohos.promptAction';
+import { ColorMetrics } from '@kit.ArkUI';
 
 const TITLE_BAR_HEIGHT_MINI: number = 84;
 
@@ -11,10 +15,90 @@ export enum ApiMenuType {
   Doubao
 }
 
+// 密钥槽位切换器组件
+@Component
+struct KeySlotSwitcher {
+  @Prop currentSlotIndex: number = 0;
+  @Prop totalSlots: number = MAX_KEY_SLOTS;
+  @Prop hasApiKey: boolean = false;
+  onSwitchSlot: (index: number) => void = () => {};
+  onEditSlot: () => void = () => {};
+  @State isExpand: boolean = true;
+
+  build() {
+    Column() {
+      // 槽位指示器（在 ActionBar 上面）
+      Row() {
+        ForEach([0, 1, 2], (index: number) => {
+          Text((index + 1).toString())
+            .fontSize(12)
+            .fontWeight(this.currentSlotIndex === index ? FontWeight.Bold : FontWeight.Normal)
+            .fontColor(this.currentSlotIndex === index ? Color.White : Color.Gray)
+            .width(24)
+            .height(24)
+            .textAlign(TextAlign.Center)
+            .borderRadius(12)
+            .backgroundColor(this.currentSlotIndex === index ? '#bf3c1464' : Color.Transparent)
+            .border({ width: 1, color: this.currentSlotIndex === index ? '#3c1464' : Color.Gray })
+            .margin({ left: 4, right: 4 })
+            .onClick(() => {
+              this.onSwitchSlot(index);
+            })
+        })
+      }
+      .margin({ bottom: 6 })
+
+      // ActionBar
+      HdsActionBar({
+        startButtons: [new ActionBarButton({
+          baseIcon: $r('sys.symbol.chevron_left'),
+          onClick: () => {
+            if (this.currentSlotIndex > 0) {
+              this.onSwitchSlot(this.currentSlotIndex - 1);
+            }
+          },
+          hoverTips: '上一个槽位'
+        })],
+        endButtons: [new ActionBarButton({
+          baseIcon: $r('sys.symbol.chevron_right'),
+          onClick: () => {
+            if (this.currentSlotIndex < this.totalSlots - 1) {
+              this.onSwitchSlot(this.currentSlotIndex + 1);
+            }
+          },
+          hoverTips: '下一个槽位'
+        })],
+        primaryButton: new ActionBarButton({
+          baseIcon: this.hasApiKey ? $r('sys.symbol.pencil_waveform') : $r('sys.symbol.plus'),
+          onClick: () => {
+            this.isExpand = !this.isExpand;
+            this.onEditSlot();
+          },
+          backgroundColor: ColorMetrics.rgba(60, 20, 100, 1),
+          hoverTips: this.hasApiKey ? '编辑槽位 ' + (this.currentSlotIndex + 1).toString() : '添加密钥'
+        }),
+        actionBarStyle: new ActionBarStyle({
+          isPrimaryIconChanged: false
+        }),
+        isExpand: this.isExpand!
+      })
+    }
+    .width('100%')
+    .alignItems(HorizontalAlign.Center)
+    .padding({ bottom: 16 })
+  }
+}
+
 // NOTE: Interface kept for type safety, but implementation will use component props
 export interface ApiConfigPageProps {
   selectedMenu: ApiMenuType;
   promptText: string;
+  // 多密钥槽位
+  openAiKeySlots: MultiKeySlots;
+  deepLKeySlots: MultiKeySlots;
+  ollamaKeySlots: MultiKeySlots;
+  doubaoKeySlots: MultiKeySlots;
+  // 兼容旧版单密钥字段
   openAiApiUrl: string;
   openAiApiKey: string;
   openAiModel: string;
@@ -29,6 +113,12 @@ export interface ApiConfigPageProps {
   onBack: () => void;
   onSelectMenu: (menu: ApiMenuType) => void;
   onUpdatePrompt: (value: string) => void;
+  // 槽位切换回调
+  onSwitchOpenAiSlot: (index: number) => void;
+  onSwitchDeepLSlot: (index: number) => void;
+  onSwitchOllamaSlot: (index: number) => void;
+  onSwitchDoubaoSlot: (index: number) => void;
+  // 更新槽位内容回调
   onUpdateOpenAiApiUrl: (value: string) => void;
   onUpdateOpenAiApiKey: (value: string) => void;
   onUpdateOpenAiModel: (value: string) => void;
@@ -121,6 +211,12 @@ export struct ApiConfigPage {
   // Props
   @Prop selectedMenu: ApiMenuType = ApiMenuType.Prompt;
   @Prop promptText: string = "";
+  // 多密钥槽位
+  @Prop openAiKeySlots: MultiKeySlots = { slots: [], currentSlotIndex: 0 };
+  @Prop deepLKeySlots: MultiKeySlots = { slots: [], currentSlotIndex: 0 };
+  @Prop ollamaKeySlots: MultiKeySlots = { slots: [], currentSlotIndex: 0 };
+  @Prop doubaoKeySlots: MultiKeySlots = { slots: [], currentSlotIndex: 0 };
+  // 兼容旧版字段
   @Prop openAiApiUrl: string = "";
   @Prop openAiApiKey: string = "";
   @Prop openAiModel: string = "";
@@ -139,6 +235,12 @@ export struct ApiConfigPage {
   onBack: () => void = () => {};
   onSelectMenu: (menu: ApiMenuType) => void = () => {};
   onUpdatePrompt: (value: string) => void = () => {};
+  // 槽位切换回调
+  onSwitchOpenAiSlot: (index: number) => void = () => {};
+  onSwitchDeepLSlot: (index: number) => void = () => {};
+  onSwitchOllamaSlot: (index: number) => void = () => {};
+  onSwitchDoubaoSlot: (index: number) => void = () => {};
+  // 更新内容回调
   onUpdateOpenAiApiUrl: (value: string) => void = () => {};
   onUpdateOpenAiApiKey: (value: string) => void = () => {};
   onUpdateOpenAiModel: (value: string) => void = () => {};
@@ -264,7 +366,7 @@ export struct ApiConfigPage {
           extraData = {
             'model': this.editingModel,
             'messages': [msg],
-            'max_tokens': 1
+            'max_tokens': 50
           };
         }
       } else if (this.selectedMenu === ApiMenuType.DeepL) {
@@ -300,7 +402,7 @@ export struct ApiConfigPage {
           extraData = {
             'model': this.editingModel,
             'messages': [msg],
-            'max_completion_tokens': 1
+            'max_completion_tokens': 50
           };
           response = await httpRequest.request(url, {
             method: method,
@@ -646,7 +748,7 @@ export struct ApiConfigPage {
         .sideBarPosition(SideBarPosition.Start)
         .showControlButton(false)
         .width('100%')
-        .layoutWeight(1);
+        .height('100%')
       }
       .width('100%')
       .height('100%')
@@ -723,49 +825,119 @@ export struct ApiConfigPage {
       },
       avoidLayoutSafeArea: true
     })
+    .bindSheet($$this.isKeyEditSheetOpen, this.KeyEditSheetContent(), {
+      height: SheetSize.FIT_CONTENT,
+      dragBar: true,
+      showClose: true,
+      title: { title: this.getCurrentSlotHasKey() ? '编辑密钥' : '添加密钥' },
+      onDisappear: () => {
+        this.isKeyEditSheetOpen = false;
+      }
+    })
   }
 
   // Helper Builder for the content panel to keep build() clean
   @Builder
   ContentPanel() {
     Column() {
-      Scroll() {
-        Column() {
-          if (this.selectedMenu === ApiMenuType.Prompt) {
-            PromptContent({
-              promptText: this.promptText,
-              onUpdatePrompt: this.onUpdatePrompt,
-              getConfigTextAreaHeight: this.getConfigTextAreaHeight
-              // Pass only what is needed or create a sub-struct if complex
-            } as ApiConfigPageProps);
-            // Note: For simplicity in this example, passing specific props to sub-builders
-            // In a real app, converting sub-builders to @Component structs is better.
-          } else {
-            if (this.selectedMenu === ApiMenuType.OpenAI) {
-              this.RenderProviderHeader('OpenAI', $r('app.media.OpenAI'));
-              this.RenderOpenAiConfig();
-            } else if (this.selectedMenu === ApiMenuType.DeepL) {
-              this.RenderProviderHeader('DeepL', $r('app.media.DeepL'));
-              this.RenderDeepLConfig();
-            } else if (this.selectedMenu === ApiMenuType.Ollama) {
-              this.RenderProviderHeader('Ollama', $r('app.media.Ollama'));
-              this.RenderOllamaConfig();
-            } else if (this.selectedMenu === ApiMenuType.Doubao) {
-              this.RenderProviderHeader('Doubao', $r('app.media.Doubao'));
-              this.RenderDoubaoConfig();
-            } else if (this.selectedMenu === ApiMenuType.Glossary) {
-              this.RenderGlossaryConfig();
+      // 可滚动的配置内容
+      Stack({ alignContent: Alignment.Bottom }) {
+        Scroll() {
+          Column() {
+            if (this.selectedMenu === ApiMenuType.Prompt) {
+              PromptContent({
+                promptText: this.promptText,
+                onUpdatePrompt: this.onUpdatePrompt,
+                getConfigTextAreaHeight: this.getConfigTextAreaHeight
+                // Pass only what is needed or create a sub-struct if complex
+              } as ApiConfigPageProps);
+              // Note: For simplicity in this example, passing specific props to sub-builders
+              // In a real app, converting sub-builders to @Component structs is better.
+            } else {
+              if (this.selectedMenu === ApiMenuType.OpenAI) {
+                this.RenderProviderHeader('OpenAI', $r('app.media.OpenAI'));
+                this.RenderOpenAiConfig();
+              } else if (this.selectedMenu === ApiMenuType.DeepL) {
+                this.RenderProviderHeader('DeepL', $r('app.media.DeepL'));
+                this.RenderDeepLConfig();
+              } else if (this.selectedMenu === ApiMenuType.Ollama) {
+                this.RenderProviderHeader('Ollama', $r('app.media.Ollama'));
+                this.RenderOllamaConfig();
+              } else if (this.selectedMenu === ApiMenuType.Doubao) {
+                this.RenderProviderHeader('Doubao', $r('app.media.Doubao'));
+                this.RenderDoubaoConfig();
+              } else if (this.selectedMenu === ApiMenuType.Glossary) {
+                this.RenderGlossaryConfig();
+              }
             }
+            // 底部留出空间给悬浮的 ActionBar
+            Blank().height(150)
           }
+          .width('100%')
+          .padding({ left: 16, right: 16, top: 16 })
         }
-        .width('100%');
+        .scrollable(ScrollDirection.Vertical)
+        .scrollBar(BarState.Auto)
+        .edgeEffect(EdgeEffect.Spring)
+        .friction(0.6)
+        .width('100%')
+        .height('100%')
+
+        // 悬浮的密钥槽位切换器（仅在 API 配置页面显示）
+        if (this.selectedMenu === ApiMenuType.OpenAI ||
+            this.selectedMenu === ApiMenuType.DeepL ||
+            this.selectedMenu === ApiMenuType.Ollama ||
+            this.selectedMenu === ApiMenuType.Doubao) {
+          Column() {
+            this.RenderFloatingKeySlotSwitcher()
+          }
+          .width('100%')
+          .padding({ bottom: 120 })
+        }
       }
-      .scrollable(ScrollDirection.Vertical)
-      .layoutWeight(1);
+      .width('100%')
+      .height('100%')
     }
     .width('100%')
     .height('100%')
-    // .padding({ left: 0, right: 24, top: 24, bottom: 32 });
+  }
+
+  // 悬浮的密钥槽位切换器
+  @Builder
+  RenderFloatingKeySlotSwitcher() {
+    if (this.selectedMenu === ApiMenuType.OpenAI) {
+      KeySlotSwitcher({
+        currentSlotIndex: this.openAiKeySlots.currentSlotIndex,
+        totalSlots: MAX_KEY_SLOTS,
+        hasApiKey: this.openAiApiKey.length > 0,
+        onSwitchSlot: (index: number) => this.onSwitchOpenAiSlot(index),
+        onEditSlot: () => this.openKeyEditSheet()
+      })
+    } else if (this.selectedMenu === ApiMenuType.DeepL) {
+      KeySlotSwitcher({
+        currentSlotIndex: this.deepLKeySlots.currentSlotIndex,
+        totalSlots: MAX_KEY_SLOTS,
+        hasApiKey: this.deepLApiKey.length > 0,
+        onSwitchSlot: (index: number) => this.onSwitchDeepLSlot(index),
+        onEditSlot: () => this.openKeyEditSheet()
+      })
+    } else if (this.selectedMenu === ApiMenuType.Ollama) {
+      KeySlotSwitcher({
+        currentSlotIndex: this.ollamaKeySlots.currentSlotIndex,
+        totalSlots: MAX_KEY_SLOTS,
+        hasApiKey: this.ollamaApiUrl.length > 0,
+        onSwitchSlot: (index: number) => this.onSwitchOllamaSlot(index),
+        onEditSlot: () => this.openKeyEditSheet()
+      })
+    } else if (this.selectedMenu === ApiMenuType.Doubao) {
+      KeySlotSwitcher({
+        currentSlotIndex: this.doubaoKeySlots.currentSlotIndex,
+        totalSlots: MAX_KEY_SLOTS,
+        hasApiKey: this.doubaoApiKey.length > 0,
+        onSwitchSlot: (index: number) => this.onSwitchDoubaoSlot(index),
+        onEditSlot: () => this.openKeyEditSheet()
+      })
+    }
   }
 
   @Builder
@@ -798,27 +970,27 @@ export struct ApiConfigPage {
         .height(this.getConfigTextAreaHeight(4))
         .maxLines(6)
         .textAlign(TextAlign.Start)
-        .onChange((value: string) => this.onUpdateOpenAiApiUrl(value))
+        .enabled(false)
         .margin({ bottom: 12 });
 
       Text('API Key').fontSize(14).margin({ bottom: 4 }).fontColor(Color.White);
-      TextArea({ text: this.openAiApiKey })
-        .fontColor(Color.White)
+      TextArea({ text: this.openAiApiKey ? '••••••••••••' : '未配置' })
+        .fontColor(this.openAiApiKey ? Color.White : Color.Gray)
         .width('100%')
         .height(this.getConfigTextAreaHeight(4))
         .maxLines(6)
         .textAlign(TextAlign.Start)
-        .onChange((value: string) => this.onUpdateOpenAiApiKey(value))
+        .enabled(false)
         .margin({ bottom: 12 });
 
       Text('Model').fontSize(14).margin({ bottom: 4 }).fontColor(Color.White);
-      TextArea({ text: this.openAiModel })
-        .fontColor(Color.White)
+      TextArea({ text: this.openAiModel || '未配置' })
+        .fontColor(this.openAiModel ? Color.White : Color.Gray)
         .width('100%')
         .height(this.getConfigTextAreaHeight(3))
         .maxLines(4)
         .textAlign(TextAlign.Start)
-        .onChange((value: string) => this.onUpdateOpenAiModel(value));
+        .enabled(false);
     }
     .width('100%')
     .padding(12)
@@ -835,17 +1007,17 @@ export struct ApiConfigPage {
         .height(this.getConfigTextAreaHeight(4))
         .maxLines(6)
         .textAlign(TextAlign.Start)
-        .onChange((value: string) => this.onUpdateDeepLApiUrl(value))
+        .enabled(false)
         .margin({ bottom: 12 });
 
       Text('API Key').fontSize(14).margin({ bottom: 4 }).fontColor(Color.White);
-      TextArea({ text: this.deepLApiKey })
-        .fontColor(Color.White)
+      TextArea({ text: this.deepLApiKey ? '••••••••••••' : '未配置' })
+        .fontColor(this.deepLApiKey ? Color.White : Color.Gray)
         .width('100%')
         .height(this.getConfigTextAreaHeight(4))
         .maxLines(6)
         .textAlign(TextAlign.Start)
-        .onChange((value: string) => this.onUpdateDeepLApiKey(value));
+        .enabled(false);
     }
     .width('100%')
     .padding(12)
@@ -856,23 +1028,23 @@ export struct ApiConfigPage {
   RenderOllamaConfig() {
     Column() {
       Text('API Url').fontSize(14).margin({ bottom: 4 }).fontColor(Color.White);
-      TextArea({ text: this.ollamaApiUrl })
-        .fontColor(Color.White)
+      TextArea({ text: this.ollamaApiUrl || '未配置' })
+        .fontColor(this.ollamaApiUrl ? Color.White : Color.Gray)
         .width('100%')
         .height(this.getConfigTextAreaHeight(4))
         .maxLines(6)
         .textAlign(TextAlign.Start)
-        .onChange((value: string) => this.onUpdateOllamaApiUrl(value))
+        .enabled(false)
         .margin({ bottom: 12 });
 
       Text('Model').fontSize(14).margin({ bottom: 4 }).fontColor(Color.White);
-      TextArea({ text: this.ollamaModel })
-        .fontColor(Color.White)
+      TextArea({ text: this.ollamaModel || '未配置' })
+        .fontColor(this.ollamaModel ? Color.White : Color.Gray)
         .width('100%')
         .height(this.getConfigTextAreaHeight(3))
         .maxLines(4)
         .textAlign(TextAlign.Start)
-        .onChange((value: string) => this.onUpdateOllamaModel(value));
+        .enabled(false);
     }
     .width('100%')
     .padding(12)
@@ -889,27 +1061,27 @@ export struct ApiConfigPage {
         .height(this.getConfigTextAreaHeight(4))
         .maxLines(6)
         .textAlign(TextAlign.Start)
-        .onChange((value: string) => this.onUpdateDoubaoApiUrl(value))
+        .enabled(false)
         .margin({ bottom: 12 });
 
       Text('API Key').fontSize(14).margin({ bottom: 4 }).fontColor(Color.White);
-      TextArea({ text: this.doubaoApiKey })
-        .fontColor(Color.White)
+      TextArea({ text: this.doubaoApiKey ? '••••••••••••' : '未配置' })
+        .fontColor(this.doubaoApiKey ? Color.White : Color.Gray)
         .width('100%')
         .height(this.getConfigTextAreaHeight(4))
         .maxLines(6)
         .textAlign(TextAlign.Start)
-        .onChange((value: string) => this.onUpdateDoubaoApiKey(value))
+        .enabled(false)
         .margin({ bottom: 12 });
 
       Text('Model').fontSize(14).margin({ bottom: 4 }).fontColor(Color.White);
-      TextArea({ text: this.doubaoModel })
-        .fontColor(Color.White)
+      TextArea({ text: this.doubaoModel || '未配置' })
+        .fontColor(this.doubaoModel ? Color.White : Color.Gray)
         .width('100%')
         .height(this.getConfigTextAreaHeight(3))
         .maxLines(4)
         .textAlign(TextAlign.Start)
-        .onChange((value: string) => this.onUpdateDoubaoModel(value));
+        .enabled(false);
     }
     .width('100%')
     .padding(12)

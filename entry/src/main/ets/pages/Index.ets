@@ -28,7 +28,7 @@ import { HistoryTabPage } from './HistoryTabPage';
 import { SettingsPage } from './SettingsPage';
 import { ApiConfigPage, ApiMenuType } from './ApiConfigPage';
 import App from '@system.app';
-import { ApiConfigStorage, ApiConfigSnapshot } from '../storage/ApiConfigStorage';
+import { ApiConfigStorage, ApiConfigSnapshot, MultiKeySlots, createDefaultMultiKeySlots, MAX_KEY_SLOTS } from '../storage/ApiConfigStorage';
 import { TokenUsageStorage } from '../storage/TokenUsageStorage';
 import { HistoryStorage } from '../storage/HistoryStorage';
 import window from '@ohos.window';
@@ -207,20 +207,34 @@ struct Index {
   // API Settings subpage state
   @State selectedMenu: ApiMenuType = ApiMenuType.Prompt;
 
-  // DeepL config
+  // 多密钥槽位配置
+  @State openAiKeySlots: MultiKeySlots = createDefaultMultiKeySlots(
+    'https://api.openai.com/v1/chat/completions', '', 'gpt-4o-mini'
+  );
+  @State deepLKeySlots: MultiKeySlots = createDefaultMultiKeySlots(
+    'https://api-free.deepl.com/v2/translate', '', ''
+  );
+  @State ollamaKeySlots: MultiKeySlots = createDefaultMultiKeySlots(
+    'http://localhost:11434/api/chat', '', ''
+  );
+  @State doubaoKeySlots: MultiKeySlots = createDefaultMultiKeySlots(
+    'https://ark.cn-beijing.volces.com/api/v3/chat/completions', '', 'ep-20251221220646-rnx4c'
+  );
+
+  // DeepL config (兼容字段，从当前槽位同步)
   @State deepLApiUrl: string = 'https://api-free.deepl.com/v2/translate';
   @State deepLApiKey: string = '';
 
-  // OpenAI config
+  // OpenAI config (兼容字段，从当前槽位同步)
   @State openAiApiUrl: string = 'https://api.openai.com/v1/chat/completions';
   @State openAiApiKey: string = '';
   @State openAiModel: string = 'gpt-4o-mini';
 
-  // Ollama config (local model server)
+  // Ollama config (兼容字段，从当前槽位同步)
   @State ollamaApiUrl: string = 'http://localhost:11434/api/chat';
-  @State ollamaModel: string = 'llama3.1:latest';
+  @State ollamaModel: string = '';
 
-  // Doubao config (chat/completions endpoint)
+  // Doubao config (兼容字段，从当前槽位同步)
   @State doubaoApiUrl: string = 'https://ark.cn-beijing.volces.com/api/v3/chat/completions';
   @State doubaoApiKey: string = '';
   @State doubaoModel: string = 'ep-20251221220646-rnx4c';
@@ -257,17 +271,43 @@ struct Index {
 
   // Global light effect brightness: true = BRIGHT, false = SOFT
   @State isLightEffectBright: boolean = true;
-  // Dark mode: true = dark, false = light
+  // Theme mode: 0 = Light, 1 = Dark, 2 = Follow System
+  @State themeMode: number = 2; // 默认跟随系统
+  // Computed dark mode for compatibility with child components
   @State isDarkMode: boolean = true;
   
   @StorageProp('currentColorMode') @Watch('onColorModeChange') currentMode: number = ConfigurationConstant.ColorMode.COLOR_MODE_NOT_SET;
 
   onColorModeChange() {
-    if (this.currentMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK) {
-      this.isDarkMode = true;
-    } else if (this.currentMode === ConfigurationConstant.ColorMode.COLOR_MODE_LIGHT) {
-      this.isDarkMode = false;
+    // 只有在跟随系统模式下才响应系统主题变化
+    if (this.themeMode === 2) {
+      if (this.currentMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK) {
+        this.isDarkMode = true;
+      } else if (this.currentMode === ConfigurationConstant.ColorMode.COLOR_MODE_LIGHT) {
+        this.isDarkMode = false;
+      }
     }
+  }
+  
+  // 更新主题模式并计算 isDarkMode
+  updateThemeMode(mode: number) {
+    this.themeMode = mode;
+    if (mode === 0) {
+      // 浅色模式
+      this.isDarkMode = false;
+    } else if (mode === 1) {
+      // 深色模式
+      this.isDarkMode = true;
+    } else {
+      // 跟随系统
+      if (this.currentMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK) {
+        this.isDarkMode = true;
+      } else {
+        this.isDarkMode = false;
+      }
+    }
+    // 持久化主题设置
+    this.persistApiConfigSnapshot();
   }
 
   // Subtitle Window State
@@ -749,11 +789,13 @@ struct Index {
   }
 
   async aboutToAppear(): Promise<void> {
-    // Initialize dark mode from system setting
-    if (this.currentMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK) {
-      this.isDarkMode = true;
-    } else if (this.currentMode === ConfigurationConstant.ColorMode.COLOR_MODE_LIGHT) {
-      this.isDarkMode = false;
+    // Initialize theme mode from system setting (跟随系统模式)
+    if (this.themeMode === 2) {
+      if (this.currentMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK) {
+        this.isDarkMode = true;
+      } else if (this.currentMode === ConfigurationConstant.ColorMode.COLOR_MODE_LIGHT) {
+        this.isDarkMode = false;
+      }
     }
 
     AppStorage.setOrCreate('voot_translated_text', '');
@@ -939,16 +981,24 @@ struct Index {
 
   private applyApiConfigSnapshot(snapshot: ApiConfigSnapshot): void {
     this.promptText = snapshot.promptText;
-    this.openAiApiUrl = snapshot.openAiApiUrl;
-    this.openAiApiKey = snapshot.openAiApiKey;
-    this.openAiModel = snapshot.openAiModel;
-    this.deepLApiUrl = snapshot.deepLApiUrl;
-    this.deepLApiKey = snapshot.deepLApiKey;
-    this.ollamaApiUrl = snapshot.ollamaApiUrl;
-    this.ollamaModel = snapshot.ollamaModel;
-    this.doubaoApiUrl = snapshot.doubaoApiUrl;
-    this.doubaoApiKey = snapshot.doubaoApiKey;
-    this.doubaoModel = snapshot.doubaoModel;
+    
+    // 应用多密钥槽位配置
+    if (snapshot.openAiKeySlots && snapshot.openAiKeySlots.slots.length > 0) {
+      this.openAiKeySlots = snapshot.openAiKeySlots;
+    }
+    if (snapshot.deepLKeySlots && snapshot.deepLKeySlots.slots.length > 0) {
+      this.deepLKeySlots = snapshot.deepLKeySlots;
+    }
+    if (snapshot.ollamaKeySlots && snapshot.ollamaKeySlots.slots.length > 0) {
+      this.ollamaKeySlots = snapshot.ollamaKeySlots;
+    }
+    if (snapshot.doubaoKeySlots && snapshot.doubaoKeySlots.slots.length > 0) {
+      this.doubaoKeySlots = snapshot.doubaoKeySlots;
+    }
+    
+    // 同步兼容字段（从当前槽位）
+    this.syncCurrentSlotToCompatFields();
+    
     this.selectedApiIndex = snapshot.selectedApiIndex;
     this.selectedLanguageIndex = snapshot.selectedLanguageIndex;
     this.intervalIndex = snapshot.intervalIndex;
@@ -960,11 +1010,99 @@ struct Index {
     this.subtitleBackgroundColor = snapshot.subtitleBackgroundColor;
     this.subtitleHeight = snapshot.subtitleHeight !== undefined ? snapshot.subtitleHeight : 20;
     this.glossary = snapshot.glossary !== undefined ? snapshot.glossary : '';
+    
+    // 应用主题模式
+    if (snapshot.themeMode !== undefined) {
+      this.updateThemeMode(snapshot.themeMode);
+    }
+  }
+  
+  // 从当前槽位同步兼容字段
+  private syncCurrentSlotToCompatFields(): void {
+    const openAiSlot = this.openAiKeySlots.slots[this.openAiKeySlots.currentSlotIndex];
+    if (openAiSlot) {
+      this.openAiApiUrl = openAiSlot.apiUrl;
+      this.openAiApiKey = openAiSlot.apiKey;
+      this.openAiModel = openAiSlot.model;
+    }
+    
+    const deepLSlot = this.deepLKeySlots.slots[this.deepLKeySlots.currentSlotIndex];
+    if (deepLSlot) {
+      this.deepLApiUrl = deepLSlot.apiUrl;
+      this.deepLApiKey = deepLSlot.apiKey;
+    }
+    
+    const ollamaSlot = this.ollamaKeySlots.slots[this.ollamaKeySlots.currentSlotIndex];
+    if (ollamaSlot) {
+      this.ollamaApiUrl = ollamaSlot.apiUrl;
+      this.ollamaModel = ollamaSlot.model;
+    }
+    
+    const doubaoSlot = this.doubaoKeySlots.slots[this.doubaoKeySlots.currentSlotIndex];
+    if (doubaoSlot) {
+      this.doubaoApiUrl = doubaoSlot.apiUrl;
+      this.doubaoApiKey = doubaoSlot.apiKey;
+      this.doubaoModel = doubaoSlot.model;
+    }
+  }
+  
+  // 更新当前槽位的指定字段
+  private updateCurrentSlot(provider: string, field: string, value: string): void {
+    switch (provider) {
+      case 'openai': {
+        const slots = [...this.openAiKeySlots.slots];
+        const idx = this.openAiKeySlots.currentSlotIndex;
+        if (slots[idx]) {
+          if (field === 'apiUrl') slots[idx].apiUrl = value;
+          else if (field === 'apiKey') slots[idx].apiKey = value;
+          else if (field === 'model') slots[idx].model = value;
+        }
+        this.openAiKeySlots = { slots, currentSlotIndex: idx };
+        break;
+      }
+      case 'deepl': {
+        const slots = [...this.deepLKeySlots.slots];
+        const idx = this.deepLKeySlots.currentSlotIndex;
+        if (slots[idx]) {
+          if (field === 'apiUrl') slots[idx].apiUrl = value;
+          else if (field === 'apiKey') slots[idx].apiKey = value;
+        }
+        this.deepLKeySlots = { slots, currentSlotIndex: idx };
+        break;
+      }
+      case 'ollama': {
+        const slots = [...this.ollamaKeySlots.slots];
+        const idx = this.ollamaKeySlots.currentSlotIndex;
+        if (slots[idx]) {
+          if (field === 'apiUrl') slots[idx].apiUrl = value;
+          else if (field === 'model') slots[idx].model = value;
+        }
+        this.ollamaKeySlots = { slots, currentSlotIndex: idx };
+        break;
+      }
+      case 'doubao': {
+        const slots = [...this.doubaoKeySlots.slots];
+        const idx = this.doubaoKeySlots.currentSlotIndex;
+        if (slots[idx]) {
+          if (field === 'apiUrl') slots[idx].apiUrl = value;
+          else if (field === 'apiKey') slots[idx].apiKey = value;
+          else if (field === 'model') slots[idx].model = value;
+        }
+        this.doubaoKeySlots = { slots, currentSlotIndex: idx };
+        break;
+      }
+    }
   }
 
   private buildApiConfigSnapshot(): ApiConfigSnapshot {
     return {
       promptText: this.promptText,
+      // 多密钥槽位
+      openAiKeySlots: this.openAiKeySlots,
+      deepLKeySlots: this.deepLKeySlots,
+      ollamaKeySlots: this.ollamaKeySlots,
+      doubaoKeySlots: this.doubaoKeySlots,
+      // 兼容字段
       openAiApiUrl: this.openAiApiUrl,
       openAiApiKey: this.openAiApiKey,
       openAiModel: this.openAiModel,
@@ -985,7 +1123,8 @@ struct Index {
       subtitleFontColor: this.subtitleFontColor,
       subtitleBackgroundColor: this.subtitleBackgroundColor,
       subtitleHeight: this.subtitleHeight,
-      glossary: this.glossary
+      glossary: this.glossary,
+      themeMode: this.themeMode
     };
   }
 
@@ -1175,6 +1314,12 @@ struct Index {
               ApiConfigPage({
                 selectedMenu: this.selectedMenu,
                 promptText: this.promptText,
+                // 多密钥槽位
+                openAiKeySlots: this.openAiKeySlots,
+                deepLKeySlots: this.deepLKeySlots,
+                ollamaKeySlots: this.ollamaKeySlots,
+                doubaoKeySlots: this.doubaoKeySlots,
+                // 兼容字段
                 openAiApiUrl: this.openAiApiUrl,
                 openAiApiKey: this.openAiApiKey,
                 openAiModel: this.openAiModel,
@@ -1197,44 +1342,88 @@ struct Index {
                   this.promptText = value;
                   this.persistApiConfigSnapshot();
                 },
+                // 槽位切换回调
+                onSwitchOpenAiSlot: (index: number) => {
+                  this.openAiKeySlots = {
+                    slots: this.openAiKeySlots.slots,
+                    currentSlotIndex: index
+                  };
+                  this.syncCurrentSlotToCompatFields();
+                  this.persistApiConfigSnapshot();
+                },
+                onSwitchDeepLSlot: (index: number) => {
+                  this.deepLKeySlots = {
+                    slots: this.deepLKeySlots.slots,
+                    currentSlotIndex: index
+                  };
+                  this.syncCurrentSlotToCompatFields();
+                  this.persistApiConfigSnapshot();
+                },
+                onSwitchOllamaSlot: (index: number) => {
+                  this.ollamaKeySlots = {
+                    slots: this.ollamaKeySlots.slots,
+                    currentSlotIndex: index
+                  };
+                  this.syncCurrentSlotToCompatFields();
+                  this.persistApiConfigSnapshot();
+                },
+                onSwitchDoubaoSlot: (index: number) => {
+                  this.doubaoKeySlots = {
+                    slots: this.doubaoKeySlots.slots,
+                    currentSlotIndex: index
+                  };
+                  this.syncCurrentSlotToCompatFields();
+                  this.persistApiConfigSnapshot();
+                },
+                // 更新内容回调（同时更新槽位和兼容字段）
                 onUpdateOpenAiApiUrl: (value: string) => {
                   this.openAiApiUrl = value;
+                  this.updateCurrentSlot('openai', 'apiUrl', value);
                   this.persistApiConfigSnapshot();
                 },
                 onUpdateOpenAiApiKey: (value: string) => {
                   this.openAiApiKey = value;
+                  this.updateCurrentSlot('openai', 'apiKey', value);
                   this.persistApiConfigSnapshot();
                 },
                 onUpdateOpenAiModel: (value: string) => {
                   this.openAiModel = value;
+                  this.updateCurrentSlot('openai', 'model', value);
                   this.persistApiConfigSnapshot();
                 },
                 onUpdateDeepLApiUrl: (value: string) => {
                   this.deepLApiUrl = value;
+                  this.updateCurrentSlot('deepl', 'apiUrl', value);
                   this.persistApiConfigSnapshot();
                 },
                 onUpdateDeepLApiKey: (value: string) => {
                   this.deepLApiKey = value;
+                  this.updateCurrentSlot('deepl', 'apiKey', value);
                   this.persistApiConfigSnapshot();
                 },
                 onUpdateOllamaApiUrl: (value: string) => {
                   this.ollamaApiUrl = value;
+                  this.updateCurrentSlot('ollama', 'apiUrl', value);
                   this.persistApiConfigSnapshot();
                 },
                 onUpdateOllamaModel: (value: string) => {
                   this.ollamaModel = value;
+                  this.updateCurrentSlot('ollama', 'model', value);
                   this.persistApiConfigSnapshot();
                 },
                 onUpdateDoubaoApiUrl: (value: string) => {
                   this.doubaoApiUrl = value;
+                  this.updateCurrentSlot('doubao', 'apiUrl', value);
                   this.persistApiConfigSnapshot();
                 },
                 onUpdateDoubaoApiKey: (value: string) => {
                   this.doubaoApiKey = value;
+                  this.updateCurrentSlot('doubao', 'apiKey', value);
                   this.persistApiConfigSnapshot();
                 },
                 onUpdateDoubaoModel: (value: string) => {
                   this.doubaoModel = value;
+                  this.updateCurrentSlot('doubao', 'model', value);
                   this.persistApiConfigSnapshot();
                 },
                 onUpdateGlossary: (value: string) => {
@@ -1363,12 +1552,16 @@ struct Index {
               subtitleBackgroundColor: $subtitleBackgroundColor,
               subtitleHeight: $subtitleHeight,
               isLightEffectBright: $isLightEffectBright,
-              isDarkMode: $isDarkMode,
+              themeMode: $themeMode,
+              isDarkMode: this.isDarkMode,
               onTogglePipSubtitle: (isOn: boolean) => this.togglePipSubtitle(isOn),
               onToggleRealtimeReading: () => {
                 if (!this.isRealtimeReadingEnabled) {
                   TextReader.stop();
                 }
+              },
+              onThemeModeChange: (mode: number) => {
+                this.updateThemeMode(mode);
               },
               onStyleChange: () => {
                 this.persistApiConfigSnapshot();
@@ -1640,22 +1833,45 @@ struct Index {
       { role: 'user', content: systemPrompt }
     ];
 
-    const body: string = JSON.stringify({
-      model: this.openAiModel,
-      messages: messages,
-      max_tokens: this.getMaxTokensValue(), // Limit output for speed
-      temperature: this.getTemperatureValue()
-    });
+    const makeBody = (useMaxCompletionTokens: boolean): string => {
+      let base: Record<string, Object> = {};
+      base['model'] = this.openAiModel;
+      base['messages'] = messages;
+      base['temperature'] = this.getTemperatureValue();
 
-    const response: http.HttpResponse = await httpRequest.request(this.openAiApiUrl, {
+      if (useMaxCompletionTokens) {
+        base['max_completion_tokens'] = this.getMaxTokensValue();
+      } else {
+        base['max_tokens'] = this.getMaxTokensValue();
+      }
+      return JSON.stringify(base);
+    };
+
+    let response: http.HttpResponse = await httpRequest.request(this.openAiApiUrl, {
       method: http.RequestMethod.POST,
       header: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ' + this.openAiApiKey
       },
-      extraData: body,
+      extraData: makeBody(false),
       expectDataType: http.HttpDataType.STRING
     });
+
+    // 兼容：部分模型不支持 max_tokens，需要 max_completion_tokens
+    if (response.responseCode === 400) {
+      const firstStr: string = response.result as string;
+      if (firstStr && firstStr.includes('max_completion_tokens') && firstStr.includes('max_tokens')) {
+        response = await httpRequest.request(this.openAiApiUrl, {
+          method: http.RequestMethod.POST,
+          header: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + this.openAiApiKey
+          },
+          extraData: makeBody(true),
+          expectDataType: http.HttpDataType.STRING
+        });
+      }
+    }
 
     const resultStr: string = response.result as string;
     let translated: string = '';
@@ -1764,28 +1980,53 @@ struct Index {
     // Single message for faster response
     const messages: ChatMessage[] = [
       { role: 'user', content: systemPrompt }
-    ];this.getMaxTokensValue()
+    ];
 
-    const body: string = JSON.stringify({
-      model: this.doubaoModel,
-      max_tokens: 100, // Further reduced for real-time translation
-      messages: messages,
-      temperature: this.getTemperatureValue(),
-      stream: false
-    });
+    const makeBody = (useMaxCompletionTokens: boolean): string => {
+      let base: Record<string, Object> = {};
+      base['model'] = this.doubaoModel;
+      base['messages'] = messages;
+      base['temperature'] = this.getTemperatureValue();
+      base['stream'] = false;
+
+      if (useMaxCompletionTokens) {
+        base['max_completion_tokens'] = this.getMaxTokensValue();
+      } else {
+        base['max_tokens'] = this.getMaxTokensValue();
+      }
+      return JSON.stringify(base);
+    };
 
     try {
-      const response: http.HttpResponse = await httpRequest.request(this.doubaoApiUrl, {
+      let response: http.HttpResponse = await httpRequest.request(this.doubaoApiUrl, {
         method: http.RequestMethod.POST,
         header: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ' + this.doubaoApiKey
         },
-        extraData: body,
+        extraData: makeBody(false),
         expectDataType: http.HttpDataType.STRING,
         connectTimeout: 8000, // 8s connection timeout
         readTimeout: 20000 // 20s read timeout
       });
+
+      // 兼容：部分模型不支持 max_tokens，需要 max_completion_tokens
+      if (response.responseCode === 400) {
+        const firstStr: string = response.result as string;
+        if (firstStr && firstStr.includes('max_completion_tokens') && firstStr.includes('max_tokens')) {
+          response = await httpRequest.request(this.doubaoApiUrl, {
+            method: http.RequestMethod.POST,
+            header: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + this.doubaoApiKey
+            },
+            extraData: makeBody(true),
+            expectDataType: http.HttpDataType.STRING,
+            connectTimeout: 8000,
+            readTimeout: 20000
+          });
+        }
+      }
 
       const responseCode: number = response.responseCode;
       const resultStr: string = response.result as string;
@@ -1946,6 +2187,10 @@ struct Index {
       // 准备 API 配置快照（使用正确的属性名匹配 ApiConfigSnapshot）
       const apiConfigSnapshot: ApiConfigSnapshot = {
         promptText: this.promptText,
+        openAiKeySlots: this.openAiKeySlots,
+        deepLKeySlots: this.deepLKeySlots,
+        ollamaKeySlots: this.ollamaKeySlots,
+        doubaoKeySlots: this.doubaoKeySlots,
         openAiApiUrl: this.openAiApiUrl,
         openAiApiKey: this.openAiApiKey,
         openAiModel: this.openAiModel,
@@ -1966,7 +2211,8 @@ struct Index {
         subtitleFontColor: this.subtitleFontColor,
         subtitleBackgroundColor: this.subtitleBackgroundColor,
         subtitleHeight: this.subtitleHeight,
-        glossary: this.glossary
+        glossary: this.glossary,
+        themeMode: this.themeMode
       };
 
       // 准备 continuation 数据（匹配 ContinuityState 接口）
