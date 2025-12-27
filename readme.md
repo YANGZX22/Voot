@@ -29,6 +29,7 @@ It is designed with three core principles: **security, privacy, and simplicity**
 - [Security & Privacy](#security--privacy)
 - [Roadmap](#roadmap)
 - [Contributing](#contributing)
+- [Model Performance](#model-performance)
 - [Known Issues](#known-issues)
 - [Acknowledgements](#acknowledgements)
 - [License](#license)
