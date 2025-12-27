@@ -63,15 +63,41 @@ interface ChatCompletionMessage {
 
 interface ChatCompletionChoice {
   message: ChatCompletionMessage;
+  finish_reason?: string;
+}
+
+interface ChatCompletionTokensDetails {
+  reasoning_tokens?: number;
 }
 
 interface ChatCompletionUsage {
   total_tokens: number;
+  completion_tokens_details?: ChatCompletionTokensDetails;
 }
 
 interface ChatCompletionResponse {
   choices: ChatCompletionChoice[];
   usage?: ChatCompletionUsage;
+}
+
+// OpenAI Responses API
+interface OpenAIResponsesContentItem {
+  type?: string;
+  text?: string;
+}
+
+interface OpenAIResponsesOutputItem {
+  content?: OpenAIResponsesContentItem[];
+}
+
+interface OpenAIResponsesUsage {
+  total_tokens?: number;
+}
+
+interface OpenAIResponsesResponse {
+  output_text?: string;
+  output?: OpenAIResponsesOutputItem[];
+  usage?: OpenAIResponsesUsage;
 }
 
 // DeepL
@@ -198,6 +224,8 @@ struct Index {
   @State temperatureIndex: number = 3; // Default 0.3
 
   @State maxTokensOptions: string[] = ['64', '100', '128', '256', '512', '1024'];
+
+  private hasShownReasoningModelHint: boolean = false;
   @State maxTokensIndex: number = 3; // Default 256
 
   @State languageOptions: string[] = ['Chinese', 'English', 'Spanish', 'French', 'Japanese'];
@@ -1828,16 +1856,21 @@ struct Index {
     const httpRequest: http.HttpRequest = http.createHttp();
     const systemPrompt: string = this.buildSystemPromptWithSource(text);
 
+    const isResponsesEndpoint: boolean = this.openAiApiUrl.includes('/v1/responses') || this.openAiApiUrl.endsWith('/responses');
+
     // Single message with combined prompt for faster response
     const messages: ChatMessage[] = [
       { role: 'user', content: systemPrompt }
     ];
 
-    const makeBody = (useMaxCompletionTokens: boolean): string => {
+    const makeBodyChat = (useMaxCompletionTokens: boolean, includeTemperature: boolean): string => {
       let base: Record<string, Object> = {};
       base['model'] = this.openAiModel;
       base['messages'] = messages;
-      base['temperature'] = this.getTemperatureValue();
+
+      if (includeTemperature) {
+        base['temperature'] = this.getTemperatureValue();
+      }
 
       if (useMaxCompletionTokens) {
         base['max_completion_tokens'] = this.getMaxTokensValue();
@@ -1847,38 +1880,119 @@ struct Index {
       return JSON.stringify(base);
     };
 
+    const makeBodyResponses = (): string => {
+      let base: Record<string, Object> = {};
+      base['model'] = this.openAiModel;
+      base['input'] = systemPrompt;
+      base['max_output_tokens'] = this.getMaxTokensValue();
+      return JSON.stringify(base);
+    };
+
     let response: http.HttpResponse = await httpRequest.request(this.openAiApiUrl, {
       method: http.RequestMethod.POST,
       header: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ' + this.openAiApiKey
       },
-      extraData: makeBody(false),
+      extraData: isResponsesEndpoint ? makeBodyResponses() : makeBodyChat(false, true),
       expectDataType: http.HttpDataType.STRING
     });
 
-    // 兼容：部分模型不支持 max_tokens，需要 max_completion_tokens
-    if (response.responseCode === 400) {
+    // 兼容：部分模型不支持 max_tokens / temperature
+    if (!isResponsesEndpoint && response.responseCode === 400) {
       const firstStr: string = response.result as string;
-      if (firstStr && firstStr.includes('max_completion_tokens') && firstStr.includes('max_tokens')) {
+      const headerObj: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + this.openAiApiKey
+      };
+
+      // 1) max_tokens -> max_completion_tokens
+      if (firstStr && (firstStr.includes('max_completion_tokens') || firstStr.includes('max_tokens'))) {
         response = await httpRequest.request(this.openAiApiUrl, {
           method: http.RequestMethod.POST,
-          header: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + this.openAiApiKey
-          },
-          extraData: makeBody(true),
+          header: headerObj,
+          extraData: makeBodyChat(true, true),
           expectDataType: http.HttpDataType.STRING
         });
       }
+
+      // 2) temperature 仅支持默认值：移除 temperature 让服务端走默认
+      if (response.responseCode === 400) {
+        const secondStr: string = response.result as string;
+        if (secondStr && secondStr.includes('temperature') && secondStr.includes('default')) {
+          response = await httpRequest.request(this.openAiApiUrl, {
+            method: http.RequestMethod.POST,
+            header: headerObj,
+            extraData: makeBodyChat(true, false),
+            expectDataType: http.HttpDataType.STRING
+          });
+        }
+      }
     }
 
+    const responseCode: number = response.responseCode;
     const resultStr: string = response.result as string;
+
+    if (responseCode !== 200 && responseCode !== 201) {
+      console.error(`OpenAI HTTP error: ${responseCode}, body: ${resultStr}`);
+      this.updateTranslationField(`[OpenAI错误: HTTP ${responseCode}]`);
+      httpRequest.destroy();
+      return;
+    }
+
     let translated: string = '';
 
-    const parsed = JSON.parse(resultStr) as ChatCompletionResponse;
-    if (parsed.choices && parsed.choices.length > 0) {
-      translated = parsed.choices[0].message.content;
+    if (isResponsesEndpoint) {
+      const parsed = JSON.parse(resultStr) as OpenAIResponsesResponse;
+      if (parsed.output_text && parsed.output_text.length > 0) {
+        translated = parsed.output_text;
+      } else if (parsed.output && parsed.output.length > 0 &&
+                 parsed.output[0].content && parsed.output[0].content!.length > 0 &&
+                 parsed.output[0].content![0].text) {
+        translated = parsed.output[0].content![0].text as string;
+      } else {
+        console.warn('OpenAI responses has no output_text/output: ' + resultStr);
+        translated = '[OpenAI: 响应为空]';
+      }
+
+      if (parsed.usage && parsed.usage.total_tokens) {
+        TokenUsageStorage.getInstance().addTokenUsage('OpenAI', parsed.usage.total_tokens);
+      }
+    } else {
+      const parsed = JSON.parse(resultStr) as ChatCompletionResponse;
+      const hasChoices: boolean = !!(parsed.choices && parsed.choices.length > 0);
+      const firstChoice: ChatCompletionChoice | null = hasChoices ? parsed.choices[0] : null;
+      const content: string = (firstChoice && firstChoice.message && typeof firstChoice.message.content === 'string')
+        ? firstChoice.message.content
+        : '';
+
+      const reasoningTokens: number = parsed.usage?.completion_tokens_details?.reasoning_tokens ?? 0;
+      if (reasoningTokens > 0 && !this.hasShownReasoningModelHint) {
+        this.hasShownReasoningModelHint = true;
+        promptAction.showToast({
+          message: '您可能使用思考模型，影响实时翻译',
+          duration: 3000
+        });
+      }
+
+      if (content && content.length > 0) {
+        translated = content;
+      } else {
+        const finishReason: string = (firstChoice && firstChoice.finish_reason) ? firstChoice.finish_reason : '';
+
+        if (finishReason === 'length') {
+          // 不自动重试/不自动调大 token：只提示用户手动调整或更换模型
+          promptAction.showToast({
+            message: '该模型可能为“思考模型”，实时翻译不建议使用；可尝试更换模型或调大 Max Tokens',
+            duration: 3000
+          });
+          translated = '[OpenAI: 输出受限（finish_reason=length）。实时翻译不建议使用思考模型；请手动更换模型或调大 Max Tokens]';
+        } else {
+          console.warn('OpenAI response content empty: ' + resultStr);
+          translated = '[OpenAI: 响应为空]';
+        }
+      }
+
       if (parsed.usage && parsed.usage.total_tokens) {
         TokenUsageStorage.getInstance().addTokenUsage('OpenAI', parsed.usage.total_tokens);
       }
@@ -1982,11 +2096,14 @@ struct Index {
       { role: 'user', content: systemPrompt }
     ];
 
-    const makeBody = (useMaxCompletionTokens: boolean): string => {
+    const makeBody = (useMaxCompletionTokens: boolean, includeTemperature: boolean): string => {
       let base: Record<string, Object> = {};
       base['model'] = this.doubaoModel;
       base['messages'] = messages;
-      base['temperature'] = this.getTemperatureValue();
+
+      if (includeTemperature) {
+        base['temperature'] = this.getTemperatureValue();
+      }
       base['stream'] = false;
 
       if (useMaxCompletionTokens) {
@@ -2004,7 +2121,7 @@ struct Index {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ' + this.doubaoApiKey
         },
-        extraData: makeBody(false),
+        extraData: makeBody(false, true),
         expectDataType: http.HttpDataType.STRING,
         connectTimeout: 8000, // 8s connection timeout
         readTimeout: 20000 // 20s read timeout
@@ -2013,18 +2130,37 @@ struct Index {
       // 兼容：部分模型不支持 max_tokens，需要 max_completion_tokens
       if (response.responseCode === 400) {
         const firstStr: string = response.result as string;
-        if (firstStr && firstStr.includes('max_completion_tokens') && firstStr.includes('max_tokens')) {
+        // 只要提示包含 max_completion_tokens，或者明确说 max_tokens 不支持，就尝试切换
+        if (firstStr && (firstStr.includes('max_completion_tokens') || firstStr.includes('max_tokens'))) {
           response = await httpRequest.request(this.doubaoApiUrl, {
             method: http.RequestMethod.POST,
             header: {
               'Content-Type': 'application/json',
               'Authorization': 'Bearer ' + this.doubaoApiKey
             },
-            extraData: makeBody(true),
+            extraData: makeBody(true, true),
             expectDataType: http.HttpDataType.STRING,
             connectTimeout: 8000,
             readTimeout: 20000
           });
+        }
+
+        // temperature 仅支持默认值：移除 temperature 让服务端走默认
+        if (response.responseCode === 400) {
+          const secondStr: string = response.result as string;
+          if (secondStr && secondStr.includes('temperature') && secondStr.includes('default')) {
+            response = await httpRequest.request(this.doubaoApiUrl, {
+              method: http.RequestMethod.POST,
+              header: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + this.doubaoApiKey
+              },
+              extraData: makeBody(true, false),
+              expectDataType: http.HttpDataType.STRING,
+              connectTimeout: 8000,
+              readTimeout: 20000
+            });
+          }
         }
       }
 

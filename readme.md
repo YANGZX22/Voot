@@ -269,6 +269,19 @@ Before submitting, please:
 * Do not commit any real API keys or secrets.
 * Ensure the app builds and runs on the current HarmonyOS SDK version.
 
+## Model Performance
+
+* Well performed LLM/Transalting models on this APP by testing:
+
+  * OpenAI: gpt-4o-mini (preferred👍), gpt-4o
+  * DeepL: Free and Pro are both well performed (preferred👍)
+  * 豆包（火山引擎）: DeepSeek v3.2 (deepseek-v3-2-251201) (preferred👍)
+
+* Badly performed LLM/Transalting models on this APP by testing:
+
+  * OpenAI: gpt-5 and all thinking models series
+  * 豆包（火山引擎）: Doubao-Seed-1.6-lite (doubao-seed-1-6-lite-251015)
+
 ## Known Issues
 
 * ASR accuracy may vary based on background noise and microphone quality.
