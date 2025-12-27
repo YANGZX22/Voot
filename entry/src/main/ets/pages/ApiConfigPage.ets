@@ -159,6 +159,365 @@ export struct ApiConfigPage {
   // State for sidebar visibility
   @State isSideBarShown: boolean = false;
 
+  // --- 半模态弹窗状态 ---
+  @State isKeyEditSheetOpen: boolean = false;
+  @State editingApiUrl: string = '';
+  @State editingApiKey: string = '';
+  @State editingModel: string = '';
+  @State isTestingConnection: boolean = false;
+  @State isConfigValid: boolean = false;
+
+  // 检查当前槽位是否有密钥
+  private getCurrentSlotHasKey(): boolean {
+    switch (this.selectedMenu) {
+      case ApiMenuType.OpenAI:
+        return this.openAiApiKey.length > 0;
+      case ApiMenuType.DeepL:
+        return this.deepLApiKey.length > 0;
+      case ApiMenuType.Ollama:
+        return this.ollamaApiUrl.length > 0;
+      case ApiMenuType.Doubao:
+        return this.doubaoApiKey.length > 0;
+      default:
+        return false;
+    }
+  }
+
+  // 打开编辑弹窗
+  private openKeyEditSheet(): void {
+    // 根据当前选中的菜单，填充编辑字段
+    switch (this.selectedMenu) {
+      case ApiMenuType.OpenAI:
+        this.editingApiUrl = this.openAiApiUrl;
+        this.editingApiKey = this.openAiApiKey;
+        this.editingModel = this.openAiModel;
+        break;
+      case ApiMenuType.DeepL:
+        this.editingApiUrl = this.deepLApiUrl;
+        this.editingApiKey = this.deepLApiKey;
+        this.editingModel = '';
+        break;
+      case ApiMenuType.Ollama:
+        this.editingApiUrl = this.ollamaApiUrl;
+        this.editingApiKey = '';
+        this.editingModel = this.ollamaModel;
+        break;
+      case ApiMenuType.Doubao:
+        this.editingApiUrl = this.doubaoApiUrl;
+        this.editingApiKey = this.doubaoApiKey;
+        this.editingModel = this.doubaoModel;
+        break;
+    }
+    this.validateEditingConfig();
+    this.isKeyEditSheetOpen = true;
+  }
+
+  // 验证编辑中的配置
+  private validateEditingConfig(): void {
+    let isValid = true;
+    if (!this.editingApiUrl) isValid = false;
+
+    switch (this.selectedMenu) {
+      case ApiMenuType.OpenAI:
+      case ApiMenuType.Doubao:
+        if (!this.editingApiKey) isValid = false;
+        if (!this.editingModel) isValid = false;
+        break;
+      case ApiMenuType.DeepL:
+        if (!this.editingApiKey) isValid = false;
+        break;
+      case ApiMenuType.Ollama:
+        if (!this.editingModel) isValid = false;
+        break;
+    }
+    this.isConfigValid = isValid;
+  }
+
+  // 测试连接
+  private async testConnection(): Promise<boolean> {
+    this.isTestingConnection = true;
+    try {
+      const httpRequest = http.createHttp();
+      let url = this.editingApiUrl;
+      let method = http.RequestMethod.POST;
+      let extraData: Record<string, Object> = {};
+      let headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+
+      const isResponsesEndpoint: boolean = url.includes('/v1/responses') || url.endsWith('/responses');
+
+      if (this.selectedMenu === ApiMenuType.OpenAI || this.selectedMenu === ApiMenuType.Doubao) {
+        headers['Authorization'] = `Bearer ${this.editingApiKey}`;
+
+        if (isResponsesEndpoint) {
+          // OpenAI Responses API（以及部分兼容网关）
+          // 说明：这里用最小 payload 做“连通性 + 模型可用性”验证。
+          extraData = {
+            'model': this.editingModel,
+            'input': 'Hi',
+            'max_output_tokens': 1
+          };
+        } else {
+          // OpenAI Chat Completions（以及兼容网关）
+          let msg: Record<string, Object> = { 'role': 'user', 'content': 'Hi' };
+          extraData = {
+            'model': this.editingModel,
+            'messages': [msg],
+            'max_tokens': 1
+          };
+        }
+      } else if (this.selectedMenu === ApiMenuType.DeepL) {
+        headers['Authorization'] = `DeepL-Auth-Key ${this.editingApiKey}`;
+        extraData = {
+          'text': ['Hello'],
+          'target_lang': 'ZH'
+        };
+      } else if (this.selectedMenu === ApiMenuType.Ollama) {
+        let msg: Record<string, Object> = { 'role': 'user', 'content': 'Hi' };
+        extraData = {
+          'model': this.editingModel,
+          'messages': [msg],
+          'stream': false
+        };
+      }
+
+      let response = await httpRequest.request(url, {
+        method: method,
+        header: headers,
+        extraData: extraData,
+        connectTimeout: 10000,
+        readTimeout: 10000
+      });
+
+      // OpenAI 兼容：部分模型在 chat/completions 下不支持 max_tokens，要求 max_completion_tokens
+      if ((this.selectedMenu === ApiMenuType.OpenAI || this.selectedMenu === ApiMenuType.Doubao) &&
+        !isResponsesEndpoint &&
+        response.responseCode === 400) {
+        const resultStr: string = typeof response.result === 'string' ? (response.result as string) : JSON.stringify(response.result);
+        if (resultStr.includes('max_completion_tokens') && resultStr.includes('max_tokens')) {
+          let msg: Record<string, Object> = { 'role': 'user', 'content': 'Hi' };
+          extraData = {
+            'model': this.editingModel,
+            'messages': [msg],
+            'max_completion_tokens': 1
+          };
+          response = await httpRequest.request(url, {
+            method: method,
+            header: headers,
+            extraData: extraData,
+            connectTimeout: 10000,
+            readTimeout: 10000
+          });
+        }
+      }
+
+      httpRequest.destroy();
+
+      if (response.responseCode === 200 || response.responseCode === 201) {
+        promptAction.showToast({
+          message: '验证成功',
+          duration: 2000
+        });
+        return true;
+      } else {
+        const resultStr: string = typeof response.result === 'string' ? (response.result as string) : JSON.stringify(response.result);
+        const snippet: string = resultStr.length > 160 ? (resultStr.slice(0, 160) + '...') : resultStr;
+        console.error('Connection failed:', response.responseCode, response.result);
+
+        // 针对 /v1/responses + 404 给出更明确提示：可能是模型不存在/无权限，或网关不支持该接口
+        let msg = '验证失败: ' + response.responseCode.toString();
+        if (response.responseCode === 404 && isResponsesEndpoint) {
+          msg = '验证失败: 404（模型不存在/无权限，或服务不支持 /v1/responses）';
+        }
+        promptAction.showToast({
+          message: msg + (snippet ? ('\n' + snippet) : ''),
+          duration: 3000
+        });
+        return false;
+      }
+    } catch (error) {
+      console.error('Connection error:', error);
+      promptAction.showToast({
+        message: '连接错误，请检查网络',
+        duration: 3000
+      });
+      return false;
+    } finally {
+      this.isTestingConnection = false;
+    }
+  }
+
+  // 保存验证后的配置
+  private async saveVerifiedConfig(): Promise<void> {
+    if (!this.isConfigValid) return;
+
+    const isConnected = await this.testConnection();
+    if (!isConnected) return;
+
+    // 验证成功，保存配置
+    switch (this.selectedMenu) {
+      case ApiMenuType.OpenAI:
+        this.onUpdateOpenAiApiUrl(this.editingApiUrl);
+        this.onUpdateOpenAiApiKey(this.editingApiKey);
+        this.onUpdateOpenAiModel(this.editingModel);
+        break;
+      case ApiMenuType.DeepL:
+        this.onUpdateDeepLApiUrl(this.editingApiUrl);
+        this.onUpdateDeepLApiKey(this.editingApiKey);
+        break;
+      case ApiMenuType.Ollama:
+        this.onUpdateOllamaApiUrl(this.editingApiUrl);
+        this.onUpdateOllamaModel(this.editingModel);
+        break;
+      case ApiMenuType.Doubao:
+        this.onUpdateDoubaoApiUrl(this.editingApiUrl);
+        this.onUpdateDoubaoApiKey(this.editingApiKey);
+        this.onUpdateDoubaoModel(this.editingModel);
+        break;
+    }
+
+    this.isKeyEditSheetOpen = false;
+    promptAction.showToast({
+      message: '密钥配置已保存',
+      duration: 2000
+    });
+  }
+
+  // 获取当前 API 类型名称
+  private getCurrentApiName(): string {
+    switch (this.selectedMenu) {
+      case ApiMenuType.OpenAI: return 'OpenAI';
+      case ApiMenuType.DeepL: return 'DeepL';
+      case ApiMenuType.Ollama: return 'Ollama';
+      case ApiMenuType.Doubao: return 'Doubao';
+      default: return '';
+    }
+  }
+
+  // 是否需要 API Key
+  private needsApiKey(): boolean {
+    return this.selectedMenu === ApiMenuType.OpenAI ||
+           this.selectedMenu === ApiMenuType.DeepL ||
+           this.selectedMenu === ApiMenuType.Doubao;
+  }
+
+  // 是否需要 Model
+  private needsModel(): boolean {
+    return this.selectedMenu === ApiMenuType.OpenAI ||
+           this.selectedMenu === ApiMenuType.Ollama ||
+           this.selectedMenu === ApiMenuType.Doubao;
+  }
+
+  // 密钥编辑弹窗内容
+  @Builder
+  KeyEditSheetContent() {
+    Column() {
+      // 标题
+      Text(this.getCurrentSlotHasKey() ? '编辑 ' + this.getCurrentApiName() + ' 密钥' : '添加 ' + this.getCurrentApiName() + ' 密钥')
+        .fontSize(20)
+        .fontWeight(FontWeight.Bold)
+        .fontColor('#333333')
+        .margin({ bottom: 8 })
+
+      // API URL
+      Column({ space: 8 }) {
+        Text('API URL')
+          .fontSize(14)
+          .fontColor('#666666')
+          .fontWeight(FontWeight.Medium)
+          .alignSelf(ItemAlign.Start)
+
+        TextInput({ placeholder: '请输入 API URL', text: this.editingApiUrl })
+          .height(48)
+          .backgroundColor('#F5F5F5')
+          .borderRadius(12)
+          .padding({ left: 16, right: 16 })
+          .onChange((value: string) => {
+            this.editingApiUrl = value;
+            this.validateEditingConfig();
+          })
+      }
+      .width('100%')
+      .margin({ bottom: 16 })
+
+      // API Key (如果需要)
+      if (this.needsApiKey()) {
+        Column({ space: 8 }) {
+          Text('API Key')
+            .fontSize(14)
+            .fontColor('#666666')
+            .fontWeight(FontWeight.Medium)
+            .alignSelf(ItemAlign.Start)
+
+          TextInput({ placeholder: '请输入 API Key', text: this.editingApiKey })
+            .height(48)
+            .backgroundColor('#F5F5F5')
+            .borderRadius(12)
+            .padding({ left: 16, right: 16 })
+            .type(InputType.Password)
+            .onChange((value: string) => {
+              this.editingApiKey = value;
+              this.validateEditingConfig();
+            })
+        }
+        .width('100%')
+        .margin({ bottom: 16 })
+      }
+
+      // Model (如果需要)
+      if (this.needsModel()) {
+        Column({ space: 8 }) {
+          Text('Model')
+            .fontSize(14)
+            .fontColor('#666666')
+            .fontWeight(FontWeight.Medium)
+            .alignSelf(ItemAlign.Start)
+
+          TextInput({ placeholder: '请输入模型名称', text: this.editingModel })
+            .height(48)
+            .backgroundColor('#F5F5F5')
+            .borderRadius(12)
+            .padding({ left: 16, right: 16 })
+            .onChange((value: string) => {
+              this.editingModel = value;
+              this.validateEditingConfig();
+            })
+        }
+        .width('100%')
+        .margin({ bottom: 24 })
+      }
+
+      // 验证并保存按钮
+      Button(this.isTestingConnection ? '正在验证...' : '验证并保存')
+        .width('100%')
+        .height(52)
+        .backgroundColor((this.isConfigValid && !this.isTestingConnection) ? '#3c1464' : '#CCCCCC')
+        .enabled(this.isConfigValid && !this.isTestingConnection)
+        .type(ButtonType.Capsule)
+        .fontSize(18)
+        .fontWeight(FontWeight.Bold)
+        .onClick(() => {
+          this.saveVerifiedConfig();
+        })
+
+      // 取消按钮
+      Button('取消')
+        .width('100%')
+        .height(44)
+        .backgroundColor(Color.Transparent)
+        .fontColor('#666666')
+        .type(ButtonType.Capsule)
+        .fontSize(16)
+        .margin({ top: 12 })
+        .onClick(() => {
+          this.isKeyEditSheetOpen = false;
+        })
+    }
+    .width('100%')
+    .padding({ left: 24, right: 24, top: 24, bottom: 32 })
+  }
+
   build() {
     HdsNavigation() {
       Column() {
