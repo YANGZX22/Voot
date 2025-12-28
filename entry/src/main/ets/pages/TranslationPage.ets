@@ -51,8 +51,8 @@ export struct TranslationPage {
   @State btn2TextColor: ResourceColor = Color.White;
 
   @State button3Scale: number = 1.0;
-  @State btn3BgColor: ResourceColor = "#e63c1464";
-  @State btn3TextColor: ResourceColor = Color.White;
+  @State btn3BgColor: ResourceColor = Color.White;
+  @State btn3TextColor: ResourceColor = "#e63c1464";
 
   helpDialogController: CustomDialogController = new CustomDialogController({
     builder: ContinuityHelpDialog(),
@@ -154,13 +154,10 @@ export struct TranslationPage {
               .visualEffect(new hdsEffect.HdsEffectBuilder()
                 .pointLight({
                   sourceType: this.isDarkMode ? hdsEffect.PointLightSourceType.NONE :
-                    (this.activeBtn === 1
+                    (this.activeBtn === 1 || this.isListening
                     ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT)
                     : hdsEffect.PointLightSourceType.NONE),
-                  illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE :
-                    (this.activeBtn !== 0
-                    ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
-                    : hdsEffect.PointLightIlluminatedType.NONE)
+                  illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE : hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
                 })
                 .buildEffect())
               .onTouch((event: TouchEvent) => {
@@ -185,15 +182,41 @@ export struct TranslationPage {
 
           Column() {
             Text('原始文本')
-              .fontSize(16)
+              .fontSize(14)
               .fontColor(this.isDarkMode ? Color.White : Color.Black)
-              .margin({ bottom: 6 });
+              .opacity(0.6)
+              .margin({ bottom: 8, left: 4 });
 
-            TextArea({ text: this.originalDemoText })
-              .width('100%')
-              .height(160)
-              .fontColor(this.isDarkMode ? Color.White : Color.Black)
-              .onChange((value: string) => this.onOriginalTextChange(value));
+            Column() {
+              TextArea({ text: this.originalDemoText })
+                .width('100%')
+                .height('100%')
+                .fontColor(this.isDarkMode ? Color.White : Color.Black)
+                .fontSize(16)
+                .backgroundColor(Color.Transparent)
+                .borderRadius(0)
+                .onChange((value: string) => this.onOriginalTextChange(value))
+                .onFocus(() => {
+                  animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeBtn = 4; });
+                })
+                .onBlur(() => {
+                  animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeBtn = 0; });
+                })
+            }
+            .width('100%')
+            .height(160)
+            .padding(8)
+            .backgroundColor(this.isDarkMode ? '#341e0a32' : '#1A3c1464')
+            .borderRadius(24)
+            .visualEffect(new hdsEffect.HdsEffectBuilder()
+              .pointLight({
+                sourceType: this.isDarkMode ? hdsEffect.PointLightSourceType.NONE :
+                  (this.activeBtn === 4
+                  ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT)
+                  : hdsEffect.PointLightSourceType.NONE),
+                illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE : hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
+              })
+              .buildEffect())
           }
           .width('100%')
           .margin({ bottom: 16 });
@@ -213,10 +236,7 @@ export struct TranslationPage {
                     (this.activeBtn === 2
                     ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT)
                     : hdsEffect.PointLightSourceType.NONE),
-                  illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE :
-                    (this.activeBtn !== 0
-                    ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
-                    : hdsEffect.PointLightIlluminatedType.NONE)
+                  illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE : hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
                 })
                 .buildEffect())
               .onTouch((event: TouchEvent) => {
@@ -248,13 +268,8 @@ export struct TranslationPage {
             .visualEffect(new hdsEffect.HdsEffectBuilder()
               .pointLight({
                 sourceType: this.isDarkMode ? hdsEffect.PointLightSourceType.NONE :
-                  (this.activeBtn === 3
-                  ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT)
-                  : hdsEffect.PointLightSourceType.NONE),
-                illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE :
-                  (this.activeBtn !== 0
-                  ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
-                  : hdsEffect.PointLightIlluminatedType.NONE)
+                  (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT),
+                illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE : hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
               })
               .buildEffect())
             .onTouch((event: TouchEvent) => {
@@ -276,15 +291,41 @@ export struct TranslationPage {
 
           Column() {
             Text('翻译文本')
-              .fontSize(16)
+              .fontSize(14)
               .fontColor(this.isDarkMode ? Color.White : Color.Black)
-              .margin({ bottom: 6 });
+              .opacity(0.6)
+              .margin({ bottom: 8, left: 4 });
 
-            TextArea({ text: this.translatedDemoText })
-              .width('100%')
-              .height(160)
-              .fontColor(this.isDarkMode ? Color.White : Color.Black)
-              .onChange((value: string) => this.onTranslatedTextChange(value));
+            Column() {
+              TextArea({ text: this.translatedDemoText })
+                .width('100%')
+                .height('100%')
+                .fontColor(this.isDarkMode ? Color.White : Color.Black)
+                .fontSize(16)
+                .backgroundColor(Color.Transparent)
+                .borderRadius(0)
+                .onChange((value: string) => this.onTranslatedTextChange(value))
+                .onFocus(() => {
+                  animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeBtn = 5; });
+                })
+                .onBlur(() => {
+                  animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeBtn = 0; });
+                })
+            }
+            .width('100%')
+            .height(160)
+            .padding(8)
+            .backgroundColor(this.isDarkMode ? '#341e0a32' : '#1A3c1464')
+            .borderRadius(24)
+            .visualEffect(new hdsEffect.HdsEffectBuilder()
+              .pointLight({
+                sourceType: this.isDarkMode ? hdsEffect.PointLightSourceType.NONE :
+                  (this.activeBtn === 5
+                  ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT)
+                  : hdsEffect.PointLightSourceType.NONE),
+                illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE : hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
+              })
+              .buildEffect())
 
             Row() {
               SymbolGlyph($r('sys.symbol.info_circle'))
@@ -303,7 +344,9 @@ export struct TranslationPage {
         .width('100%')
         .padding({ left: 24, right: 24, top: 16, bottom: 24 });
       }
-      .scrollable(ScrollDirection.Vertical);
+      .scrollable(ScrollDirection.Vertical)
+      .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.Spring)
     }
     .mode(NavigationMode.Stack)
     .width('100%')
@@ -388,8 +431,8 @@ export struct TranslationPage {
       }
       if (btnId === 3) {
         this.button3Scale = 0.95;
-        this.btn3BgColor = Color.White;
-        this.btn3TextColor = "#e63c1464";
+        this.btn3BgColor = "#e63c1464";
+        this.btn3TextColor = Color.White;
       }
     })
   }
@@ -416,8 +459,8 @@ export struct TranslationPage {
       }
       if (btnId === 3) {
         this.button3Scale = 1.0;
-        this.btn3BgColor = "#e63c1464";
-        this.btn3TextColor = Color.White;
+        this.btn3BgColor = Color.White;
+        this.btn3TextColor = "#e63c1464";
       }
     })
   }

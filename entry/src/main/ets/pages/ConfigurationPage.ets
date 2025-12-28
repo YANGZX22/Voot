@@ -13,6 +13,7 @@ struct ConfigCard {
   @Prop content: string = '';
   btnId: number = 0;
   isSymbol: boolean = false;
+  icon?: Resource;
   @Prop isLightEffectBright: boolean = true;
   @Prop isDarkMode: boolean = true;
   callback: () => void = () => {};
@@ -20,83 +21,93 @@ struct ConfigCard {
   
   @Link activeBtn: number;
   @State scaleValue: number = 1.0;
-  @State bgColor: ResourceColor = "#e63c1464";
-  @State textColor: ResourceColor = Color.White;
+  @State bgColor: ResourceColor = '#803c1464';
+  @State textColor: ResourceColor = $r('sys.color.font_on_primary');
 
   build() {
-    Column() {
-      Row() {
-        Text(this.title)
-          .fontSize(16)
-          .fontColor(Color.White)
-        
-        if (this.onInfoClick) {
-          SymbolGlyph($r('sys.symbol.info_circle'))
-            .fontSize(18)
-            .fontColor([Color.White])
-            .margin({ left: 6 })
-            .onClick(() => {
-              if (this.onInfoClick) {
-                this.onInfoClick();
-              }
-            })
-        }
+    Stack({ alignContent: Alignment.TopEnd }) {
+      if (this.icon) {
+        SymbolGlyph(this.icon)
+          .fontSize(80)
+          .fontColor([this.textColor])
+          .opacity(0.1)
+          .position({ bottom: -10, left: -10 })
       }
-      .margin({ bottom: 16 })
-      
-      Button() {
+
+      Column() {
+        Text(this.title)
+          .fontSize(14)
+          .fontColor(this.textColor)
+          .opacity(0.7)
+          .fontWeight(FontWeight.Medium)
+          .alignSelf(ItemAlign.Start)
+          .margin({ bottom: 4 })
+        
+        Blank()
+
         if (this.isSymbol) {
            SymbolGlyph($r('sys.symbol.face'))
-             .fontSize(24)
+             .fontSize(28)
              .fontColor([this.textColor])
              .fontWeight(FontWeight.Normal)
+             .alignSelf(ItemAlign.Start)
         } else {
           Text(this.content)
-            .fontSize(14)
+            .fontSize(20)
             .fontColor(this.textColor)
-            .maxLines(1)
+            .fontWeight(FontWeight.Bold)
+            .maxLines(2)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .alignSelf(ItemAlign.Start)
         }
       }
-      .type(ButtonType.Capsule)
-      .borderRadius(12)
-      .backgroundColor(this.bgColor)
       .width('100%')
-      .height(50)
-      .onClick(() => {
-        if (this.callback) this.callback();
-      })
-      .scale({ 
-        x: this.scaleValue,
-        y: this.scaleValue
-      })
-      .onTouch((event: TouchEvent) => {
-        this.handleTouch(event);
-      })
-      .visualEffect(new hdsEffect.HdsEffectBuilder()
-        .pointLight({
-          sourceType: this.isDarkMode ? hdsEffect.PointLightSourceType.NONE :
-            (this.activeBtn === this.btnId
-            ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT)
-            : hdsEffect.PointLightSourceType.NONE),
-          illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE :
-            (this.activeBtn !== 0
-            ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
-            : hdsEffect.PointLightIlluminatedType.NONE)
+      .height('100%')
+      .padding(16)
+      .alignItems(HorizontalAlign.Start)
+
+      if (this.onInfoClick) {
+        Button({ type: ButtonType.Circle }) {
+          SymbolGlyph($r('sys.symbol.info_circle'))
+            .fontSize(20)
+            .fontColor([this.textColor])
+            .opacity(0.5)
+        }
+        .backgroundColor(Color.Transparent)
+        .width(40)
+        .height(40)
+        .margin({ top: 4, right: 4 })
+        .onClick((event) => {
+          if (this.onInfoClick) {
+            this.onInfoClick();
+          }
         })
-        .buildEffect())
+      }
     }
-    .backgroundColor('#803c1464')
+    .backgroundColor(this.bgColor)
     .width('100%')
     .height('100%')
-    .padding(16)
-    .borderRadius(30)
+    .borderRadius(24)
+    .clip(true)
+    .scale({ x: this.scaleValue, y: this.scaleValue })
+    .onTouch((event: TouchEvent) => {
+      this.handleTouch(event);
+    })
+    .onClick(() => {
+      if (this.callback) this.callback();
+    })
     .visualEffect(new hdsEffect.HdsEffectBuilder()
       .pointLight({
-        illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
+        sourceType: this.isDarkMode ? hdsEffect.PointLightSourceType.NONE :
+          (this.activeBtn === this.btnId
+          ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT)
+          : hdsEffect.PointLightSourceType.NONE),
+        illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE :
+          (this.activeBtn !== 0
+          ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
+          : hdsEffect.PointLightIlluminatedType.NONE)
       })
       .buildEffect())
-    .justifyContent(FlexAlign.Center)
   }
 
   handleTouch(event: TouchEvent): void {
@@ -126,7 +137,7 @@ struct ConfigCard {
     }, () => {
       this.activeBtn = 0;
       this.scaleValue = 1.0;
-      this.bgColor = "#e63c1464";
+      this.bgColor = '#803c1464';
       this.textColor = Color.White;
     })
   }
@@ -316,11 +327,6 @@ export struct ConfigurationPage {
               .fontWeight(FontWeight.Medium)
               .margin({ bottom: 4 })
               .textAlign(TextAlign.Center)
-            Text('您需要使用自己的 API 密钥（OpenAI、DeepL、Ollama、豆包等）')
-              .fontSize(12)
-              .fontColor(this.disclaimerSubTextColor)
-              .lineHeight(16)
-              .textAlign(TextAlign.Center)
           }
           .width('calc(100% - 48vp)')
           .height(120)
@@ -362,6 +368,7 @@ export struct ConfigurationPage {
                 title: '选择 API',
                 content: this.apiOptions[this.selectedApiIndex],
                 btnId: 1,
+                icon: $r('sys.symbol.more'),
                 isLightEffectBright: this.isLightEffectBright,
                 isDarkMode: this.isDarkMode,
                 callback: () => this.onCycleApi(),
@@ -387,6 +394,7 @@ export struct ConfigurationPage {
                 title: '配置 API',
                 content: '',
                 btnId: 2,
+                icon: $r('sys.symbol.gearshape'),
                 isLightEffectBright: this.isLightEffectBright,
                 isDarkMode: this.isDarkMode,
                 callback: () => this.handleConfigApi(),
@@ -413,6 +421,7 @@ export struct ConfigurationPage {
                 title: '原始语言',
                 content: '英语',
                 btnId: 3,
+                icon: $r('sys.symbol.mic'),
                 isLightEffectBright: this.isLightEffectBright,
                 isDarkMode: this.isDarkMode,
                 callback: () => {
@@ -440,6 +449,7 @@ export struct ConfigurationPage {
                 title: '目标语言',
                 content: this.getLanguageLabels()[this.selectedLanguageIndex],
                 btnId: 4,
+                icon: $r('sys.symbol.translate_e2c'),
                 isLightEffectBright: this.isLightEffectBright,
                 isDarkMode: this.isDarkMode,
                 callback: () => this.onCycleLanguage(),
@@ -465,6 +475,7 @@ export struct ConfigurationPage {
                 title: '间隔',
                 content: this.intervalOptions[this.selectedIntervalIndex],
                 btnId: 5,
+                icon: $r('sys.symbol.clock'),
                 isLightEffectBright: this.isLightEffectBright,
                 isDarkMode: this.isDarkMode,
                 callback: () => this.showTextPicker(this.intervalOptions, this.selectedIntervalIndex, this.onSelectInterval),
@@ -490,6 +501,7 @@ export struct ConfigurationPage {
                 title: '上下文',
                 content: this.contextsOptions[this.selectedContextsIndex],
                 btnId: 6,
+                icon: $r('sys.symbol.paperclip'),
                 isLightEffectBright: this.isLightEffectBright,
                 isDarkMode: this.isDarkMode,
                 callback: () => this.showTextPicker(this.contextsOptions, this.selectedContextsIndex, this.onSelectContexts),
@@ -515,6 +527,7 @@ export struct ConfigurationPage {
                 title: '温度',
                 content: this.temperatureOptions[this.selectedTemperatureIndex],
                 btnId: 7,
+                icon: $r('sys.symbol.slider_horizontal_2'),
                 isLightEffectBright: this.isLightEffectBright,
                 isDarkMode: this.isDarkMode,
                 callback: () => this.showTextPicker(this.temperatureOptions, this.selectedTemperatureIndex, this.onSelectTemperature),
@@ -540,6 +553,7 @@ export struct ConfigurationPage {
                 title: '最大 Token',
                 content: this.maxTokensOptions[this.selectedMaxTokensIndex],
                 btnId: 8,
+                icon: $r('sys.symbol.puzzle_fill'),
                 isLightEffectBright: this.isLightEffectBright,
                 isDarkMode: this.isDarkMode,
                 callback: () => this.showTextPicker(this.maxTokensOptions, this.selectedMaxTokensIndex, this.onSelectMaxTokens),
@@ -571,7 +585,7 @@ export struct ConfigurationPage {
         .padding({ bottom: 100 })
       }
       .scrollable(ScrollDirection.Vertical)
-      .scrollBar(BarState.Auto)
+      .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
     }
     .mode(NavigationMode.Stack)
