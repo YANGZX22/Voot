@@ -62,6 +62,10 @@ export interface ApiConfigSnapshot {
   glossary: string;
   // 主题模式: 0 = 浅色, 1 = 深色, 2 = 跟随系统
   themeMode: number;
+  // VAD Sensitivity
+  vadSensitivityIndex: number;
+  // Min Match Length
+  minMatchLenIndex: number;
 }
 
 export interface PartialApiConfigSnapshot {
@@ -95,6 +99,8 @@ export interface PartialApiConfigSnapshot {
   glossary?: string;
   // 主题模式
   themeMode?: number;
+  vadSensitivityIndex?: number;
+  minMatchLenIndex?: number;
 }
 
 export class ApiConfigStorage {
@@ -297,7 +303,9 @@ export class ApiConfigStorage {
       subtitleBackgroundColor: snapshot.subtitleBackgroundColor,
       subtitleHeight: snapshot.subtitleHeight,
       glossary: snapshot.glossary,
-      themeMode: snapshot.themeMode
+      themeMode: snapshot.themeMode,
+      vadSensitivityIndex: snapshot.vadSensitivityIndex,
+      minMatchLenIndex: snapshot.minMatchLenIndex
     };
   }
   

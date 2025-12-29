@@ -86,7 +86,7 @@ export struct TranslationPage {
             Row() {
               if (this.currentApiLabel) {
                 Column() {
-                  Text('当前选择API')
+                  Text('当前选择 API')
                     .fontSize(12)
                     .fontColor($r('sys.color.font_on_secondary'))
                     .margin({ bottom: 4 });

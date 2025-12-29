@@ -304,7 +304,7 @@ Before submitting, please:
 * ASR accuracy may vary based on background noise and microphone quality.
 * Some API providers may have rate limits or usage costs; monitor your usage carefully.
 * ~~When tap **传译** button in desktop widget, the app may not open interpretation correctly due to HarmonyOS restrictions.~~ [Fixed]
-* Subtitle floating window may have layout issues on certain screen sizes, e.g. Pad.\
+* ~~Subtitle floating window may have layout issues on certain screen sizes, e.g. Pad.~~ [Fixed]
   You can try to adjust the size of the floating window manually. An update may fix this in the future.
 * Doubao API always gives latente responses when use Lite models. This may be due to the server side of Doubao, not the app itself. [To be confirmed]
 
@@ -316,9 +316,6 @@ Before submitting, please:
 ## License
 
 This project is licensed under the **GNU General Public License v3.0 (GPL-3.0)**.
-
-You should have received a copy of the GNU General Public License along with this program.
-If not, see: [https://www.gnu.org/licenses/gpl-3.0.en.html](https://www.gnu.org/licenses/gpl-3.0.en.html)
 
 Please see the [`LICENSE`](LICENSE) file in this repository for full license text.
 

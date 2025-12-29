@@ -7,6 +7,206 @@ import { TokenUsageChart } from '../components/TokenUsageChart';
 const TITLE_BAR_HEIGHT_MINI: number = 110;
 const AUTH_SUCCESS_CODE: number = userAuth.UserAuthResultCode.SUCCESS
 
+// 选项选择器底部弹出组件
+@Component
+struct OptionSelectorSheet {
+  title: string = '';
+  description: string = '';
+  options: string[] = [];
+  @Prop selectedIndex: number = 0;
+  @Prop isDarkMode: boolean = true;
+  @Prop isLightEffectBright: boolean = true;
+  onSelect: (index: number) => void = () => {};
+  onClose: () => void = () => {};
+
+  @State itemScales: number[] = [];
+  @State itemOpacities: number[] = [];
+  @State pressedIndex: number = -1;
+  @State headerOpacity: number = 0;
+  @State headerOffsetY: number = -20;
+  @State activeChipIndex: number = -1; // 用于追踪当前激活的选项
+
+  aboutToAppear() {
+    this.itemScales = this.options.map(() => 0.85);
+    this.itemOpacities = this.options.map(() => 0);
+    
+    // 标题动画
+    setTimeout(() => {
+      animateTo({
+        duration: 300,
+        curve: Curve.FastOutSlowIn
+      }, () => {
+        this.headerOpacity = 1;
+        this.headerOffsetY = 0;
+      });
+    }, 50);
+    
+    // 逐个动画显示选项
+    this.options.forEach((_, i) => {
+      setTimeout(() => {
+        animateTo({
+          duration: 280,
+          curve: Curve.FastOutSlowIn
+        }, () => {
+          this.itemScales[i] = 1.0;
+          this.itemOpacities[i] = 1.0;
+        });
+      }, 120 + i * 35);
+    });
+  }
+
+  build() {
+    Column() {
+      // 顶部拖动指示条
+      Row()
+        .width(40)
+        .height(4)
+        .borderRadius(2)
+        .backgroundColor('#50FFFFFF')
+        .margin({ top: 12, bottom: 20 })
+
+      // 标题区域
+      Column() {
+        Text(this.title)
+          .fontSize(22)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(Color.White)
+          .margin({ bottom: 6 })
+
+        // 描述
+        if (this.description) {
+          Text(this.description)
+            .fontSize(13)
+            .fontColor('#BBFFFFFF')
+            .textAlign(TextAlign.Center)
+            .maxLines(2)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+        }
+      }
+      .opacity(this.headerOpacity)
+      .offset({ y: this.headerOffsetY })
+      .margin({ bottom: 20, left: 24, right: 24 })
+
+      // 选项网格
+      Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Center }) {
+        ForEach(this.options, (option: string, index: number) => {
+          this.OptionChip(option, index)
+        })
+      }
+      .width('100%')
+      .padding({ left: 12, right: 12 })
+
+      // 完成按钮
+      Button('完成')
+        .width('90%')
+        .height(50)
+        .fontSize(16)
+        .fontWeight(FontWeight.Bold)
+        .fontColor('#3c1464')
+        .backgroundColor('#F5FFFFFF')
+        .borderRadius(25)
+        .margin({ top: 28, bottom: 28 })
+        .shadow({
+          radius: 16,
+          color: '#303c1464',
+          offsetX: 0,
+          offsetY: 6
+        })
+        .onClick(() => this.onClose())
+    }
+    .width('100%')
+    .padding({ bottom: 16 })
+    .backgroundColor(Color.Transparent)
+    .backgroundBlurStyle(BlurStyle.BACKGROUND_ULTRA_THICK)
+    .borderRadius({ topLeft: 28, topRight: 28 })
+    .linearGradient({
+      angle: 180,
+      colors: this.isDarkMode
+        ? [['#F0180530', 0.0], ['#D02a1250', 1.0]]
+        : [['#E03c1464', 0.0], ['#F04a1878', 1.0]]
+    })
+  }
+
+  @Builder
+  OptionChip(option: string, index: number) {
+    // 使用 Column 作为固定尺寸容器，防止内部变化影响布局
+    Column() {
+      Text(option)
+        .fontSize(15)
+        .fontWeight(FontWeight.Medium) // 固定字重，避免宽度变化
+        .fontColor(this.selectedIndex === index ? '#3c1464' : Color.White)
+        .textAlign(TextAlign.Center)
+        .transition(TransitionEffect.OPACITY.animation({ duration: 200, curve: Curve.EaseOut }))
+    }
+    .padding({ left: 20, right: 20, top: 12, bottom: 12 })
+    .backgroundColor(this.selectedIndex === index ? '#F8FFFFFF' : (this.pressedIndex === index ? '#50FFFFFF' : '#28FFFFFF'))
+    .borderRadius(20)
+    .margin(5)
+    .opacity(this.itemOpacities[index] ?? 1)
+    .border({
+      width: 1.5,
+      color: this.selectedIndex === index ? '#A03c1464' : '#20FFFFFF',
+      style: BorderStyle.Solid
+    })
+    .shadow(this.selectedIndex === index ? {
+      radius: 12,
+      color: '#50FFFFFF',
+      offsetX: 0,
+      offsetY: 3
+    } : {
+      radius: 0,
+      color: Color.Transparent,
+      offsetX: 0,
+      offsetY: 0
+    })
+    // 使用 renderFit 配合 scale，让缩放不影响布局
+    .renderFit(RenderFit.CENTER)
+    .scale({
+      x: this.pressedIndex === index ? 0.92 : (this.selectedIndex === index ? 1.02 : 1.0),
+      y: this.pressedIndex === index ? 0.92 : (this.selectedIndex === index ? 1.02 : 1.0)
+    })
+    .animation({
+      duration: 180,
+      curve: Curve.FastOutSlowIn
+    })
+    // 添加点光效果
+    .visualEffect(new hdsEffect.HdsEffectBuilder()
+      .pointLight({
+        sourceType: this.isDarkMode ? hdsEffect.PointLightSourceType.NONE :
+          (this.activeChipIndex === index
+            ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT)
+            : hdsEffect.PointLightSourceType.NONE),
+        illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE :
+          (this.activeChipIndex !== -1
+            ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
+            : hdsEffect.PointLightIlluminatedType.NONE)
+      })
+      .buildEffect())
+    .onClick(() => {
+      this.onSelect(index);
+    })
+    .onTouch((e: TouchEvent) => {
+      if (e.type === TouchType.Down) {
+        animateTo({
+          duration: 150,
+          curve: Curve.EaseOut
+        }, () => {
+          this.pressedIndex = index;
+          this.activeChipIndex = index;
+        });
+      } else if (e.type === TouchType.Up || e.type === TouchType.Cancel) {
+        animateTo({
+          duration: 200,
+          curve: Curve.EaseIn
+        }, () => {
+          this.pressedIndex = -1;
+          this.activeChipIndex = -1;
+        });
+      }
+    })
+  }
+}
+
 @Component
 struct ConfigCard {
   title: string = '';
@@ -160,6 +360,10 @@ export struct ConfigurationPage {
   @Prop selectedTemperatureIndex: number = 0;
   maxTokensOptions: string[] = [];
   @Prop selectedMaxTokensIndex: number = 0;
+  vadSensitivityOptions: string[] = [];
+  @Prop selectedVadSensitivityIndex: number = 0;
+  minMatchLenOptions: string[] = [];
+  @Prop selectedMinMatchLenIndex: number = 0;
   @Prop @Watch('onVisibleChange') isVisible: boolean = false;
   @Prop isLightEffectBright: boolean = true;
   @Prop isDarkMode: boolean = true;
@@ -172,18 +376,38 @@ export struct ConfigurationPage {
   onSelectContexts: (index: number) => void = () => {};
   onSelectTemperature: (index: number) => void = () => {};
   onSelectMaxTokens: (index: number) => void = () => {};
+  onSelectVadSensitivity: (index: number) => void = () => {};
+  onSelectMinMatchLen: (index: number) => void = () => {};
 
   @State activeBtn: number = 0;
 
+  // 底部选择器状态
+  @State isOptionSheetVisible: boolean = false;
+  @State sheetTitle: string = '';
+  @State sheetDescription: string = '';
+  @State sheetOptions: string[] = [];
+  @State sheetSelectedIndex: number = 0;
+  // 使用枚举类型代替函数引用，避免 @State 不支持函数的问题
+  @State sheetType: string = ''; // 'interval' | 'contexts' | 'temperature' | 'maxTokens' | 'vad' | 'minMatch'
+
   // Animation states
-  @State cardScales: number[] = [0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9];
-  @State cardOpacities: number[] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+  @State cardScales: number[] = [0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9];
+  @State cardOpacities: number[] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
   // New states for disclaimer card
   @State disclaimerScale: number = 1.0;
   @State disclaimerBgColor: ResourceColor = '#803c1464';
   @State disclaimerTextColor: ResourceColor = Color.White;
-  @State disclaimerSubTextColor: ResourceColor = '#CCFFFFFF';
+  @State disclaimerSubTextColor: ResourceColor = $r('sys.color.font_on_secondary');
+  
+  // API 介绍展开状态 - 卡片动画展开
+  @State isApiIntroExpanded: boolean = false;
+  @State disclaimerWidth: string = 'calc(100% - 48vp)';
+  @State disclaimerHeight: number = 120;
+  @State disclaimerBorderRadius: number = 30;
+  @State expandedContentOpacity: number = 0;
+  @State collapsedContentOpacity: number = 1;
+  private longPressTimer: number | undefined = undefined;
 
   private animationTimeouts: number[] = [];
 
@@ -208,14 +432,14 @@ export struct ConfigurationPage {
 
   resetAnimations() {
     this.clearAnimationTimeouts();
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 12; i++) {
       this.cardScales[i] = 0.8;
       this.cardOpacities[i] = 0;
     }
   }
 
   playAnimations() {
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 12; i++) {
       let id = setTimeout(() => {
         animateTo({
           duration: 300,
@@ -241,17 +465,36 @@ export struct ConfigurationPage {
     return this.languageOptions;
   }
 
-  private showTextPicker(options: string[], selected: number, onSelect: (index: number) => void): void {
-    TextPickerDialog.show({
-      range: options,
-      selected: selected,
-      onAccept: (value: TextPickerResult) => {
-        onSelect(value.index as number);
-      },
-      cancelButtonStyle: { fontColor: '#3c1464' },
-      acceptButtonStyle: { fontColor: '#3c1464' },
-      selectedTextStyle: { color: '#3c1464' }
-    })
+  private openOptionSheet(title: string, description: string, options: string[], selected: number, type: string): void {
+    this.sheetTitle = title;
+    this.sheetDescription = description;
+    this.sheetOptions = options;
+    this.sheetSelectedIndex = selected;
+    this.sheetType = type;
+    this.isOptionSheetVisible = true;
+  }
+
+  private handleSheetSelect(index: number): void {
+    switch (this.sheetType) {
+      case 'interval':
+        this.onSelectInterval(index);
+        break;
+      case 'contexts':
+        this.onSelectContexts(index);
+        break;
+      case 'temperature':
+        this.onSelectTemperature(index);
+        break;
+      case 'maxTokens':
+        this.onSelectMaxTokens(index);
+        break;
+      case 'vad':
+        this.onSelectVadSensitivity(index);
+        break;
+      case 'minMatch':
+        this.onSelectMinMatchLen(index);
+        break;
+    }
   }
 
   pressDisclaimer(): void {
@@ -261,15 +504,100 @@ export struct ConfigurationPage {
       this.disclaimerTextColor = '#3c1464';
       this.disclaimerSubTextColor = '#CC3c1464';
     });
+    
+    // 开始长按计时器
+    this.longPressTimer = setTimeout(() => {
+      this.showApiIntro();
+    }, 600); // 600ms 触发长按
   }
 
   releaseDisclaimer(): void {
+    // 清除长按计时器
+    if (this.longPressTimer !== undefined) {
+      clearTimeout(this.longPressTimer);
+      this.longPressTimer = undefined;
+    }
+    
     animateTo({ duration: 100, curve: Curve.EaseOut }, () => {
       this.disclaimerScale = 1.0;
       this.disclaimerBgColor = '#803c1464';
       this.disclaimerTextColor = Color.White;
       this.disclaimerSubTextColor = '#CCFFFFFF';
     });
+  }
+  
+  showApiIntro(): void {
+    // 标记展开状态
+    this.isApiIntroExpanded = true;
+    this.activeBtn = 0; // 关闭光效
+    
+    // 第一步：先淡出简短内容
+    animateTo({
+      duration: 150,
+      curve: Curve.EaseOut
+    }, () => {
+      this.collapsedContentOpacity = 0;
+      this.disclaimerScale = 1.0;
+      this.disclaimerBgColor = '#803c1464';
+      this.disclaimerTextColor = Color.White;
+      this.disclaimerSubTextColor = $r('sys.color.font_on_secondary');
+    });
+    
+    // 第二步：展开卡片
+    setTimeout(() => {
+      animateTo({
+        duration: 400,
+        curve: Curve.FastOutSlowIn
+      }, () => {
+        this.disclaimerWidth = 'calc(100% - 48vp)';
+        this.disclaimerHeight = 400; // 调整高度以减少留白
+        this.disclaimerBorderRadius = 32;
+      });
+    }, 100);
+    
+    // 第三步：淡入详细内容
+    setTimeout(() => {
+      animateTo({
+        duration: 300,
+        curve: Curve.EaseOut
+      }, () => {
+        this.expandedContentOpacity = 1;
+      });
+    }, 350);
+  }
+  
+  hideApiIntro(): void {
+    // 第一步：淡出详细内容
+    animateTo({
+      duration: 200,
+      curve: Curve.EaseIn
+    }, () => {
+      this.expandedContentOpacity = 0;
+    });
+    
+    // 第二步：收缩卡片
+    setTimeout(() => {
+      animateTo({
+        duration: 350,
+        curve: Curve.FastOutSlowIn
+      }, () => {
+        this.disclaimerWidth = 'calc(100% - 48vp)';
+        this.disclaimerHeight = 120;
+        this.disclaimerBorderRadius = 30;
+        this.disclaimerBgColor = '#803c1464';
+      });
+    }, 150);
+    
+    // 第三步：淡入简短内容
+    setTimeout(() => {
+      animateTo({
+        duration: 250,
+        curve: Curve.EaseOut
+      }, () => {
+        this.collapsedContentOpacity = 1;
+      });
+      this.isApiIntroExpanded = false;
+    }, 400);
   }
 
   handleConfigApi(): void {
@@ -311,33 +639,170 @@ export struct ConfigurationPage {
   }
 
   build() {
-    HdsNavigation() {
-      Scroll() {
-        Column() {
-          Blank().height(TITLE_BAR_HEIGHT_MINI);
-
+    Stack() {
+      HdsNavigation() {
+        Scroll() {
           Column() {
-            SymbolGlyph($r('sys.symbol.exclamationmark_shield_fill'))
-              .fontSize(24)
-              .fontColor([this.disclaimerTextColor])
-              .margin({ bottom: 8 })
-            Text('Voot 不提供或转售任何 LLM 密钥')
-              .fontSize(16)
-              .fontColor(this.disclaimerTextColor)
-              .fontWeight(FontWeight.Medium)
-              .margin({ bottom: 4 })
-              .textAlign(TextAlign.Center)
-          }
-          .width('calc(100% - 48vp)')
-          .height(120)
-          .padding(16)
+            Blank().height(TITLE_BAR_HEIGHT_MINI);
+
+            Column() {
+              // 收起状态的内容
+              if (!this.isApiIntroExpanded) {
+                Column() {
+                  SymbolGlyph($r('sys.symbol.exclamationmark_shield_fill'))
+                    .fontSize(24)
+                    .fontColor([this.disclaimerTextColor])
+                    .margin({ bottom: 8 })
+                  Text('Voot 不提供或转售任何 LLM 密钥')
+                    .fontSize(16)
+                    .fontColor(this.disclaimerTextColor)
+                    .fontWeight(FontWeight.Medium)
+                    .margin({ bottom: 4 })
+                    .textAlign(TextAlign.Center)
+                  Text('长按了解')
+                    .fontSize(12)
+                    .fontColor(this.disclaimerSubTextColor)
+                    .margin({ top: 4 })
+                }
+                .opacity(this.collapsedContentOpacity)
+              }
+              
+              // 展开状态的内容
+              if (this.isApiIntroExpanded) {
+                Scroll() {
+                  Column() {
+                    // 顶部关闭按钮
+                    Row() {
+                      SymbolGlyph($r('sys.symbol.exclamationmark_shield_fill'))
+                        .fontSize(24)
+                        .fontColor([Color.White])
+                      Text('关于 API 密钥')
+                        .fontSize(20)
+                        .fontColor(Color.White)
+                        .fontWeight(FontWeight.Bold)
+                        .margin({ left: 12 })
+                      Blank()
+                      Button({ type: ButtonType.Circle }) {
+                        SymbolGlyph($r('sys.symbol.arrow_up'))
+                          .fontSize(16)
+                          .fontColor([Color.White])
+                      }
+                      .width(32)
+                      .height(32)
+                      .backgroundColor('#33FFFFFF')
+                      .onClick(() => {
+                        this.hideApiIntro();
+                      })
+                    }
+                    .width('100%')
+                    .padding({ left: 4, right: 4, bottom: 24 })
+                    
+                    // API 介绍内容
+                    Column({ space: 24 }) {
+                      // 什么是 API 密钥
+                      Row({ space: 16 }) {
+                        SymbolGlyph($r('sys.symbol.key'))
+                          .fontSize(24)
+                          .fontColor(['#EEFFFFFF'])
+                          .margin({ top: 2 })
+                        Column({ space: 4 }) {
+                          Text('什么是 API 密钥？')
+                            .fontSize(16)
+                            .fontColor(Color.White)
+                            .fontWeight(FontWeight.Medium)
+                          Text('API 密钥是您访问翻译服务的凭证。Voot 使用此密钥直接与服务商（如 OpenAI）通信。')
+                            .fontSize(14)
+                            .fontColor('#CCFFFFFF')
+                            .lineHeight(20)
+                        }
+                        .layoutWeight(1)
+                        .alignItems(HorizontalAlign.Start)
+                      }
+                      .width('100%')
+                      .alignItems(VerticalAlign.Top)
+
+                      // 安全承诺
+                      Row({ space: 16 }) {
+                        SymbolGlyph($r('sys.symbol.lock_shield'))
+                          .fontSize(24)
+                          .fontColor(['#EEFFFFFF'])
+                          .margin({ top: 2 })
+                        Column({ space: 4 }) {
+                          Text('安全承诺')
+                            .fontSize(16)
+                            .fontColor(Color.White)
+                            .fontWeight(FontWeight.Medium)
+                          Text('您的密钥仅加密存储在本地设备上，受系统安全芯片保护。Voot 不会上传、收集或与第三方共享您的密钥。')
+                            .fontSize(14)
+                            .fontColor('#CCFFFFFF')
+                            .lineHeight(20)
+                        }
+                        .layoutWeight(1)
+                        .alignItems(HorizontalAlign.Start)
+                      }
+                      .width('100%')
+                      .alignItems(VerticalAlign.Top)
+
+                      // 直连服务
+                      Row({ space: 16 }) {
+                        SymbolGlyph($r('sys.symbol.link'))
+                          .fontSize(24)
+                          .fontColor(['#EEFFFFFF'])
+                          .margin({ top: 2 })
+                        Column({ space: 4 }) {
+                          Text('直连服务')
+                            .fontSize(16)
+                            .fontColor(Color.White)
+                            .fontWeight(FontWeight.Medium)
+                          Text('所有请求均由您的设备直接发送至服务商，不经过任何中间服务器，确保隐私安全。')
+                            .fontSize(14)
+                            .fontColor('#CCFFFFFF')
+                            .lineHeight(20)
+                        }
+                        .layoutWeight(1)
+                        .alignItems(HorizontalAlign.Start)
+                      }
+                      .width('100%')
+                      .alignItems(VerticalAlign.Top)
+                    }
+                    .width('100%')
+                    .padding({ left: 4, right: 4 })
+                  }
+                  .width('100%')
+                }
+                .scrollBar(BarState.Off)
+                .width('100%')
+                .layoutWeight(1)
+                .opacity(this.expandedContentOpacity)
+                .nestedScroll({
+                  scrollForward: NestedScrollMode.SELF_FIRST,
+                  scrollBackward: NestedScrollMode.SELF_FIRST
+                })
+              }
+            }
+            .width(this.disclaimerWidth)
+            .height(this.disclaimerHeight)
+            .padding(20)
           .margin({ bottom: 10 })
           .backgroundColor(this.disclaimerBgColor)
-          .borderRadius(30)
+          // .backgroundBlurStyle(this.isApiIntroExpanded ? BlurStyle.BACKGROUND_THICK : BlurStyle.NONE)
+          .borderRadius(this.disclaimerBorderRadius)
           .alignItems(HorizontalAlign.Center)
-          .justifyContent(FlexAlign.Center)
+          .justifyContent(this.isApiIntroExpanded ? FlexAlign.Start : FlexAlign.Center)
           .opacity(this.cardOpacities[0])
           .scale({ x: this.disclaimerScale * this.cardScales[0], y: this.disclaimerScale * this.cardScales[0] })
+          .zIndex(this.isApiIntroExpanded ? 100 : 0)
+          .shadow(this.isApiIntroExpanded ? {
+            radius: 32,
+            color: '#40000000',
+            offsetX: 0,
+            offsetY: 8
+          } : {
+            radius: 0,
+            color: 'transparent',
+            offsetX: 0,
+            offsetY: 0
+          })
           .visualEffect(new hdsEffect.HdsEffectBuilder()
             .pointLight({
               sourceType: this.activeBtn === 99 ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT) : hdsEffect.PointLightSourceType.NONE,
@@ -345,6 +810,9 @@ export struct ConfigurationPage {
             })
             .buildEffect())
           .onTouch((event: TouchEvent) => {
+            if (this.isApiIntroExpanded) {
+              return; // 展开状态下不响应触摸
+            }
             if (event.type === TouchType.Down) {
               this.pressDisclaimer();
               this.activeBtn = 99;
@@ -473,12 +941,18 @@ export struct ConfigurationPage {
             GridItem() {
               ConfigCard({
                 title: '间隔',
-                content: this.intervalOptions[this.selectedIntervalIndex],
+                content: this.intervalOptions[this.selectedIntervalIndex] + ' 秒',
                 btnId: 5,
                 icon: $r('sys.symbol.clock'),
                 isLightEffectBright: this.isLightEffectBright,
                 isDarkMode: this.isDarkMode,
-                callback: () => this.showTextPicker(this.intervalOptions, this.selectedIntervalIndex, this.onSelectInterval),
+                callback: () => this.openOptionSheet(
+                  '翻译间隔',
+                  '设置两次翻译请求之间的最小时间间隔（秒）',
+                  this.intervalOptions.map(v => v + ' 秒'),
+                  this.selectedIntervalIndex,
+                  'interval'
+                ),
                 activeBtn: $activeBtn,
                 onInfoClick: () => {
                   AlertDialog.show({
@@ -499,12 +973,18 @@ export struct ConfigurationPage {
             GridItem() {
               ConfigCard({
                 title: '上下文',
-                content: this.contextsOptions[this.selectedContextsIndex],
+                content: this.contextsOptions[this.selectedContextsIndex] + ' 轮',
                 btnId: 6,
                 icon: $r('sys.symbol.paperclip'),
                 isLightEffectBright: this.isLightEffectBright,
                 isDarkMode: this.isDarkMode,
-                callback: () => this.showTextPicker(this.contextsOptions, this.selectedContextsIndex, this.onSelectContexts),
+                callback: () => this.openOptionSheet(
+                  '历史上下文',
+                  '更多上下文有助于模型理解语境，但会消耗更多 Token',
+                  this.contextsOptions.map(v => v + ' 轮对话'),
+                  this.selectedContextsIndex,
+                  'contexts'
+                ),
                 activeBtn: $activeBtn,
                 onInfoClick: () => {
                   AlertDialog.show({
@@ -530,7 +1010,13 @@ export struct ConfigurationPage {
                 icon: $r('sys.symbol.slider_horizontal_2'),
                 isLightEffectBright: this.isLightEffectBright,
                 isDarkMode: this.isDarkMode,
-                callback: () => this.showTextPicker(this.temperatureOptions, this.selectedTemperatureIndex, this.onSelectTemperature),
+                callback: () => this.openOptionSheet(
+                  '模型温度',
+                  '较低更确定，较高更随机（推荐 0.3）',
+                  this.temperatureOptions,
+                  this.selectedTemperatureIndex,
+                  'temperature'
+                ),
                 activeBtn: $activeBtn,
                 onInfoClick: () => {
                   AlertDialog.show({
@@ -556,7 +1042,13 @@ export struct ConfigurationPage {
                 icon: $r('sys.symbol.puzzle_fill'),
                 isLightEffectBright: this.isLightEffectBright,
                 isDarkMode: this.isDarkMode,
-                callback: () => this.showTextPicker(this.maxTokensOptions, this.selectedMaxTokensIndex, this.onSelectMaxTokens),
+                callback: () => this.openOptionSheet(
+                  '最大 Token',
+                  '单次回复的最大长度（推荐 256）',
+                  this.maxTokensOptions.map(v => v + ' tokens'),
+                  this.selectedMaxTokensIndex,
+                  'maxTokens'
+                ),
                 activeBtn: $activeBtn,
                 onInfoClick: () => {
                   AlertDialog.show({
@@ -573,9 +1065,73 @@ export struct ConfigurationPage {
             }
             .opacity(this.cardOpacities[9])
             .scale({ x: this.cardScales[9], y: this.cardScales[9] })
+
+            GridItem() {
+              ConfigCard({
+                title: 'VAD 灵敏度',
+                content: this.vadSensitivityOptions[this.selectedVadSensitivityIndex],
+                btnId: 9,
+                icon: $r('sys.symbol.magnetic_sensor'),
+                isLightEffectBright: this.isLightEffectBright,
+                isDarkMode: this.isDarkMode,
+                callback: () => this.openOptionSheet(
+                  '语音检测灵敏度',
+                  '较高更敏感但可能误报噪音',
+                  this.vadSensitivityOptions,
+                  this.selectedVadSensitivityIndex,
+                  'vad'
+                ),
+                activeBtn: $activeBtn,
+                onInfoClick: () => {
+                  AlertDialog.show({
+                    title: 'VAD 灵敏度说明',
+                    message: '设置语音活动检测的灵敏度。\n较高的灵敏度更容易检测到语音，但也可能误报噪音。\n默认为中。',
+                    confirm: {
+                      value: '我知道了',
+                      fontColor: '#3c1464',
+                      action: () => {}
+                    }
+                  })
+                }
+              })
+            }
+            .opacity(this.cardOpacities[10])
+            .scale({ x: this.cardScales[10], y: this.cardScales[10] })
+
+            GridItem() {
+              ConfigCard({
+                title: '最小匹配长度',
+                content: this.minMatchLenOptions[this.selectedMinMatchLenIndex] + ' 字符',
+                btnId: 10,
+                icon: $r('sys.symbol.text_alignleft'),
+                isLightEffectBright: this.isLightEffectBright,
+                isDarkMode: this.isDarkMode,
+                callback: () => this.openOptionSheet(
+                  '最小匹配长度',
+                  '智能拼接文本时的最小重叠字符数',
+                  this.minMatchLenOptions.map(v => v + ' 字符'),
+                  this.selectedMinMatchLenIndex,
+                  'minMatch'
+                ),
+                activeBtn: $activeBtn,
+                onInfoClick: () => {
+                  AlertDialog.show({
+                    title: '最小匹配长度说明',
+                    message: '设置智能拼接文本时的最小重叠字符数。\n较大的值能减少误拼接，但可能导致重复。\n默认为5。',
+                    confirm: {
+                      value: '我知道了',
+                      fontColor: '#3c1464',
+                      action: () => {}
+                    }
+                  })
+                }
+              })
+            }
+            .opacity(this.cardOpacities[11])
+            .scale({ x: this.cardScales[11], y: this.cardScales[11] })
           }
           .columnsTemplate('1fr 1fr')
-          .rowsTemplate('1fr 1fr 1fr 1fr')
+          .rowsTemplate('1fr 1fr 1fr 1fr 1fr')
           .columnsGap(10)
           .rowsGap(10)
           .padding({ left: 24, right: 24 })
@@ -594,6 +1150,16 @@ export struct ConfigurationPage {
     .backgroundColor(Color.Transparent)
     .titleMode(HdsNavigationTitleMode.MINI)
     .hideBackButton(true)
+    .bindSheet($$this.isOptionSheetVisible, this.OptionSheetBuilder(), {
+      height: SheetSize.FIT_CONTENT,
+      backgroundColor: Color.Transparent,
+      blurStyle: BlurStyle.NONE,
+      showClose: false,
+      dragBar: false,
+      onDisappear: () => {
+        this.isOptionSheetVisible = false;
+      }
+    })
     .titleBar({
       style: {
         scrollEffectStyle: {
@@ -630,6 +1196,28 @@ export struct ConfigurationPage {
         title: { mainTitle: '配置' },
       },
       avoidLayoutSafeArea: true
+    })
+    }
+    .width('100%')
+    .height('100%')
+  }
+  
+  @Builder
+  OptionSheetBuilder() {
+    OptionSelectorSheet({
+      title: this.sheetTitle,
+      description: this.sheetDescription,
+      options: this.sheetOptions,
+      selectedIndex: this.sheetSelectedIndex,
+      isDarkMode: this.isDarkMode,
+      isLightEffectBright: this.isLightEffectBright,
+      onSelect: (index: number) => {
+        this.sheetSelectedIndex = index;
+        this.handleSheetSelect(index);
+      },
+      onClose: () => {
+        this.isOptionSheetVisible = false;
+      }
     })
   }
 }

@@ -325,7 +325,9 @@ struct WelcomePage {
       subtitleBackgroundColor: '#3c1464',
       subtitleHeight: 20,
       glossary: 'HarmonyOS = 鸿蒙',
-      themeMode: 2  // 默认跟随系统
+      themeMode: 2,  // 默认跟随系统
+      vadSensitivityIndex: 1,
+      minMatchLenIndex: 1
     };
 
     const currentConfig = await ApiConfigStorage.loadSnapshot(context, defaults);

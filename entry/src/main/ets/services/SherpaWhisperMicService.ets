@@ -82,6 +82,19 @@ export class SherpaWhisperMicService {
   }
 
   /**
+   * Set VAD sensitivity.
+   * Currently a placeholder for future implementation or simple energy threshold adjustment.
+   * @param sensitivity 0=Low, 1=Medium, 2=High
+   */
+  setVadSensitivity(sensitivity: number): void {
+    // TODO: Implement actual VAD sensitivity adjustment
+    // For now, we can just log it or adjust internal thresholds if available
+    if (this.enableDebugLogs) {
+      console.info(`[SherpaMic] VAD sensitivity set to ${sensitivity}`);
+    }
+  }
+
+  /**
    * Initialize Moonshine tiny EN model from rawfile using the app's resourceManager.
    * Must be called once before start().
    */

@@ -117,7 +117,9 @@ const DEFAULT_CONFIG: ApiConfigSnapshot = {
   subtitleBackgroundColor: '#80000000',
   subtitleHeight: 20,
   glossary: 'HarmonyOS = 鸿蒙',
-  themeMode: 2  // 默认跟随系统
+  themeMode: 2,  // 默认跟随系统
+  vadSensitivityIndex: 1,
+  minMatchLenIndex: 1
 };
 
 @Entry
@@ -154,7 +156,7 @@ struct SessionDetailPage {
                       .fontSize(18)
                       .fontWeight(FontWeight.Bold)
                       .fontColor(Color.White)
-                    Text('AI生成')
+                    Text('AI 生成')
                       .fontSize(12)
                       .fontColor(Color.White)
                       .backgroundColor('#33FFFFFF')
@@ -219,7 +221,7 @@ struct SessionDetailPage {
                     .fontSize(18)
                     .fontWeight(FontWeight.Bold)
                     .fontColor(Color.White)
-                  Text('AI生成')
+                  Text('AI 生成')
                     .fontSize(12)
                     .fontColor(Color.White)
                     .backgroundColor('#33FFFFFF')
@@ -449,7 +451,13 @@ struct SessionDetailPage {
         messages: [message]
       };
       const body = JSON.stringify(requestBody);
-      const response = await httpRequest.request(config.apiUrl + '/api/v3/chat/completions', {
+
+      let apiUrl = config.apiUrl.replace(/\/+$/, '');
+      if (!apiUrl.endsWith('/api/v3/chat/completions')) {
+        apiUrl = apiUrl + '/api/v3/chat/completions';
+      }
+
+      const response = await httpRequest.request(apiUrl, {
         method: http.RequestMethod.POST,
         header: {
           'Content-Type': 'application/json',

@@ -228,6 +228,12 @@ struct Index {
   private hasShownReasoningModelHint: boolean = false;
   @State maxTokensIndex: number = 3; // Default 256
 
+  @State vadSensitivityOptions: string[] = ['低', '中', '高'];
+  @State selectedVadSensitivityIndex: number = 1; // Default Medium
+
+  @State minMatchLenOptions: string[] = ['3', '5', '7', '10'];
+  @State selectedMinMatchLenIndex: number = 1; // Default 5
+
   @State languageOptions: string[] = ['Chinese', 'English', 'Spanish', 'French', 'Japanese'];
   @State languageDisplayOptions: string[] = ['中文', '英语', '西班牙语', '法语', '日语'];
   @State selectedLanguageIndex: number = 0;
@@ -1033,6 +1039,8 @@ struct Index {
     this.contextsIndex = snapshot.contextsIndex;
     this.temperatureIndex = snapshot.temperatureIndex !== undefined ? snapshot.temperatureIndex : 3; // Default 0.3
     this.maxTokensIndex = snapshot.maxTokensIndex !== undefined ? snapshot.maxTokensIndex : 3; // Default 256
+    this.selectedVadSensitivityIndex = snapshot.vadSensitivityIndex !== undefined ? snapshot.vadSensitivityIndex : 1; // Default Medium
+    this.selectedMinMatchLenIndex = snapshot.minMatchLenIndex !== undefined ? snapshot.minMatchLenIndex : 1; // Default 5
     this.subtitleFontSize = snapshot.subtitleFontSize;
     this.subtitleFontColor = snapshot.subtitleFontColor;
     this.subtitleBackgroundColor = snapshot.subtitleBackgroundColor;
@@ -1147,6 +1155,8 @@ struct Index {
       contextsIndex: this.contextsIndex,
       maxTokensIndex: this.maxTokensIndex,
       temperatureIndex: this.temperatureIndex,
+      vadSensitivityIndex: this.selectedVadSensitivityIndex,
+      minMatchLenIndex: this.selectedMinMatchLenIndex,
       subtitleFontSize: this.subtitleFontSize,
       subtitleFontColor: this.subtitleFontColor,
       subtitleBackgroundColor: this.subtitleBackgroundColor,
@@ -1476,6 +1486,10 @@ struct Index {
                 selectedContextsIndex: this.contextsIndex,
                 temperatureOptions: this.temperatureOptions,
                 selectedTemperatureIndex: this.temperatureIndex,
+                vadSensitivityOptions: this.vadSensitivityOptions,
+                selectedVadSensitivityIndex: this.selectedVadSensitivityIndex,
+                minMatchLenOptions: this.minMatchLenOptions,
+                selectedMinMatchLenIndex: this.selectedMinMatchLenIndex,
                 isLightEffectBright: this.isLightEffectBright,
                 isDarkMode: this.isDarkMode,
                 onCycleApi: () => {
@@ -1505,6 +1519,17 @@ struct Index {
                 },
                 onSelectTemperature: (index: number) => {
                   this.temperatureIndex = index;
+                  this.persistApiConfigSnapshot();
+                },
+                onSelectVadSensitivity: (index: number) => {
+                  this.selectedVadSensitivityIndex = index;
+                  this.persistApiConfigSnapshot();
+                  if (this.micService) {
+                    this.micService.setVadSensitivity(index);
+                  }
+                },
+                onSelectMinMatchLen: (index: number) => {
+                  this.selectedMinMatchLenIndex = index;
                   this.persistApiConfigSnapshot();
                 }
               });
@@ -2348,7 +2373,9 @@ struct Index {
         subtitleBackgroundColor: this.subtitleBackgroundColor,
         subtitleHeight: this.subtitleHeight,
         glossary: this.glossary,
-        themeMode: this.themeMode
+        themeMode: this.themeMode,
+        vadSensitivityIndex: this.selectedVadSensitivityIndex,
+        minMatchLenIndex: this.selectedMinMatchLenIndex
       };
 
       // 准备 continuation 数据（匹配 ContinuityState 接口）
@@ -2431,6 +2458,98 @@ struct Index {
     }
   }
 
+  // Helper to map normalized index back to original string index
+  private getOriginalIndex(original: string, normIndex: number): number {
+    let n = 0;
+    for (let i = 0; i < original.length; i++) {
+      // Check if char is "word character" (matches the regex used in normalization)
+      if (/[\w\u4e00-\u9fa5]/.test(original[i])) {
+        if (n === normIndex) return i;
+        n++;
+      }
+    }
+    return original.length;
+  }
+
+  // Helper for smart text appending (handling overlaps)
+  private smartAppend(base: string, newText: string): string {
+    if (!base) return newText;
+    if (!newText) return base;
+
+    // 1. Normalize
+    const normalize = (s: string) => s.toLowerCase().replace(/[^\w\u4e00-\u9fa5]/g, '');
+    const normBase = normalize(base);
+    const normNew = normalize(newText);
+
+    if (!normBase || !normNew) return base + '\n' + newText;
+
+    const searchWindow = 300;
+    const baseStartOffset = Math.max(0, normBase.length - searchWindow);
+    const baseTail = normBase.substring(baseStartOffset);
+
+    const minMatchLen = parseInt(this.minMatchLenOptions[this.selectedMinMatchLenIndex]);
+
+    // Strategy A: Forward Match (Prefix of New found in BaseTail)
+    // Good for: "Hello" -> "Hello world", "Hello world" -> "Hello word"
+    let forwardMatchLen = 0;
+    let forwardMatchIndexInTail = -1;
+
+    const maxForwardLen = Math.min(baseTail.length, normNew.length);
+    for (let len = maxForwardLen; len >= minMatchLen; len--) {
+      const prefix = normNew.substring(0, len);
+      const idx = baseTail.lastIndexOf(prefix);
+      if (idx !== -1) {
+        forwardMatchLen = len;
+        forwardMatchIndexInTail = idx;
+        break;
+      }
+    }
+
+    // Strategy B: Reverse Match (Suffix of BaseTail found in New)
+    // Good for: "world" -> "Hello world", "He was gone" -> "And then he was gone"
+    let reverseMatchLen = 0;
+    let reverseMatchIndexInNew = -1;
+
+    const maxReverseLen = Math.min(baseTail.length, normNew.length);
+    for (let len = maxReverseLen; len >= minMatchLen; len--) {
+      const suffix = baseTail.substring(baseTail.length - len);
+      const idx = normNew.indexOf(suffix);
+      if (idx !== -1) {
+        reverseMatchLen = len;
+        reverseMatchIndexInNew = idx;
+        break;
+      }
+    }
+
+    // Decision
+    if (forwardMatchLen === 0 && reverseMatchLen === 0) {
+      return base + '\n' + newText;
+    }
+
+    // Prefer the longer match
+    if (forwardMatchLen >= reverseMatchLen) {
+      // Apply Forward Match
+      // We found `prefix` of New at `forwardMatchIndexInTail` of BaseTail.
+      // We cut Base at that index, and append New.
+      const matchStartInNormBase = baseStartOffset + forwardMatchIndexInTail;
+      const cutIndex = this.getOriginalIndex(base, matchStartInNormBase);
+      return base.substring(0, cutIndex) + newText;
+    } else {
+      // Apply Reverse Match
+      // We found `suffix` of BaseTail at `reverseMatchIndexInNew` of New.
+      // The suffix starts at `baseTail.length - reverseMatchLen` in BaseTail.
+      const matchStartInTail = baseTail.length - reverseMatchLen;
+      const matchStartInNormBase = baseStartOffset + matchStartInTail;
+      const cutIndex = this.getOriginalIndex(base, matchStartInNormBase);
+      
+      // We cut Base *before* the suffix, and append New (which contains the suffix + more)
+      // Wait, if New contains the suffix, we should append New.
+      // But New might contain stuff *before* the suffix too (e.g. "And then he was gone").
+      // So replacing the suffix in Base with New is correct.
+      return base.substring(0, cutIndex) + newText;
+    }
+  }
+
   private async startMicCaptioning(): Promise<void> {
     if (this.isListening) {
       return;
@@ -2508,15 +2627,10 @@ struct Index {
           if (this.fullOriginalText.length === 0) {
             // 首次设置
             this.fullOriginalText = currentText;
-          } else if (!this.fullOriginalText.includes(currentText) &&
-                     !currentText.includes(this.fullOriginalText)) {
-            // 新内容与已有内容没有包含关系，追加
-            this.fullOriginalText += '\n' + currentText;
-          } else if (currentText.length > this.fullOriginalText.length) {
-            // 新内容更长且包含已有内容，说明是更完整的版本，替换
-            this.fullOriginalText = currentText;
+          } else {
+            // Use smart append to handle overlaps and updates
+            this.fullOriginalText = this.smartAppend(this.fullOriginalText, currentText);
           }
-          // 如果已有内容包含新内容，跳过（避免重复）
         }
 
         // 按用户设置的间隔时间保存到数据库
