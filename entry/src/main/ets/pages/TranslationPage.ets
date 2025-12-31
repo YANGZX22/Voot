@@ -171,7 +171,7 @@ export struct TranslationPage {
       case 'WATCH': return $r('sys.symbol.watch');
       case 'TV': return $r('sys.symbol.TV_tv');
       case '2IN1': return $r('sys.symbol.unknown_device');
-      case 'PC': return $r('sys.symbol.pc');
+      case 'PC': return $r('sys.symbol.computer');
       case 'CAR': return $r('sys.symbol.car');
       default: return $r('sys.symbol.bluetooth');
     }
