@@ -42,6 +42,14 @@ export class HistoryStorage {
     } catch (e) {
       // 列已存在，忽略错误
     }
+
+    // 迁移：添加 type 和 imageUri 列
+    try {
+      await this.rdbStore.executeSql('ALTER TABLE session ADD COLUMN type TEXT DEFAULT "translation"');
+      await this.rdbStore.executeSql('ALTER TABLE session ADD COLUMN imageUri TEXT DEFAULT ""');
+    } catch (e) {
+      // 列已存在，忽略错误
+    }
   }
 
   public async createSession(title: string): Promise<number> {
@@ -53,7 +61,25 @@ export class HistoryStorage {
       originalText: '',
       translatedText: '',
       summary: '',
-      isStarred: 0
+      isStarred: 0,
+      type: 'translation',
+      imageUri: ''
+    };
+    return await this.rdbStore.insert('session', valueBucket);
+  }
+
+  public async createScanSession(title: string, originalText: string, translatedText: string, imageUri: string): Promise<number> {
+    if (!this.rdbStore) return -1;
+    const valueBucket: relationalStore.ValuesBucket = {
+      title: title,
+      startTime: Date.now(),
+      endTime: Date.now(),
+      originalText: originalText,
+      translatedText: translatedText,
+      summary: '',
+      isStarred: 0,
+      type: 'scan',
+      imageUri: imageUri
     };
     return await this.rdbStore.insert('session', valueBucket);
   }
@@ -94,7 +120,9 @@ export class HistoryStorage {
         originalText: resultSet.getString(resultSet.getColumnIndex('originalText')),
         translatedText: resultSet.getString(resultSet.getColumnIndex('translatedText')),
         summary: resultSet.getString(resultSet.getColumnIndex('summary')),
-        isStarred: resultSet.getLong(resultSet.getColumnIndex('isStarred')) === 1
+        isStarred: resultSet.getLong(resultSet.getColumnIndex('isStarred')) === 1,
+        type: resultSet.getString(resultSet.getColumnIndex('type')) as 'translation' | 'scan' || 'translation',
+        imageUri: resultSet.getString(resultSet.getColumnIndex('imageUri')) || ''
       };
       resultSet.close();
       return session;
@@ -103,10 +131,11 @@ export class HistoryStorage {
     return undefined;
   }
 
-  public async getSessions(): Promise<Session[]> {
+  public async getSessions(type: 'translation' | 'scan' = 'translation'): Promise<Session[]> {
     if (!this.rdbStore) return [];
     const predicates = new relationalStore.RdbPredicates('session');
     predicates.equalTo('isStarred', 0); // 只获取未收藏的记录
+    predicates.equalTo('type', type);
     predicates.orderByDesc('startTime');
     const resultSet = await this.rdbStore.query(predicates);
     const sessions: Session[] = [];
@@ -119,7 +148,9 @@ export class HistoryStorage {
         originalText: resultSet.getString(resultSet.getColumnIndex('originalText')),
         translatedText: resultSet.getString(resultSet.getColumnIndex('translatedText')),
         summary: resultSet.getString(resultSet.getColumnIndex('summary')),
-        isStarred: false
+        isStarred: false,
+        type: resultSet.getString(resultSet.getColumnIndex('type')) as 'translation' | 'scan' || 'translation',
+        imageUri: resultSet.getString(resultSet.getColumnIndex('imageUri')) || ''
       });
     }
     resultSet.close();
@@ -139,17 +170,19 @@ export class HistoryStorage {
     await this.rdbStore.delete(predicates);
   }
 
-  public async deleteAllNonStarredSessions(): Promise<void> {
+  public async deleteAllNonStarredSessions(type: 'translation' | 'scan' = 'translation'): Promise<void> {
     if (!this.rdbStore) return;
     const predicates = new relationalStore.RdbPredicates('session');
     predicates.equalTo('isStarred', 0);
+    predicates.equalTo('type', type);
     await this.rdbStore.delete(predicates);
   }
 
-  public async deleteAllStarredSessions(): Promise<void> {
+  public async deleteAllStarredSessions(type: 'translation' | 'scan' = 'translation'): Promise<void> {
     if (!this.rdbStore) return;
     const predicates = new relationalStore.RdbPredicates('session');
     predicates.equalTo('isStarred', 1);
+    predicates.equalTo('type', type);
     await this.rdbStore.delete(predicates);
   }
 
@@ -163,10 +196,11 @@ export class HistoryStorage {
     await this.rdbStore.update(valueBucket, predicates);
   }
 
-  public async getStarredSessions(): Promise<Session[]> {
+  public async getStarredSessions(type: 'translation' | 'scan' = 'translation'): Promise<Session[]> {
     if (!this.rdbStore) return [];
     const predicates = new relationalStore.RdbPredicates('session');
     predicates.equalTo('isStarred', 1);
+    predicates.equalTo('type', type);
     predicates.orderByDesc('startTime');
     const resultSet = await this.rdbStore.query(predicates);
     const sessions: Session[] = [];
@@ -179,7 +213,9 @@ export class HistoryStorage {
         originalText: resultSet.getString(resultSet.getColumnIndex('originalText')),
         translatedText: resultSet.getString(resultSet.getColumnIndex('translatedText')),
         summary: resultSet.getString(resultSet.getColumnIndex('summary')),
-        isStarred: true
+        isStarred: true,
+        type: resultSet.getString(resultSet.getColumnIndex('type')) as 'translation' | 'scan' || 'translation',
+        imageUri: resultSet.getString(resultSet.getColumnIndex('imageUri')) || ''
       });
     }
     resultSet.close();

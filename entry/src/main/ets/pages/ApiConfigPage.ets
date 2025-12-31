@@ -3,11 +3,13 @@ import { MultiKeySlots, MAX_KEY_SLOTS } from '../storage/ApiConfigStorage';
 import http from '@ohos.net.http';
 import promptAction from '@ohos.promptAction';
 import { ColorMetrics } from '@kit.ArkUI';
+import { THEMES } from '../model/Theme';
 
 const TITLE_BAR_HEIGHT_MINI: number = 84;
 
 export enum ApiMenuType {
   Prompt = 0,
+  PolishPrompt,
   Glossary,
   OpenAI,
   DeepL,
@@ -24,6 +26,7 @@ struct KeySlotSwitcher {
   onSwitchSlot: (index: number) => void = () => {};
   onEditSlot: () => void = () => {};
   @State isExpand: boolean = true;
+  @StorageLink('themeColorIndex') themeColorIndex: number = 0;
 
   build() {
     Column() {
@@ -38,8 +41,8 @@ struct KeySlotSwitcher {
             .height(24)
             .textAlign(TextAlign.Center)
             .borderRadius(12)
-            .backgroundColor(this.currentSlotIndex === index ? '#bf3c1464' : Color.Transparent)
-            .border({ width: 1, color: this.currentSlotIndex === index ? '#3c1464' : Color.Gray })
+            .backgroundColor(this.currentSlotIndex === index ? THEMES[this.themeColorIndex].primaryColor : Color.Transparent)
+            .border({ width: 1, color: this.currentSlotIndex === index ? THEMES[this.themeColorIndex].primaryColor : Color.Gray })
             .margin({ left: 4, right: 4 })
             .onClick(() => {
               this.onSwitchSlot(index);
@@ -74,7 +77,7 @@ struct KeySlotSwitcher {
             this.isExpand = !this.isExpand;
             this.onEditSlot();
           },
-          backgroundColor: ColorMetrics.rgba(60, 20, 100, 1),
+          backgroundColor: ColorMetrics.resourceColor(THEMES[this.themeColorIndex].primaryColor),
           hoverTips: this.hasApiKey ? '编辑槽位 ' + (this.currentSlotIndex + 1).toString() : '添加密钥'
         }),
         actionBarStyle: new ActionBarStyle({
@@ -131,6 +134,7 @@ export interface ApiConfigPageProps {
   onUpdateDoubaoModel: (value: string) => void;
   onUpdateGlossary: (value: string) => void;
   getConfigTextAreaHeight: (rows: number) => number;
+  themeColorIndex: number;
 }
 
 // --- 1. Menu Button Component with Effects ---
@@ -211,6 +215,7 @@ export struct ApiConfigPage {
   // Props
   @Prop selectedMenu: ApiMenuType = ApiMenuType.Prompt;
   @Prop promptText: string = "";
+  @Prop polishPromptText: string = ""; // 润色提示词
   // 多密钥槽位
   @Prop openAiKeySlots: MultiKeySlots = { slots: [], currentSlotIndex: 0 };
   @Prop deepLKeySlots: MultiKeySlots = { slots: [], currentSlotIndex: 0 };
@@ -230,11 +235,13 @@ export struct ApiConfigPage {
   @Prop glossary: string = "";
   @Prop isLightEffectBright: boolean = true;
   @Prop isDarkMode: boolean = true;
+  @StorageLink('themeColorIndex') themeColorIndex: number = 0;
 
   // Callbacks (Initialized to empty functions)
   onBack: () => void = () => {};
   onSelectMenu: (menu: ApiMenuType) => void = () => {};
   onUpdatePrompt: (value: string) => void = () => {};
+  onUpdatePolishPrompt: (value: string) => void = () => {}; // 润色提示词更新回调
   // 槽位切换回调
   onSwitchOpenAiSlot: (index: number) => void = () => {};
   onSwitchDeepLSlot: (index: number) => void = () => {};
@@ -594,7 +601,7 @@ export struct ApiConfigPage {
       Button(this.isTestingConnection ? '正在验证...' : '验证并保存')
         .width('100%')
         .height(52)
-        .backgroundColor((this.isConfigValid && !this.isTestingConnection) ? '#3c1464' : '#CCCCCC')
+        .backgroundColor((this.isConfigValid && !this.isTestingConnection) ? THEMES[this.themeColorIndex].primaryColor : '#CCCCCC')
         .enabled(this.isConfigValid && !this.isTestingConnection)
         .type(ButtonType.Capsule)
         .fontSize(18)
@@ -632,7 +639,7 @@ export struct ApiConfigPage {
             Column()
               .width('100%')
               .height(44)
-              .backgroundColor("#bf3c1464")
+              .backgroundColor(THEMES[this.themeColorIndex].primaryColor)
               .borderRadius(22)
               .border({ width: 1, color: Color.Gray })
               .margin({ top: 24 }) // Match the initial Blank height
@@ -655,6 +662,20 @@ export struct ApiConfigPage {
               onTouchStart: () => { animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeMenuId = ApiMenuType.Prompt; }) },
               onTouchEnd: () => { animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeMenuId = -1; }) },
               onClickAction: () => this.onSelectMenu(ApiMenuType.Prompt)
+            });
+
+            // Menu Item: Polish Prompt (润色提示词)
+            MenuButton({
+              label: 'Polish',
+              menuType: ApiMenuType.PolishPrompt,
+              isSelected: this.selectedMenu === ApiMenuType.PolishPrompt,
+              isLightEffectBright: this.isLightEffectBright,
+              isDarkMode: this.isDarkMode,
+              isSource: this.activeMenuId === ApiMenuType.PolishPrompt,
+              isIlluminated: this.activeMenuId !== -1,
+              onTouchStart: () => { animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeMenuId = ApiMenuType.PolishPrompt; }) },
+              onTouchEnd: () => { animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeMenuId = -1; }) },
+              onClickAction: () => this.onSelectMenu(ApiMenuType.PolishPrompt)
             });
 
             // Menu Item 6: Glossary
@@ -773,11 +794,11 @@ export struct ApiConfigPage {
             },
             menuStyle: {
               backgroundColor: $r('sys.color.comp_background_tertiary'),
-              iconColor: $r('sys.color.icon_tertiary')
+              iconColor: $r('sys.color.icon_on_tertiary')
             },
             backIconStyle: {
               backgroundColor: $r('sys.color.comp_background_tertiary'),
-              iconColor: $r('sys.color.icon_tertiary')
+              iconColor: $r('sys.color.icon_on_tertiary')
             }
           }
         },
@@ -848,11 +869,15 @@ export struct ApiConfigPage {
               PromptContent({
                 promptText: this.promptText,
                 onUpdatePrompt: this.onUpdatePrompt,
-                getConfigTextAreaHeight: this.getConfigTextAreaHeight
+                getConfigTextAreaHeight: this.getConfigTextAreaHeight,
+                themeColorIndex: this.themeColorIndex
                 // Pass only what is needed or create a sub-struct if complex
               } as ApiConfigPageProps);
               // Note: For simplicity in this example, passing specific props to sub-builders
               // In a real app, converting sub-builders to @Component structs is better.
+            } else if (this.selectedMenu === ApiMenuType.PolishPrompt) {
+              // 润色提示词配置
+              this.RenderPolishPromptConfig();
             } else {
               if (this.selectedMenu === ApiMenuType.OpenAI) {
                 this.RenderProviderHeader('OpenAI', $r('app.media.OpenAI'));
@@ -966,6 +991,7 @@ export struct ApiConfigPage {
       Text('API Url').fontSize(14).margin({ bottom: 4 }).fontColor(Color.White);
       TextArea({ text: this.openAiApiUrl })
         .fontColor(Color.White)
+        .backgroundColor(Color.Transparent)
         .width('100%')
         .height(this.getConfigTextAreaHeight(4))
         .maxLines(6)
@@ -975,6 +1001,7 @@ export struct ApiConfigPage {
 
       Text('API Key').fontSize(14).margin({ bottom: 4 }).fontColor(Color.White);
       TextArea({ text: this.openAiApiKey ? '••••••••••••' : '未配置' })
+        .backgroundColor(Color.Transparent)
         .fontColor(this.openAiApiKey ? Color.White : Color.Gray)
         .width('100%')
         .height(this.getConfigTextAreaHeight(4))
@@ -985,6 +1012,7 @@ export struct ApiConfigPage {
 
       Text('Model').fontSize(14).margin({ bottom: 4 }).fontColor(Color.White);
       TextArea({ text: this.openAiModel || '未配置' })
+        .backgroundColor(Color.Transparent)
         .fontColor(this.openAiModel ? Color.White : Color.Gray)
         .width('100%')
         .height(this.getConfigTextAreaHeight(3))
@@ -994,7 +1022,8 @@ export struct ApiConfigPage {
     }
     .width('100%')
     .padding(12)
-    .borderRadius(12);
+    .borderRadius(12)
+    .backgroundColor(THEMES[this.themeColorIndex].tertiaryColor);
   }
 
   @Builder
@@ -1002,6 +1031,7 @@ export struct ApiConfigPage {
     Column() {
       Text('API Url').fontSize(14).margin({ bottom: 4 }).fontColor(Color.White);
       TextArea({ text: this.deepLApiUrl })
+        .backgroundColor(Color.Transparent)
         .fontColor(Color.White)
         .width('100%')
         .height(this.getConfigTextAreaHeight(4))
@@ -1012,6 +1042,7 @@ export struct ApiConfigPage {
 
       Text('API Key').fontSize(14).margin({ bottom: 4 }).fontColor(Color.White);
       TextArea({ text: this.deepLApiKey ? '••••••••••••' : '未配置' })
+        .backgroundColor(Color.Transparent)
         .fontColor(this.deepLApiKey ? Color.White : Color.Gray)
         .width('100%')
         .height(this.getConfigTextAreaHeight(4))
@@ -1021,7 +1052,8 @@ export struct ApiConfigPage {
     }
     .width('100%')
     .padding(12)
-    .borderRadius(12);
+    .borderRadius(12)
+    .backgroundColor(THEMES[this.themeColorIndex].tertiaryColor);
   }
 
   @Builder
@@ -1029,6 +1061,7 @@ export struct ApiConfigPage {
     Column() {
       Text('API Url').fontSize(14).margin({ bottom: 4 }).fontColor(Color.White);
       TextArea({ text: this.ollamaApiUrl || '未配置' })
+        .backgroundColor(Color.Transparent)
         .fontColor(this.ollamaApiUrl ? Color.White : Color.Gray)
         .width('100%')
         .height(this.getConfigTextAreaHeight(4))
@@ -1039,6 +1072,7 @@ export struct ApiConfigPage {
 
       Text('Model').fontSize(14).margin({ bottom: 4 }).fontColor(Color.White);
       TextArea({ text: this.ollamaModel || '未配置' })
+        .backgroundColor(Color.Transparent)
         .fontColor(this.ollamaModel ? Color.White : Color.Gray)
         .width('100%')
         .height(this.getConfigTextAreaHeight(3))
@@ -1048,7 +1082,8 @@ export struct ApiConfigPage {
     }
     .width('100%')
     .padding(12)
-    .borderRadius(12);
+    .borderRadius(12)
+    .backgroundColor(THEMES[this.themeColorIndex].tertiaryColor);
   }
 
   @Builder
@@ -1056,6 +1091,7 @@ export struct ApiConfigPage {
     Column() {
       Text('API Url').fontSize(14).margin({ bottom: 4 }).fontColor(Color.White);
       TextArea({ text: this.doubaoApiUrl })
+        .backgroundColor(Color.Transparent)
         .fontColor(Color.White)
         .width('100%')
         .height(this.getConfigTextAreaHeight(4))
@@ -1066,6 +1102,7 @@ export struct ApiConfigPage {
 
       Text('API Key').fontSize(14).margin({ bottom: 4 }).fontColor(Color.White);
       TextArea({ text: this.doubaoApiKey ? '••••••••••••' : '未配置' })
+        .backgroundColor(Color.Transparent)
         .fontColor(this.doubaoApiKey ? Color.White : Color.Gray)
         .width('100%')
         .height(this.getConfigTextAreaHeight(4))
@@ -1076,6 +1113,7 @@ export struct ApiConfigPage {
 
       Text('Model').fontSize(14).margin({ bottom: 4 }).fontColor(Color.White);
       TextArea({ text: this.doubaoModel || '未配置' })
+        .backgroundColor(Color.Transparent)
         .fontColor(this.doubaoModel ? Color.White : Color.Gray)
         .width('100%')
         .height(this.getConfigTextAreaHeight(3))
@@ -1085,7 +1123,45 @@ export struct ApiConfigPage {
     }
     .width('100%')
     .padding(12)
-    .borderRadius(12);
+    .borderRadius(12)
+    .backgroundColor(THEMES[this.themeColorIndex].tertiaryColor);
+  }
+
+  @Builder
+  RenderPolishPromptConfig() {
+    Column() {
+      Image($r('app.media.Prompt'))
+        .width(48)
+        .height(48)
+        .margin({ bottom: 8 })
+        .fillColor(Color.White)
+      Text('润色提示词 (Polish Prompt)')
+        .fontSize(20)
+        .fontWeight(FontWeight.Bold)
+        .margin({ bottom: 12 })
+        .fontColor(Color.White);
+      
+      Text('设置 AI 润色文本时使用的提示词。使用 {text} 代表待润色的文本。')
+        .fontSize(14)
+        .backgroundColor(Color.Transparent)
+        .fontColor($r('sys.color.font_on_secondary'))
+        .margin({ bottom: 12 });
+
+      TextArea({ text: this.polishPromptText,
+        placeholder: '你是一个专业的文本润色助手。请对以下文本进行润色优化，使其更加通顺、专业、易读。\n\n要求：\n1. 保持原文的核心意思不变\n2. 优化语法和表达方式\n3. 直接输出润色后的文本，不要添加任何解释\n\n原文：\n{text}'
+      })
+        .fontColor(Color.White)
+        .width('100%')
+        .height(this.getConfigTextAreaHeight(12))
+        .maxLines(20)
+        .textAlign(TextAlign.Start)
+        .onChange((value: string) => this.onUpdatePolishPrompt(value))
+        .placeholderColor($r('sys.color.font_on_secondary'));
+    }
+    .width('100%')
+    .padding(12)
+    .borderRadius(12)
+    .backgroundColor(THEMES[this.themeColorIndex].tertiaryColor);
   }
 
   @Builder
@@ -1099,6 +1175,7 @@ export struct ApiConfigPage {
       Text('术语库 (Glossary)').fontSize(20).fontWeight(FontWeight.Bold).margin({ bottom: 12 }).fontColor(Color.White);
       Text('每行输入一个术语对，格式为：原文 = 译文，例如：\nHarmonyOS = 鸿蒙\nAI = 人工智能')
         .fontSize(14)
+        .backgroundColor(Color.Transparent)
         .fontColor($r('sys.color.font_on_secondary'))
         .margin({ bottom: 12 });
 
@@ -1112,7 +1189,8 @@ export struct ApiConfigPage {
     }
     .width('100%')
     .padding(12)
-    .borderRadius(12);
+    .borderRadius(12)
+    .backgroundColor(THEMES[this.themeColorIndex].tertiaryColor);
   }
 }
 
@@ -1140,12 +1218,14 @@ function PromptContent(props: ApiConfigPageProps) {
     .width('100%')
     .padding(12)
     .borderRadius(12)
-    .margin({ bottom: 16 });
+    .margin({ bottom: 16 })
+    .backgroundColor(THEMES[props.themeColorIndex].tertiaryColor);
 
     Column() {
       Text('Prompt Text')
         .fontColor(Color.White)
         .fontSize(16)
+        .backgroundColor(Color.Transparent)
         .fontWeight(FontWeight.Medium)
         .margin({ bottom: 8 });
 
@@ -1159,7 +1239,8 @@ function PromptContent(props: ApiConfigPageProps) {
     }
     .width('100%')
     .padding(12)
-    .borderRadius(16);
+    .borderRadius(16)
+    .backgroundColor(THEMES[props.themeColorIndex].tertiaryColor);
 
     Blank().height(24);
   }

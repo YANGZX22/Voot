@@ -12,6 +12,7 @@
  * }
  */
 import http from '@ohos.net.http';
+import router from '@ohos.router';
 import { TextReader } from '@kit.SpeechKit';
 import { SherpaWhisperMicService, AsrResult, AsrResultCallback, AsrErrorCallback } from '../services/SherpaWhisperMicService';
 import abilityAccessCtrl, { Permissions, PermissionRequestResult } from '@ohos.abilityAccessCtrl';
@@ -26,6 +27,8 @@ import { ConfigurationPage } from './ConfigurationPage';
 import { TranslationPage } from './TranslationPage';
 import { HistoryTabPage } from './HistoryTabPage';
 import { SettingsPage } from './SettingsPage';
+import { PolishPage } from './PolishPage';
+import { ScanPage } from './ScanPage';
 import { ApiConfigPage, ApiMenuType } from './ApiConfigPage';
 import App from '@system.app';
 import { ApiConfigStorage, ApiConfigSnapshot, MultiKeySlots, createDefaultMultiKeySlots, MAX_KEY_SLOTS } from '../storage/ApiConfigStorage';
@@ -37,6 +40,11 @@ import { PipSubtitleManager, SubtitleParams } from '../services/PipSubtitleManag
 import { PiPWindow } from '@kit.ArkUI';
 import { ContinuityService, ContinuityState, CONTINUITY_KEY, DeviceInfo, SubtitleStyleConfig } from '../services/ContinuityService';
 import { deviceInfo } from '@kit.BasicServicesKit';
+import display from '@ohos.display';
+import { THEMES } from '../model/Theme';
+import { OnboardingStorage, PolicyUpdateResult } from '../storage/OnboardingStorage';
+import { webview } from '@kit.ArkWeb';
+import { PolicySheetType, PolicySheetContent, getPolicySheetConfig } from '../components/PolicySheet';
 
 // 扩展流转状态（包含翻译状态和当前Tab）
 interface ContinuityStateExtended extends ContinuityState {
@@ -161,7 +169,7 @@ interface WelcomeFeature {
 const WELCOME_FEATURES: Array<WelcomeFeature> = [
   {
     title: '自由配置',
-    description: '随心切换翻译引擎与字幕样式，匹配不同的交流场景。',
+    description: '随心切换大模型引擎配置，匹配不同的交流场景。',
     icon: $r('app.media.configuration'),
     span: 2
   },
@@ -173,7 +181,7 @@ const WELCOME_FEATURES: Array<WelcomeFeature> = [
   },
   {
     title: '隐私守护',
-    description: 'API 密钥与语音只在本地处理，不会上传到云端。',
+    description: 'API 密钥、历史记录与语音只在本地处理，不会上传到云端。',
     icon: $r('app.media.privacy'),
     span: 1
   },
@@ -197,6 +205,12 @@ const WELCOME_FEATURES: Array<WelcomeFeature> = [
   }
 ];
 
+// Persistence
+PersistentStorage.persistProp('airGesturesEnabled', false);
+PersistentStorage.persistProp('airGestureUpAction', 'record');
+PersistentStorage.persistProp('airGestureDownAction', 'translate');
+PersistentStorage.persistProp('themeColorIndex', 0);
+
 @Entry
 @Component
 struct Index {
@@ -216,6 +230,8 @@ struct Index {
 
   @State intervalOptions: string[] = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
   @State intervalIndex: number = 4;
+
+  @StorageLink('themeColorIndex') themeColorIndex: number = 0;
 
   @State contextsOptions: string[] = ['1', '2', '3', '4', '5', '6'];
   @State contextsIndex: number = 2;
@@ -255,6 +271,26 @@ struct Index {
     'https://ark.cn-beijing.volces.com/api/v3/chat/completions', '', 'ep-20251221220646-rnx4c'
   );
 
+  // Air Gestures
+  @StorageLink('airGesturesEnabled') airGesturesEnabled: boolean = false;
+  @StorageLink('airGestureUpAction') airGestureUpAction: string = 'record';
+  @StorageLink('airGestureDownAction') airGestureDownAction: string = 'translate';
+  
+  // Shortcut navigation
+  @StorageProp('shortcutTargetPage') @Watch('onShortcutPageChange') shortcutTargetPage: string = '';
+  
+  @State gestureValid: boolean = false;
+  private touchStartX: number = 0;
+  private isAirGestureCandidate: boolean = false;
+
+  // Gesture Feedback State
+  @State gestureFeedbackVisible: boolean = false;
+  @State gestureFeedbackText: string = '';
+  @State gestureFeedbackPosition: 'top' | 'bottom' = 'top';
+  @State gestureFeedbackOpacity: number = 0;
+  @State gestureFeedbackWidth: number = 40;
+  @State gestureFeedbackOffsetY: number = 0;
+
   // DeepL config (兼容字段，从当前槽位同步)
   @State deepLApiUrl: string = 'https://api-free.deepl.com/v2/translate';
   @State deepLApiKey: string = '';
@@ -275,6 +311,12 @@ struct Index {
 
   // Glossary
   @State glossary: string = 'HarmonyOS = 鸿蒙';
+
+  // Polish Prompt template (用于 AI 润色)
+  @State polishPromptText: string =
+    '你是一个专业的文本润色助手。请对以下文本进行润色优化，使其更加通顺、专业、易读。\n\n' +
+    '要求：\n1. 保持原文的核心意思不变\n2. 优化语法和表达方式\n3. 直接输出润色后的文本，不要添加任何解释\n\n' +
+    '原文：\n{text}';
 
   // Subtitle Style Config
   @State subtitleFontSize: number = 20;
@@ -391,6 +433,43 @@ struct Index {
   // 跨端流转状态监听
   @StorageProp('voot_continuity_restored') @Watch('onContinuityRestored') continuityRestored: boolean = false;
   private lastContinuityRestoreTs: number = 0;
+
+  // 政策更新弹窗状态
+  @State isPolicyUpdateSheetOpen: boolean = false;
+  @State pendingPolicyUpdate: PolicyUpdateResult = { needsPrivacyUpdate: false, needsTermsUpdate: false };
+  @State currentPolicyUpdateType: PolicySheetType = PolicySheetType.Privacy;
+  private policyUpdateWebController: webview.WebviewController = new webview.WebviewController();
+
+  /**
+   * 快捷方式页面跳转处理
+   */
+  onShortcutPageChange(): void {
+    if (!this.shortcutTargetPage || this.shortcutTargetPage === '') {
+      return;
+    }
+    console.info('[Index] Shortcut page change detected: ' + this.shortcutTargetPage);
+    
+    // 延迟执行跳转，确保页面已完成初始化
+    setTimeout(() => {
+      const targetPage = this.shortcutTargetPage;
+      // 清空状态，避免重复跳转
+      AppStorage.setOrCreate('shortcutTargetPage', '');
+      
+      if (targetPage === 'TranslationPage') {
+        // 翻译页面是 Tab 1
+        this.tabsController.changeIndex(1);
+        console.info('[Index] Shortcut: Switch to Translation tab (index 1)');
+      } else if (targetPage === 'PolishPage') {
+        // 润色页面是 Tab 2
+        this.tabsController.changeIndex(2);
+        console.info('[Index] Shortcut: Switch to Polish tab (index 2)');
+      } else if (targetPage === 'ScanPage') {
+        // 扫描页面是 Tab 3
+        this.tabsController.changeIndex(3);
+        console.info('[Index] Shortcut: Switch to Scan tab (index 3)');
+      }
+    }, 100);
+  }
 
   /**
    * Widget PiP toggle handler
@@ -540,7 +619,7 @@ struct Index {
       message: '检测到源设备正在进行语音识别，是否在本设备继续录音？',
       buttons: [
         { text: '仅查看字幕', color: '#666666' },
-        { text: '继续录音', color: '#3c1464' }
+        { text: '继续录音', color: THEMES[this.themeColorIndex].primaryColor }
       ]
     }).then((result) => {
       if (result.index === 1) {
@@ -870,6 +949,11 @@ struct Index {
       // Initialize last toggle values to current values to avoid false triggers
       this.lastWidgetPipToggle = this.widgetPipToggle;
       this.lastWidgetReadingToggle = this.widgetReadingToggle;
+      
+      // 处理快捷方式跳转（冷启动场景）
+      if (this.shortcutTargetPage && this.shortcutTargetPage !== '') {
+        this.onShortcutPageChange();
+      }
       console.info('[Index] Component ready, widget triggers enabled');
     }, 500);
 
@@ -889,6 +973,9 @@ struct Index {
       await TokenUsageStorage.getInstance().init(context);
       // Initialize HistoryStorage
       await HistoryStorage.getInstance().init(context);
+      
+      // 检查政策更新
+      await this.checkPolicyUpdates(context);
     } catch (e) {
       console.error(`Init failed: ${JSON.stringify(e)}`);
     }
@@ -909,6 +996,61 @@ struct Index {
     } catch (e) {
       console.error('initSherpaAsr error: ' + JSON.stringify(e));
       this.isAsrReady = false;
+    }
+  }
+
+  /**
+   * 检查政策是否有更新，并弹出确认弹窗
+   */
+  private async checkPolicyUpdates(context: common.UIAbilityContext): Promise<void> {
+    try {
+      const result = await OnboardingStorage.checkPolicyUpdates(context);
+      
+      if (result.needsPrivacyUpdate || result.needsTermsUpdate) {
+        this.pendingPolicyUpdate = result;
+        
+        // 优先显示隐私政策更新，然后是用户协议
+        if (result.needsPrivacyUpdate) {
+          this.currentPolicyUpdateType = PolicySheetType.Privacy;
+        } else {
+          this.currentPolicyUpdateType = PolicySheetType.Terms;
+        }
+        
+        this.policyUpdateWebController = new webview.WebviewController();
+        this.isPolicyUpdateSheetOpen = true;
+        console.info('[Index] Policy update detected, showing update sheet');
+      }
+    } catch (e) {
+      console.error('[Index] Failed to check policy updates: ' + JSON.stringify(e));
+    }
+  }
+
+  /**
+   * 处理政策更新确认
+   */
+  private async handlePolicyUpdateConfirmed(): Promise<void> {
+    const context = getContext(this) as common.UIAbilityContext;
+    
+    try {
+      if (this.currentPolicyUpdateType === PolicySheetType.Privacy) {
+        await OnboardingStorage.acceptPrivacyPolicy(context);
+        
+        // 如果还有用户协议需要更新，继续显示
+        if (this.pendingPolicyUpdate.needsTermsUpdate) {
+          this.currentPolicyUpdateType = PolicySheetType.Terms;
+          this.policyUpdateWebController = new webview.WebviewController();
+          // 保持 sheet 打开，切换内容
+          return;
+        }
+      } else if (this.currentPolicyUpdateType === PolicySheetType.Terms) {
+        await OnboardingStorage.acceptTermsOfService(context);
+      }
+      
+      // 关闭弹窗
+      this.isPolicyUpdateSheetOpen = false;
+      console.info('[Index] Policy update confirmed');
+    } catch (e) {
+      console.error('[Index] Failed to save policy acceptance: ' + JSON.stringify(e));
     }
   }
 
@@ -964,7 +1106,7 @@ struct Index {
     }
   }
 
-  private async togglePipSubtitle(forceOpen?: boolean): Promise<void> {
+  private async togglePipSubtitle(forceOpen?: boolean, showToast: boolean = true): Promise<void> {
     const shouldOpen = forceOpen !== undefined ? forceOpen : !this.isPipSubtitleEnabled;
 
     if (!shouldOpen) {
@@ -973,7 +1115,7 @@ struct Index {
       this.isPipSubtitleEnabled = false;
       this.isPipActive = false;
       this.persistApiConfigSnapshot();
-      promptAction.showToast({ message: '字幕已关闭' });
+      if (showToast) promptAction.showToast({ message: '字幕已关闭' });
       return;
     }
 
@@ -981,7 +1123,7 @@ struct Index {
     if (!this.isPipInitialized) {
       const success = await this.initPipSubtitle();
       if (!success) {
-        promptAction.showToast({ message: 'PiP 不可用，请尝试传统字幕模式' });
+        if (showToast) promptAction.showToast({ message: 'PiP 不可用，请尝试传统字幕模式' });
         return;
       }
     }
@@ -996,10 +1138,40 @@ struct Index {
         this.pipSubtitleManager.updateSubtitle(this.translatedDemoText);
       }
       this.persistApiConfigSnapshot();
-      promptAction.showToast({ message: '字幕已开启' });
+      if (showToast) promptAction.showToast({ message: '字幕已开启' });
     } else {
-      promptAction.showToast({ message: '字幕启动失败' });
+      if (showToast) promptAction.showToast({ message: '字幕启动失败' });
     }
+  }
+
+  private showGestureFeedback(text: string, position: 'top' | 'bottom') {
+    this.gestureFeedbackText = text;
+    this.gestureFeedbackPosition = position;
+    this.gestureFeedbackVisible = true;
+    
+    // Reset state
+    this.gestureFeedbackOpacity = 0;
+    this.gestureFeedbackWidth = 40;
+    this.gestureFeedbackOffsetY = position === 'top' ? -50 : 50;
+
+    // Animate in
+    animateTo({ duration: 300, curve: Curve.EaseOut }, () => {
+      this.gestureFeedbackOpacity = 1;
+      this.gestureFeedbackOffsetY = position === 'top' ? 60 : -60;
+      this.gestureFeedbackWidth = 160;
+    });
+
+    // Auto hide
+    setTimeout(() => {
+      animateTo({ duration: 300, curve: Curve.EaseIn }, () => {
+        this.gestureFeedbackOpacity = 0;
+        this.gestureFeedbackOffsetY = position === 'top' ? -50 : 50;
+        this.gestureFeedbackWidth = 40;
+      });
+      setTimeout(() => {
+        this.gestureFeedbackVisible = false;
+      }, 300);
+    }, 2000);
   }
 
   private async hydrateStoredApiConfig(): Promise<void> {
@@ -1015,6 +1187,11 @@ struct Index {
 
   private applyApiConfigSnapshot(snapshot: ApiConfigSnapshot): void {
     this.promptText = snapshot.promptText;
+    
+    // 应用润色提示词
+    if (snapshot.polishPromptText !== undefined) {
+      this.polishPromptText = snapshot.polishPromptText;
+    }
     
     // 应用多密钥槽位配置
     if (snapshot.openAiKeySlots && snapshot.openAiKeySlots.slots.length > 0) {
@@ -1133,6 +1310,7 @@ struct Index {
   private buildApiConfigSnapshot(): ApiConfigSnapshot {
     return {
       promptText: this.promptText,
+      polishPromptText: this.polishPromptText,
       // 多密钥槽位
       openAiKeySlots: this.openAiKeySlots,
       deepLKeySlots: this.deepLKeySlots,
@@ -1295,7 +1473,7 @@ struct Index {
                 Button('流转')
                   .fontSize(14)
                   .height(32)
-                  .backgroundColor("#3c1464")
+                  .backgroundColor(THEMES[this.themeColorIndex].primaryColor)
                   .onClick(() => {
                     this.selectDevice(device);
                   })
@@ -1312,7 +1490,7 @@ struct Index {
       Button('取消')
         .width('90%')
         .margin({ top: 16, bottom: 16 })
-        .backgroundColor("#3c1464")
+        .backgroundColor(THEMES[this.themeColorIndex].primaryColor)
         .onClick(() => {
           this.showDeviceDialog = false;
           ContinuityService.getInstance().stopDiscovering();
@@ -1323,13 +1501,54 @@ struct Index {
     .borderRadius({ topLeft: 16, topRight: 16 })
   }
 
+  private async handleGestureAction(action: string, position: 'top' | 'bottom') {
+    if (action === 'none') return;
+
+    if (action === 'record') {
+      if (this.isListening) {
+        this.stopMicCaptioning();
+        this.showGestureFeedback('已停止录音', position);
+      } else {
+        this.startMicCaptioning();
+        this.showGestureFeedback('开始录音', position);
+      }
+    } else if (action === 'subtitle') {
+      if (this.isPipSubtitleEnabled) {
+        this.showGestureFeedback('已关闭悬浮字幕', position);
+        await this.togglePipSubtitle(false, false);
+      } else {
+        this.showGestureFeedback('已开启悬浮字幕', position);
+        await this.togglePipSubtitle(true, false);
+      }
+    } else if (action === 'translate') {
+      this.isRealtimeReadingEnabled = !this.isRealtimeReadingEnabled;
+      if (!this.isRealtimeReadingEnabled) {
+        TextReader.stop();
+      }
+      this.showGestureFeedback(this.isRealtimeReadingEnabled ? '已开启实时朗读' : '已关闭实时朗读', position);
+    }
+  }
+
+  private getThemeColorWithAlpha(alpha: string): string {
+    let color = THEMES[this.themeColorIndex].primaryColor;
+    if (color.startsWith('#')) {
+      // Remove existing alpha if present (for 9-char hex #AARRGGBB)
+      // If 7-char #RRGGBB, substring(1) gives RRGGBB
+      // If 9-char #AARRGGBB, substring(3) gives RRGGBB
+      let hex = color.length === 9 ? color.substring(3) : color.substring(1);
+      return '#' + alpha + hex;
+    }
+    return color;
+  }
+
   build() {
     Stack() {
-      Image($r('app.media.app_background_pic'))
+      Image(THEMES[this.themeColorIndex].backgroundImage)
         .width('100%')
         .height('100%')
         .objectFit(ImageFit.Cover)
-        .blur(20);
+        .opacity(0.8)
+        .blur(15)
 
       // Overlay gradient
       Rect()
@@ -1338,9 +1557,7 @@ struct Index {
         .fill(Color.Transparent)
         .linearGradient({
           angle: 180,
-          colors: this.isDarkMode
-            ? [['#e618052d', 0.0], ['#bf2a1243', 1.0]]
-            : [['#4418052d', 0.0], ['#223c1464', 1.0]]
+          colors: this.isDarkMode ? [['#B3000000', 0.0], ['#B3000000', 1.0]] : THEMES[this.themeColorIndex].gradientColors.light
         })
         .animation({ duration: 500, curve: Curve.EaseInOut })
 
@@ -1468,6 +1685,11 @@ struct Index {
                   this.glossary = value;
                   this.persistApiConfigSnapshot();
                 },
+                polishPromptText: this.polishPromptText,
+                onUpdatePolishPrompt: (value: string) => {
+                  this.polishPromptText = value;
+                  this.persistApiConfigSnapshot();
+                },
                 getConfigTextAreaHeight: (rows: number) => this.getConfigTextAreaHeight(rows)
               });
             } else {
@@ -1539,8 +1761,14 @@ struct Index {
           // .padding({ left: 24, right: 24, top: 24, bottom: 48 });
         }
         .tabBar(new BottomTabBarStyle($r('app.media.configuration') ,'配置')
-          .iconStyle({ selectedColor: Color.White })
-          .labelStyle({ selectedColor: Color.White})
+          .iconStyle({
+            selectedColor: Color.White,
+            unselectedColor: $r('sys.color.icon_tertiary')
+          })
+          .labelStyle({
+            selectedColor: Color.White,
+            unselectedColor: $r('sys.color.icon_tertiary')
+          })
         )
 
         TabContent() {
@@ -1568,30 +1796,88 @@ struct Index {
                 this.originalDemoText = this.trimRealtimeBuffer(value);
               },
               onTranslatedTextChange: (value: string) => this.updateTranslationField(value),
-              onContinuityTransfer: () => this.startContinuityTransfer()
+              onContinuityTransfer: () => this.startContinuityTransfer(),
+              onOpenHistory: () => {
+                router.pushUrl({ url: 'pages/HistoryTabPage' });
+              }
             });
           }
           .width('100%')
           // .padding({ left: 24, right: 24, top: 24, bottom: 48 });
         }
         .tabBar(new BottomTabBarStyle($r('app.media.translation') ,'翻译')
-          .iconStyle({ selectedColor: Color.White })
-          .labelStyle({ selectedColor: Color.White})
+          .iconStyle({
+            selectedColor: Color.White,
+            unselectedColor: $r('sys.color.icon_tertiary')
+          })
+          .labelStyle({
+            selectedColor: Color.White,
+            unselectedColor: $r('sys.color.icon_tertiary')
+          })
         )
 
         TabContent() {
           Column() {
-            HistoryTabPage({
-              isVisible: this.currentTab === 2,
+            PolishPage({
               isLightEffectBright: this.isLightEffectBright,
-              isDarkMode: this.isDarkMode
+              isDarkMode: this.isDarkMode,
+              selectedApiIndex: this.selectedApiIndex,
+              openAiApiUrl: this.openAiApiUrl,
+              openAiApiKey: this.openAiApiKey,
+              openAiModel: this.openAiModel,
+              ollamaApiUrl: this.ollamaApiUrl,
+              ollamaModel: this.ollamaModel,
+              doubaoApiUrl: this.doubaoApiUrl,
+              doubaoApiKey: this.doubaoApiKey,
+              doubaoModel: this.doubaoModel,
+              polishPromptText: this.polishPromptText
             })
           }
           .width('100%')
         }
-        .tabBar(new BottomTabBarStyle($r('app.media.history') ,'历史/收藏')
-          .iconStyle({ selectedColor: Color.White })
-          .labelStyle({ selectedColor: Color.White})
+        .tabBar(new BottomTabBarStyle($r('app.media.wand') ,'润色')
+          .iconStyle({
+            selectedColor: Color.White,
+            unselectedColor: $r('sys.color.icon_tertiary')
+          })
+          .labelStyle({
+            selectedColor: Color.White,
+            unselectedColor: $r('sys.color.icon_tertiary')
+          })
+        )
+
+        TabContent() {
+          Column() {
+            ScanPage({
+              isLightEffectBright: this.isLightEffectBright,
+              isDarkMode: this.isDarkMode,
+              selectedApiIndex: this.selectedApiIndex,
+              openAiApiUrl: this.openAiApiUrl,
+              openAiApiKey: this.openAiApiKey,
+              openAiModel: this.openAiModel,
+              ollamaApiUrl: this.ollamaApiUrl,
+              ollamaModel: this.ollamaModel,
+              doubaoApiUrl: this.doubaoApiUrl,
+              doubaoApiKey: this.doubaoApiKey,
+              doubaoModel: this.doubaoModel,
+              targetLanguage: this.languageOptions[this.selectedLanguageIndex],
+              promptText: this.promptText,
+              onOpenHistory: () => {
+                router.pushUrl({ url: 'pages/HistoryTabPage' });
+              }
+            })
+          }
+          .width('100%')
+        }
+        .tabBar(new BottomTabBarStyle($r('app.media.scan') ,'扫描')
+          .iconStyle({
+            selectedColor: Color.White,
+            unselectedColor: $r('sys.color.icon_tertiary')
+          })
+          .labelStyle({
+            selectedColor: Color.White,
+            unselectedColor: $r('sys.color.icon_tertiary')
+          })
         )
 
         TabContent() {
@@ -1638,14 +1924,21 @@ struct Index {
           // .padding({ left: 24, right: 24, top: 24, bottom: 48 });
         }
         .tabBar(new BottomTabBarStyle($r('app.media.settings') ,'设置')
-          .iconStyle({ selectedColor: Color.White })
-          .labelStyle({ selectedColor: Color.White})
+          .iconStyle({
+            selectedColor: Color.White,
+            unselectedColor: $r('sys.color.icon_tertiary')
+          })
+          .labelStyle({
+            selectedColor: Color.White,
+            unselectedColor: $r('sys.color.icon_tertiary')
+          })
         )
       }
       .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
       .barPosition(BarPosition.End)
       .barHeight(70)
-      // .barBackgroundColor(Color.Gray)
+      .barBackgroundColor(Color.Transparent)
+      .barBackgroundBlurStyle(BlurStyle.COMPONENT_THICK)
       .scrollable(true)
       .divider({
         mode: DividerMode.FOLLOW_SCROLL,
@@ -1658,7 +1951,10 @@ struct Index {
       .barOverlap(true)
       .vertical(false)
       .barBackgroundStyle({
-        maskColor: "#99594781",
+        // 仍随主题色变化，但用更低透明度避免色块过重
+        maskColor: this.isDarkMode
+          ? this.getThemeColorWithAlpha('55')
+          : this.getThemeColorWithAlpha('33'),
         maskHeight: 70
       })
       .onChange((index: number) => {
@@ -1672,7 +1968,106 @@ struct Index {
       // .backgroundColor("#ff0f5f5f")
       .width('100%')
       .height('100%')
+
+      // Gesture Feedback UI
+      if (this.gestureFeedbackVisible) {
+        Column() {
+          Row() {
+            SymbolGlyph($r('sys.symbol.hand_raised_hexagon'))
+              .fontSize(20)
+              .fontColor([Color.White])
+              .margin({ right: 8 })
+            Text(this.gestureFeedbackText)
+              .fontSize(14)
+              .fontColor(Color.White)
+              .fontWeight(FontWeight.Medium)
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+          }
+          .height(40)
+          .padding({ left: 16, right: 16 })
+          .backgroundColor(
+            this.isDarkMode
+              ? THEMES[this.themeColorIndex].tertiaryColor
+              : this.getThemeColorWithAlpha('E0')
+          )
+          .borderRadius(20)
+          .shadow({ radius: 10, color: '#40000000', offsetY: 4 })
+          .width(this.gestureFeedbackWidth)
+          .justifyContent(FlexAlign.Center)
+        }
+        .width('100%')
+        .position({ 
+          x: 0, 
+          y: this.gestureFeedbackPosition === 'top' ? 0 : '100%' 
+        })
+        .translate({ 
+          x: 0, 
+          y: this.gestureFeedbackOffsetY 
+        })
+        .opacity(this.gestureFeedbackOpacity)
+        .alignItems(HorizontalAlign.Center)
+        .hitTestBehavior(HitTestMode.None) // Pass through touches
+      }
     }
+    .parallelGesture(
+      PanGesture()
+        .onActionStart((event: GestureEvent) => {
+          if (!this.airGesturesEnabled) return;
+          this.gestureValid = event.offsetX === 0 && event.fingerList?.length === 1;
+        })
+        .onActionUpdate((event: GestureEvent) => {
+          if (!this.airGesturesEnabled) return;
+          if (this.gestureValid && (event.offsetX !== 0 || event.fingerList?.length > 1)) {
+            this.gestureValid = false;
+          }
+        })
+        .onActionEnd((event: GestureEvent) => {
+          if (!this.airGesturesEnabled) return;
+          const screenHeight = px2vp(display.getDefaultDisplaySync().height);
+          const swipeRatio = Math.abs(event.offsetY) / screenHeight;
+          if (this.gestureValid && swipeRatio > 0.36 && swipeRatio < 0.38) {
+            const dir = event.offsetY > 0 ? 'down' : 'up';
+            if (dir === 'up') {
+              this.handleGestureAction(this.airGestureUpAction, 'bottom');
+            } else {
+              this.handleGestureAction(this.airGestureDownAction, 'top');
+            }
+          }
+        })
+    )
+    .onTouchIntercept((event: TouchEvent) => {
+      if (!this.airGesturesEnabled) return HitTestMode.Transparent;
+
+      if (event.type === TouchType.Down) {
+        this.isAirGestureCandidate = event.touches.length === 1;
+        if (this.isAirGestureCandidate) {
+          this.touchStartX = event.touches[0].screenX;
+        }
+        return HitTestMode.Transparent;
+      }
+
+      if (event.type === TouchType.Move) {
+        if (!this.isAirGestureCandidate) return HitTestMode.Transparent;
+
+        if (event.touches.length !== 1) {
+          this.isAirGestureCandidate = false;
+          return HitTestMode.Transparent;
+        }
+
+        const currentX = event.touches[0].screenX;
+        const deltaX = Math.abs(currentX - this.touchStartX);
+
+        if (deltaX > 0) {
+          this.isAirGestureCandidate = false;
+          return HitTestMode.Transparent;
+        }
+
+        return HitTestMode.Block;
+      }
+
+      return HitTestMode.Transparent;
+    })
     .bindSheet(
       $$this.showDeviceDialog,
       this.DeviceSelectionDialog(),
@@ -1686,6 +2081,24 @@ struct Index {
           this.showDeviceDialog = false;
           ContinuityService.getInstance().stopDiscovering();
         }
+      }
+    )
+    .bindSheet(
+      $$this.isPolicyUpdateSheetOpen,
+      PolicySheetContent(
+        getPolicySheetConfig(this.currentPolicyUpdateType, '', true),  // isUpdate = true 显示更新提示
+        this.policyUpdateWebController,
+        () => this.handlePolicyUpdateConfirmed(),
+        getContext(this) as common.UIAbilityContext,
+        this.themeColorIndex
+      ),
+      {
+        detents: [SheetSize.FIT_CONTENT, SheetSize.MEDIUM, SheetSize.LARGE],
+        dragBar: true,
+        backgroundColor: Color.Transparent,
+        blurStyle: BlurStyle.BACKGROUND_THIN,
+        enableOutsideInteractive: false,  // 禁止点击外部关闭，必须确认
+        showClose: false  // 隐藏关闭按钮
       }
     )
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP])
@@ -2348,6 +2761,7 @@ struct Index {
       // 准备 API 配置快照（使用正确的属性名匹配 ApiConfigSnapshot）
       const apiConfigSnapshot: ApiConfigSnapshot = {
         promptText: this.promptText,
+        polishPromptText: this.polishPromptText,
         openAiKeySlots: this.openAiKeySlots,
         deepLKeySlots: this.deepLKeySlots,
         ollamaKeySlots: this.ollamaKeySlots,
@@ -2731,6 +3145,7 @@ struct FeatureDialog {
   controller: CustomDialogController
   @Link index: number
   @State scaleValue: number = 0.9
+  @StorageLink('themeColorIndex') themeColorIndex: number = 0;
 
   build() {
     Column() {
@@ -2739,7 +3154,7 @@ struct FeatureDialog {
         .width(80)
         .height(80)
         .objectFit(ImageFit.Contain)
-        .fillColor('#3c1464')
+        .fillColor(THEMES[this.themeColorIndex].primaryColor)
         .scale({ x: this.scaleValue, y: this.scaleValue })
         .onAppear(() => {
           animateTo({
@@ -2769,7 +3184,7 @@ struct FeatureDialog {
       Button('了解')
         .width('80%')
         .height(48)
-        .backgroundColor('#3c1464')
+        .backgroundColor(THEMES[this.themeColorIndex].primaryColor)
         .onClick(() => {
           this.controller.close()
         })

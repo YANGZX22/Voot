@@ -1,6 +1,7 @@
 import { webview } from '@kit.ArkWeb';
 import { url } from '@kit.ArkTS';
 import common from '@ohos.app.ability.common';
+import { THEMES } from '../model/Theme';
 
 export interface PolicyHighlight {
   title: string;
@@ -29,12 +30,15 @@ function resolveHighlightText(desc: string | url.URL): string {
   return desc.toString();
 }
 
-export function getPolicySheetConfig(type: PolicySheetType, versionName: string = ''): PolicySheetConfig {
+export function getPolicySheetConfig(type: PolicySheetType, versionName: string = '', isUpdate: boolean = false): PolicySheetConfig {
+  const updatePrefix: string = isUpdate ? '我们更新了' : '';
   switch (type) {
     case PolicySheetType.Terms:
       return {
         title: '用户协议',
-        intro: '阅读并同意最新的《用户协议》，了解使用条款、账号安全与服务边界。',
+        intro: isUpdate
+          ? `${updatePrefix}《用户协议》，请阅读并确认最新条款。`
+          : '阅读并同意最新的《用户协议》，了解使用条款、账号安全与服务边界。',
         action: '我已知晓',
         asset: $rawfile('html/agreement.html'),
         useWeb: true
@@ -64,7 +68,9 @@ export function getPolicySheetConfig(type: PolicySheetType, versionName: string 
     default:
       return {
         title: '隐私政策',
-        intro: '我们严格遵循最小化采集原则，不会上传语音与密钥，请在使用前阅读《关于 Voot 与隐私的声明》。',
+        intro: isUpdate
+          ? `${updatePrefix}《隐私政策》，请阅读并确认最新隐私声明。`
+          : '我们严格遵循最小化采集原则，不会上传语音与密钥，请在使用前阅读《关于 Voot 与隐私的声明》。',
         action: '我已知晓',
         asset: $rawfile('html/privacy.html'),
         useWeb: true
@@ -77,7 +83,8 @@ export function PolicySheetContent(
   config: PolicySheetConfig,
   controller: webview.WebviewController,
   actionHandler: () => void,
-  context?: common.UIAbilityContext
+  context?: common.UIAbilityContext,
+  themeColorIndex: number = 0
 ) {
   Column() {
     Blank().height(8);
@@ -88,7 +95,7 @@ export function PolicySheetContent(
       .fontColor(Color.White)
     Text(config.intro)
       .fontSize(14)
-      .fontColor(Color.Grey)
+      .fontColor($r('sys.color.font_on_secondary'))
       .textAlign(TextAlign.Start)
       .margin({ bottom: 16 })
     if (config.useWeb && config.asset) {
@@ -116,7 +123,7 @@ export function PolicySheetContent(
                   .margin({ bottom: 4 })
                 Text(resolveHighlightText(item.description).replace('mailto:', ''))
                   .fontSize(14)
-                  .fontColor((resolveHighlightText(item.description).startsWith('http') || resolveHighlightText(item.description).startsWith('mailto')) ? '#80D1A8FF' : Color.Grey)
+                  .fontColor($r('sys.color.font_on_secondary'))
                   .lineHeight(20)
                   .onClick(() => {
                     const desc = resolveHighlightText(item.description);
@@ -155,7 +162,7 @@ export function PolicySheetContent(
     Button(config.action)
       .type(ButtonType.Capsule)
       .backgroundColor(Color.White)
-      .fontColor('#3c1464')
+      .fontColor(THEMES[themeColorIndex].primaryColor)
       .width('100%')
       .height(44)
       .onClick(() => {

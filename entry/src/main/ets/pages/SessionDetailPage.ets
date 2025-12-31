@@ -23,11 +23,15 @@ import fs from '@ohos.file.fs';
 import picker from '@ohos.file.picker';
 import promptAction from '@ohos.promptAction';
 import common from '@ohos.app.ability.common';
+import { photoAccessHelper } from '@kit.MediaLibraryKit';
+import { fileUri } from '@kit.CoreFileKit';
+import { buffer } from '@kit.ArkTS';
 import { HdsNavigation, HdsNavigationAttribute, HdsNavigationTitleMode } from '@kit.UIDesignKit';
 import { ComponentContent } from '@kit.ArkUI';
 import { systemShare } from '@kit.ShareKit';
 import { uniformTypeDescriptor as utd } from '@kit.ArkData';
 import { BusinessError } from '@kit.BasicServicesKit';
+import { THEMES } from '../model/Theme';
 
 
 interface LlmConfig {
@@ -92,6 +96,7 @@ interface DoubaoChatResponse {
 
 const DEFAULT_CONFIG: ApiConfigSnapshot = {
   promptText: 'You are a helpful assistant.',
+  polishPromptText: '你是一个专业的文本润色助手。请对以下文本进行润色优化，使其更加通顺、专业、易读。\n\n要求：\n1. 保持原文的核心意思不变\n2. 优化语法和表达方式\n3. 直接输出润色后的文本，不要添加任何解释\n\n原文：\n{text}',
   openAiKeySlots: createDefaultMultiKeySlots('https://api.openai.com', '', 'gpt-3.5-turbo'),
   deepLKeySlots: createDefaultMultiKeySlots('https://api-free.deepl.com/v2/translate', '', ''),
   ollamaKeySlots: createDefaultMultiKeySlots('http://localhost:11434', '', ''),
@@ -127,6 +132,119 @@ const DEFAULT_CONFIG: ApiConfigSnapshot = {
 struct SessionDetailPage {
   @State session: Session | undefined = undefined;
   @State isSummarizing: boolean = false;
+  @StorageLink('themeColorIndex') themeColorIndex: number = 0;
+  @State previewImageUri: string = '';
+
+  async saveToGallery(uri: string) {
+    try {
+      const context = getContext(this) as common.UIAbilityContext;
+      const phAccessHelper = photoAccessHelper.getPhotoAccessHelper(context);
+      
+      // Convert path to proper file URI with bundleName
+      // Format: file://bundleName/data/storage/...
+      let srcFileUri = uri;
+      let srcFilePath = uri;
+      if (srcFileUri.startsWith('file://')) {
+        // Extract path from URI
+        srcFilePath = srcFileUri.replace(/^file:\/\/[^/]*/, '');
+      }
+      // Construct correct URI format with bundleName
+      const bundleName = context.applicationInfo.name;
+      srcFileUri = `file://${bundleName}${srcFilePath}`;
+      
+      const srcFileUris: Array<string> = [srcFileUri];
+      
+      console.info('srcFileUri: ' + srcFileUri);
+      
+      const photoCreationConfigs: Array<photoAccessHelper.PhotoCreationConfig> = [
+        {
+          title: `scan_${new Date().getTime()}`,
+          fileNameExtension: 'jpg',
+          photoType: photoAccessHelper.PhotoType.IMAGE,
+        }
+      ];
+      
+      const desFileUris: Array<string> = await phAccessHelper.showAssetsCreationDialog(srcFileUris, photoCreationConfigs);
+      
+      if (desFileUris.length > 0) {
+        const desFile = fs.openSync(desFileUris[0], fs.OpenMode.WRITE_ONLY);
+        const srcFile = fs.openSync(srcFilePath, fs.OpenMode.READ_ONLY);
+        
+        // Read from source
+        const fileStat = fs.statSync(srcFile.fd);
+        const buf = new ArrayBuffer(fileStat.size);
+        fs.readSync(srcFile.fd, buf);
+        
+        // Write to dest
+        fs.writeSync(desFile.fd, buf);
+        
+        fs.closeSync(srcFile);
+        fs.closeSync(desFile);
+        promptAction.showToast({ message: '已保存到相册' });
+      }
+    } catch (error) {
+      console.error('Save image failed:', JSON.stringify(error));
+      promptAction.showToast({ message: '保存失败: ' + JSON.stringify(error) });
+    }
+  }
+
+  @Builder
+  ImagePreviewOverlay() {
+    if (this.previewImageUri) {
+      Stack() {
+        // Background mask
+        Rect()
+          .width('100%')
+          .height('100%')
+          .fill(Color.Black)
+          .opacity(0.9)
+          .onClick(() => {
+            animateTo({ duration: 200 }, () => {
+              this.previewImageUri = '';
+            })
+          })
+
+        // Image
+        Image(this.previewImageUri)
+          .objectFit(ImageFit.Contain)
+          .width('100%')
+          .height('100%')
+          .onClick(() => {
+            animateTo({ duration: 200 }, () => {
+              this.previewImageUri = '';
+            })
+          })
+
+        // Save button
+        Column() {
+          SymbolGlyph($r('sys.symbol.save'))
+            .fontSize(20)
+            .fontColor([Color.White])
+        }
+        .position({ x: '70%', y: 60 })
+        .onClick(() => {
+          this.saveToGallery(this.previewImageUri);
+        })
+
+        // Close button
+        Column() {
+          SymbolGlyph($r('sys.symbol.xmark_circle'))
+            .fontSize(20)
+            .fontColor([Color.White])
+        }
+        .position({ x: '85%', y: 60 })
+        .onClick(() => {
+          animateTo({ duration: 200 }, () => {
+            this.previewImageUri = '';
+          })
+        })
+      }
+      .width('100%')
+      .height('100%')
+      .zIndex(9999)
+      .transition(TransitionEffect.OPACITY.animation({ duration: 200 }))
+    }
+  }
 
   async aboutToAppear() {
     const params = router.getParams() as Record<string, number>;
@@ -136,7 +254,7 @@ struct SessionDetailPage {
 
   build() {
     Stack() {
-      Image($r('app.media.app_background_pic'))
+      Image(THEMES[this.themeColorIndex].backgroundImage)
         .width('100%')
         .height('100%')
         .objectFit(ImageFit.Cover)
@@ -159,7 +277,7 @@ struct SessionDetailPage {
                     Text('AI 生成')
                       .fontSize(12)
                       .fontColor(Color.White)
-                      .backgroundColor('#33FFFFFF')
+                      .backgroundColor(THEMES[this.themeColorIndex].tertiaryColor)
                       .padding({ left: 8, right: 8, top: 2, bottom: 2 })
                       .borderRadius(10)
                       .margin({ left: 8 })
@@ -167,7 +285,7 @@ struct SessionDetailPage {
                     Button(this.isSummarizing ? '正在重新生成...' : '重新生成')
                       .fontSize(12)
                       .height(28)
-                      .backgroundColor('#33FFFFFF')
+                      .backgroundColor(THEMES[this.themeColorIndex].tertiaryColor)
                       .fontColor(Color.White)
                       .enabled(!this.isSummarizing)
                       .onClick(() => {
@@ -180,7 +298,7 @@ struct SessionDetailPage {
                     .fontSize(16)
                     .lineHeight(24)
                     .fontColor(Color.White)
-                    .backgroundColor('#33FFFFFF')
+                    .backgroundColor(THEMES[this.themeColorIndex].tertiaryColor)
                     .padding(12)
                     .borderRadius(8)
                     .width('100%')
@@ -193,7 +311,7 @@ struct SessionDetailPage {
                   .width('100%')
                   .margin({ bottom: 24 })
                   .enabled(!this.isSummarizing)
-                  .backgroundColor('#33FFFFFF')
+                  .backgroundColor(THEMES[this.themeColorIndex].tertiaryColor)
                   .fontColor(Color.White)
                   .onClick(() => {
                     this.generateSummary();
@@ -207,6 +325,23 @@ struct SessionDetailPage {
                 .fontColor(Color.White)
                 .margin({ bottom: 8 })
                 .width('100%')
+
+              // 扫描图片
+              if (this.session.type === 'scan' && this.session.imageUri) {
+                Image(this.session.imageUri)
+                  .width('100%')
+                  .height(200)
+                  .objectFit(ImageFit.Contain)
+                  .borderRadius(12)
+                  .margin({ bottom: 16 })
+                  .backgroundColor('#33000000')
+                  .onClick(() => {
+                    if (this.session && this.session.imageUri) {
+                      this.previewImageUri = this.session.imageUri;
+                    }
+                  })
+              }
+
               Text(this.session.originalText)
                 .fontSize(16)
                 .lineHeight(24)
@@ -224,7 +359,7 @@ struct SessionDetailPage {
                   Text('AI 生成')
                     .fontSize(12)
                     .fontColor(Color.White)
-                    .backgroundColor('#33FFFFFF')
+                    .backgroundColor(THEMES[this.themeColorIndex].tertiaryColor)
                     .padding({ left: 8, right: 8, top: 2, bottom: 2 })
                     .borderRadius(10)
                     .margin({ left: 8 })
@@ -263,15 +398,15 @@ struct SessionDetailPage {
             },
             contentStyle: {
               titleStyle: {
-                mainTitleColor: $r('sys.color.font_primary'),
+                mainTitleColor: $r('sys.color.font_on_tertiary'),
               },
               menuStyle: {
                 backgroundColor: $r('sys.color.comp_background_tertiary'),
-                iconColor: $r('sys.color.icon_primary')
+                iconColor: $r('sys.color.icon_on_tertiary')
               },
               backIconStyle: {
                 backgroundColor: $r('sys.color.comp_background_tertiary'),
-                iconColor: $r('sys.color.icon_primary')
+                iconColor: $r('sys.color.icon_on_tertiary')
               }
             }
           },
@@ -315,6 +450,8 @@ struct SessionDetailPage {
         },
         avoidLayoutSafeArea: true
       })
+
+      this.ImagePreviewOverlay()
     }
     .width('100%')
     .height('100%')

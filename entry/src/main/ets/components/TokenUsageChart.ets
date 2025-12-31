@@ -1,5 +1,6 @@
 import { TokenUsageStorage, ModelTokenUsage } from '../storage/TokenUsageStorage';
 import { hdsEffect } from '@kit.UIDesignKit';
+import { THEMES } from '../model/Theme';
 
 class ChartPoint {
   x: number = 0;
@@ -29,6 +30,8 @@ export struct TokenUsageChart {
   @State bgColor: ResourceColor = '#803c1464';
   @State textColor: ResourceColor = Color.White;
   @State subTextColor: ResourceColor = '#CCFFFFFF';
+  @State isPressed: boolean = false;
+  @StorageLink('themeColorIndex') @Watch('onThemeColorChange') themeColorIndex: number = 0;
   
   private readonly btnId: number = 98;
 
@@ -36,6 +39,8 @@ export struct TokenUsageChart {
   private context: CanvasRenderingContext2D = new CanvasRenderingContext2D(this.settings);
 
   aboutToAppear() {
+    // 初始化背景色为当前主题色
+    this.applyTheme(false);
     this.loadData();
   }
 
@@ -53,22 +58,49 @@ export struct TokenUsageChart {
     }
   }
 
+  onThemeColorChange() {
+    // 当主题切换时，按当前按压状态更新颜色
+    this.applyTheme(this.isPressed);
+    this.drawChart();
+  }
+
+  private applyTheme(isPressed: boolean) {
+    if (isPressed) {
+      this.bgColor = Color.White;
+      this.textColor = THEMES[this.themeColorIndex].primaryColor;
+      this.subTextColor = THEMES[this.themeColorIndex].primaryColor;
+    } else {
+      this.bgColor = THEMES[this.themeColorIndex].secondaryColor;
+      this.textColor = Color.White;
+      this.subTextColor = '#CCFFFFFF';
+    }
+  }
+
+  // 将主题主色转换成 rgba 字符串，避免不同颜色格式解析差异
+  private primaryRgba(alpha: number): string {
+    const base = THEMES[this.themeColorIndex].primaryColor.replace('#', '');
+    const hex = base.length === 8 ? base.substring(2) : base; // 兼容可能的 AARRGGBB
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    const a = Math.max(0, Math.min(1, alpha));
+    return `rgba(${r}, ${g}, ${b}, ${a})`;
+  }
+
   press(): void {
     animateTo({ duration: 100, curve: Curve.EaseIn }, () => {
+      this.isPressed = true;
       this.scaleValue = 0.95;
-      this.bgColor = Color.White;
-      this.textColor = '#3c1464';
-      this.subTextColor = '#CC3c1464';
+      this.applyTheme(true);
       this.drawChart(); // Redraw canvas with new colors
     });
   }
 
   release(): void {
     animateTo({ duration: 100, curve: Curve.EaseOut }, () => {
+      this.isPressed = false;
       this.scaleValue = 1.0;
-      this.bgColor = '#803c1464';
-      this.textColor = Color.White;
-      this.subTextColor = '#CCFFFFFF';
+      this.applyTheme(false);
       this.drawChart(); // Redraw canvas with new colors
     });
   }
@@ -110,6 +142,7 @@ export struct TokenUsageChart {
   drawChart() {
     if (!this.context) return;
     
+    const isPressed = this.isPressed;
     const width = this.context.width;
     const height = this.context.height;
     const padding = 20;
@@ -144,48 +177,50 @@ export struct TokenUsageChart {
       points.push(new ChartPoint(x, y));
     });
 
-    // Draw wave line
-    this.context.beginPath();
-    this.context.lineWidth = 3;
-    this.context.strokeStyle = this.textColor as string; // Use dynamic text color
-    this.context.lineCap = 'round';
-    this.context.lineJoin = 'round';
-
-    if (points.length === 1) {
-      this.context.moveTo(padding, height - padding);
-      this.context.lineTo(points[0].x, points[0].y);
-    } else {
-      this.context.moveTo(points[0].x, points[0].y);
-      for (let i = 0; i < points.length - 1; i++) {
-        const p0 = points[i];
-        const p1 = points[i + 1];
-        // Simple bezier control points for smoothing
-        const cp1x = p0.x + (p1.x - p0.x) / 2;
-        const cp1y = p0.y;
-        const cp2x = p0.x + (p1.x - p0.x) / 2;
-        const cp2y = p1.y;
-        this.context.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p1.x, p1.y);
+    // Build curve path helper
+    const buildCurvePath = () => {
+      this.context.beginPath();
+      if (points.length === 1) {
+        this.context.moveTo(padding, height - padding);
+        this.context.lineTo(points[0].x, points[0].y);
+      } else {
+        this.context.moveTo(points[0].x, points[0].y);
+        for (let i = 0; i < points.length - 1; i++) {
+          const p0 = points[i];
+          const p1 = points[i + 1];
+          // Simple bezier control points for smoothing
+          const cp1x = p0.x + (p1.x - p0.x) / 2;
+          const cp1y = p0.y;
+          const cp2x = p0.x + (p1.x - p0.x) / 2;
+          const cp2y = p1.y;
+          this.context.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p1.x, p1.y);
+        }
       }
-    }
-    this.context.stroke();
+    };
 
-    // Draw fill gradient
+    // Draw fill first to避免在曲线位置叠出第二条线
+    buildCurvePath();
     this.context.lineTo(points[points.length - 1].x, height - padding);
     this.context.lineTo(points[0].x, height - padding);
     this.context.closePath();
     const gradient = this.context.createLinearGradient(0, 0, 0, height);
-    
-    // Adjust gradient based on background color state
-    if (this.bgColor === Color.White) {
-       gradient.addColorStop(0, '#803c1464');
-       gradient.addColorStop(1, '#003c1464');
+    if (isPressed) {
+      gradient.addColorStop(0, this.primaryRgba(0.55));
+      gradient.addColorStop(1, this.primaryRgba(0.15));
     } else {
-       gradient.addColorStop(0, '#80FFFFFF');
-       gradient.addColorStop(1, '#00FFFFFF');
+      gradient.addColorStop(0, '#59FFFFFF'); // 0x59 = ~35%
+      gradient.addColorStop(1, '#00FFFFFF');
     }
-    
     this.context.fillStyle = gradient;
     this.context.fill();
+
+    // Then stroke the curve once
+    buildCurvePath();
+    this.context.lineWidth = 3;
+    this.context.strokeStyle = this.textColor as string;
+    this.context.lineCap = 'round';
+    this.context.lineJoin = 'round';
+    this.context.stroke();
 
     // Draw dots and labels
     this.context.fillStyle = this.textColor as string;
@@ -232,7 +267,7 @@ export struct TokenUsageChart {
               message: '此数据仅在本地统计，用于估算您的使用量。\n不同模型对 Token 的计算方式可能略有差异，具体计费请以 API 提供商为准。',
               confirm: {
                 value: '我知道了',
-                fontColor: '#3c1464',
+                fontColor: THEMES[this.themeColorIndex].primaryColor,
                 action: () => {}
               }
             })

@@ -1,0 +1,49 @@
+{
+  "shortcuts": [
+    {
+      "shortcutId": "id_translation",
+      "label": "$string:shortcut_translation",
+      "icon": "$media:shortcut_translation",
+      "wants": [
+        {
+          "bundleName": "com.zixiao.voot",
+          "moduleName": "entry",
+          "abilityName": "EntryAbility",
+          "parameters": {
+            "page": "TranslationPage"
+          }
+        }
+      ]
+    },
+    {
+      "shortcutId": "id_polish",
+      "label": "$string:shortcut_polish",
+      "icon": "$media:shortcut_wand",
+      "wants": [
+        {
+          "bundleName": "com.zixiao.voot",
+          "moduleName": "entry",
+          "abilityName": "EntryAbility",
+          "parameters": {
+            "page": "PolishPage"
+          }
+        }
+      ]
+    },
+    {
+      "shortcutId": "id_scan",
+      "label": "$string:shortcut_scan",
+      "icon": "$media:shortcut_scan",
+      "wants": [
+        {
+          "bundleName": "com.zixiao.voot",
+          "moduleName": "entry",
+          "abilityName": "EntryAbility",
+          "parameters": {
+            "page": "ScanPage"
+          }
+        }
+      ]
+    }
+  ]
+}

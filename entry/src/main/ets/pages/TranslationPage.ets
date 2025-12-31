@@ -14,6 +14,7 @@
 
 import { hdsEffect, HdsNavigation, HdsNavigationAttribute, HdsNavigationTitleMode } from '@kit.UIDesignKit';
 import promptAction from '@ohos.promptAction';
+import { THEMES } from '../model/Theme';
 
 const TITLE_BAR_HEIGHT_MINI: number = 94;
 
@@ -30,6 +31,7 @@ export struct TranslationPage {
   @Prop hasContinuityContent: boolean = false;
   @Prop isLightEffectBright: boolean = true;
   @Prop isDarkMode: boolean = true;
+  @StorageLink('themeColorIndex') @Watch('onThemeColorChange') themeColorIndex: number = 0;
 
   // Callbacks
   onToggleCaptioning: () => void = () => {};
@@ -37,6 +39,7 @@ export struct TranslationPage {
   onOriginalTextChange: (value: string) => void = () => {};
   onTranslatedTextChange: (value: string) => void = () => {};
   onContinuityTransfer: () => void = () => {};
+  onOpenHistory: () => void = () => {};
 
   // State for Lighting Effect
   // 0 = None, 1 = Mic Button, 2 = Translate Button
@@ -45,14 +48,14 @@ export struct TranslationPage {
   @State button1Scale: number = 1.0;
   @State button2Scale: number = 1.0;
 
-  @State btn1BgColor: ResourceColor = "#e63c1464";
+  @State btn1BgColor: ResourceColor = THEMES[this.themeColorIndex].secondaryColor;
   @State btn1TextColor: ResourceColor = Color.White;
-  @State btn2BgColor: ResourceColor = "#e63c1464";
+  @State btn2BgColor: ResourceColor = THEMES[this.themeColorIndex].secondaryColor;
   @State btn2TextColor: ResourceColor = Color.White;
 
   @State button3Scale: number = 1.0;
   @State btn3BgColor: ResourceColor = Color.White;
-  @State btn3TextColor: ResourceColor = "#e63c1464";
+  @State btn3TextColor: ResourceColor = THEMES[this.themeColorIndex].secondaryColor;
 
   helpDialogController: CustomDialogController = new CustomDialogController({
     builder: ContinuityHelpDialog(),
@@ -61,6 +64,20 @@ export struct TranslationPage {
     customStyle: true
   })
 
+  onThemeColorChange() {
+    if (this.isListening) {
+      this.btn1BgColor = Color.White;
+      this.btn1TextColor = THEMES[this.themeColorIndex].primaryColor;
+    } else {
+      this.btn1BgColor = THEMES[this.themeColorIndex].secondaryColor;
+      this.btn1TextColor = Color.White;
+    }
+    this.btn2BgColor = THEMES[this.themeColorIndex].secondaryColor;
+    this.btn2TextColor = Color.White;
+    this.btn3BgColor = Color.White;
+    this.btn3TextColor = THEMES[this.themeColorIndex].primaryColor;
+  }
+
   onIsListeningChange() {
     animateTo({
       duration: 100,
@@ -68,9 +85,9 @@ export struct TranslationPage {
     }, () => {
       if (this.isListening) {
         this.btn1BgColor = Color.White;
-        this.btn1TextColor = "#e63c1464";
+        this.btn1TextColor = THEMES[this.themeColorIndex].primaryColor;
       } else {
-        this.btn1BgColor = "#e63c1464";
+        this.btn1BgColor = THEMES[this.themeColorIndex].secondaryColor;
         this.btn1TextColor = Color.White;
       }
     })
@@ -95,7 +112,7 @@ export struct TranslationPage {
                     .fontColor(Color.White)
                     .fontWeight(FontWeight.Medium);
                 }
-                .backgroundColor('#803c1464')
+                .backgroundColor(THEMES[this.themeColorIndex].secondaryColor)
                 .padding({ left: 12, right: 12, top: 12, bottom: 12 })
                 .borderRadius(24)
                 .layoutWeight(1)
@@ -119,7 +136,7 @@ export struct TranslationPage {
                     .fontWeight(FontWeight.Medium);
                 }
                 .padding({ left: 12, right: 12, top: 12, bottom: 12 })
-                .backgroundColor('#803c1464')
+                .backgroundColor(THEMES[this.themeColorIndex].secondaryColor)
                 .borderRadius(24)
                 .layoutWeight(1)
                 .visualEffect(new hdsEffect.HdsEffectBuilder()
@@ -206,7 +223,7 @@ export struct TranslationPage {
             .width('100%')
             .height(160)
             .padding(8)
-            .backgroundColor(this.isDarkMode ? '#341e0a32' : '#1A3c1464')
+            .backgroundColor(THEMES[this.themeColorIndex].secondaryColor)
             .borderRadius(24)
             .visualEffect(new hdsEffect.HdsEffectBuilder()
               .pointLight({
@@ -315,7 +332,7 @@ export struct TranslationPage {
             .width('100%')
             .height(160)
             .padding(8)
-            .backgroundColor(this.isDarkMode ? '#341e0a32' : '#1A3c1464')
+            .backgroundColor(THEMES[this.themeColorIndex].secondaryColor)
             .borderRadius(24)
             .visualEffect(new hdsEffect.HdsEffectBuilder()
               .pointLight({
@@ -328,13 +345,13 @@ export struct TranslationPage {
               .buildEffect())
 
             Row() {
-              SymbolGlyph($r('sys.symbol.info_circle'))
+              SymbolGlyph($r('sys.symbol.AI'))
                 .fontSize(14)
-                .fontColor([Color.Gray])
+                .fontColor([$r('sys.color.font_on_secondary')])
                 .margin({ right: 4 })
               Text('翻译文本由 AI 生成，请谨慎辨别')
                 .fontSize(12)
-                .fontColor(Color.Gray)
+                .fontColor($r('sys.color.font_on_secondary'))
             }
             .margin({ top: 8 })
             .alignSelf(ItemAlign.End)
@@ -366,11 +383,11 @@ export struct TranslationPage {
             },
             menuStyle: {
               backgroundColor: $r('sys.color.comp_background_tertiary'),
-              iconColor: $r('sys.color.icon_tertiary')
+              iconColor: $r('sys.color.icon_on_tertiary')
             },
             backIconStyle: {
               backgroundColor: $r('sys.color.comp_background_tertiary'),
-              iconColor: $r('sys.color.icon_tertiary')
+              iconColor: $r('sys.color.icon_on_tertiary')
             }
           }
         },
@@ -406,6 +423,16 @@ export struct TranslationPage {
                   });
                 }
               }
+            },
+            {
+              content: {
+                label: '历史',
+                icon: $r('sys.symbol.clock_arrow_2_circlepath'),
+                isEnabled: true,
+                action: () => {
+                  this.onOpenHistory();
+                }
+              }
             }
           ]
         },
@@ -422,16 +449,16 @@ export struct TranslationPage {
       if (btnId === 1) {
         this.button1Scale = 0.95;
         this.btn1BgColor = Color.White;
-        this.btn1TextColor = "#e63c1464";
+        this.btn1TextColor = THEMES[this.themeColorIndex].primaryColor;
       }
       if (btnId === 2) {
         this.button2Scale = 0.95;
         this.btn2BgColor = Color.White;
-        this.btn2TextColor = "#e63c1464";
+        this.btn2TextColor = THEMES[this.themeColorIndex].primaryColor;
       }
       if (btnId === 3) {
         this.button3Scale = 0.95;
-        this.btn3BgColor = "#e63c1464";
+        this.btn3BgColor = THEMES[this.themeColorIndex].primaryColor;
         this.btn3TextColor = Color.White;
       }
     })
@@ -446,21 +473,21 @@ export struct TranslationPage {
         this.button1Scale = 1.0;
         if (this.isListening) {
           this.btn1BgColor = Color.White;
-          this.btn1TextColor = "#e63c1464";
+          this.btn1TextColor = THEMES[this.themeColorIndex].primaryColor;
         } else {
-          this.btn1BgColor = "#e63c1464";
+          this.btn1BgColor = THEMES[this.themeColorIndex].secondaryColor;
           this.btn1TextColor = Color.White;
         }
       }
       if (btnId === 2) {
         this.button2Scale = 1.0;
-        this.btn2BgColor = "#e63c1464";
+        this.btn2BgColor = THEMES[this.themeColorIndex].secondaryColor;
         this.btn2TextColor = Color.White;
       }
       if (btnId === 3) {
         this.button3Scale = 1.0;
         this.btn3BgColor = Color.White;
-        this.btn3TextColor = "#e63c1464";
+        this.btn3TextColor = THEMES[this.themeColorIndex].primaryColor;
       }
     })
   }
@@ -469,6 +496,7 @@ export struct TranslationPage {
 @CustomDialog
 struct ContinuityHelpDialog {
   controller: CustomDialogController;
+  @StorageLink('themeColorIndex') themeColorIndex: number = 0;
 
   build() {
     Column() {
@@ -567,7 +595,7 @@ struct ContinuityHelpDialog {
         .width('80%')
         .borderRadius(30)
         .margin({ top: 20, bottom: 16 })
-        .backgroundColor('#3c1464')
+        .backgroundColor(THEMES[this.themeColorIndex].primaryColor)
         .fontColor(Color.White)
         .onClick(() => {
           this.controller.close();

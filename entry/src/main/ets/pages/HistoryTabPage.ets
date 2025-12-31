@@ -6,6 +6,7 @@ import common from '@ohos.app.ability.common';
 import promptAction from '@ohos.promptAction';
 import { systemShare } from '@kit.ShareKit';
 import { uniformTypeDescriptor as utd } from '@kit.ArkData';
+import { THEMES } from '../model/Theme';
 
 const TITLE_BAR_HEIGHT_MINI: number = 100;
 
@@ -66,6 +67,8 @@ export struct HistoryTabPage {
   @Prop @Watch('onVisibleChange') isVisible: boolean = false;
   @Prop isLightEffectBright: boolean = true;
   @Prop isDarkMode: boolean = true;
+  @Prop type: 'translation' | 'scan' = 'translation';
+  @StorageLink('themeColorIndex') themeColorIndex: number = 0;
   @State sessions: Session[] = [];
   @State pendingDeleteId: number = -1;
   @State deleteMessage: string = '确定要删除这条历史记录吗？';
@@ -100,9 +103,9 @@ export struct HistoryTabPage {
   async confirmDelete() {
     if (this.isDeleteAll) {
       if (this.showFavorites) {
-        await HistoryStorage.getInstance().deleteAllStarredSessions();
+        await HistoryStorage.getInstance().deleteAllStarredSessions(this.type);
       } else {
-        await HistoryStorage.getInstance().deleteAllNonStarredSessions();
+        await HistoryStorage.getInstance().deleteAllNonStarredSessions(this.type);
       }
       this.sessions = [];
       this.isDeleteAll = false;
@@ -115,9 +118,9 @@ export struct HistoryTabPage {
 
   async refreshSessions() {
     if (this.showFavorites) {
-      this.sessions = await HistoryStorage.getInstance().getStarredSessions();
+      this.sessions = await HistoryStorage.getInstance().getStarredSessions(this.type);
     } else {
-      this.sessions = await HistoryStorage.getInstance().getSessions();
+      this.sessions = await HistoryStorage.getInstance().getSessions(this.type);
     }
     
     // Initialize animation arrays if needed
@@ -191,8 +194,8 @@ export struct HistoryTabPage {
     const newStarred = !session.isStarred;
     await HistoryStorage.getInstance().updateStarred(session.id, newStarred);
     const newSessions = this.showFavorites 
-      ? await HistoryStorage.getInstance().getStarredSessions()
-      : await HistoryStorage.getInstance().getSessions();
+      ? await HistoryStorage.getInstance().getStarredSessions(this.type)
+      : await HistoryStorage.getInstance().getSessions(this.type);
     animateTo({
       duration: 300,
       curve: Curve.EaseInOut
@@ -240,29 +243,43 @@ export struct HistoryTabPage {
 
   @Builder
   SessionItemBuilder(session: Session, index: number) {
-    Column() {
-      Text(session.title)
-        .fontSize(16)
-        .fontWeight(FontWeight.Medium)
-        .fontColor(Color.White)
-      Text(new Date(session.startTime).toLocaleString())
-        .fontSize(14)
-        .fontColor($r('sys.color.font_on_secondary'))
-        .margin({ top: 4, bottom: 4 })
-      if (session.summary) {
-        Text(session.summary)
+    Row() {
+      if (session.type === 'scan' && session.imageUri) {
+        Image(session.imageUri)
+          .width(60)
+          .height(80)
+          .objectFit(ImageFit.Cover)
+          .borderRadius(8)
+          .margin({ right: 12 })
+      }
+
+      Column() {
+        Text(session.title)
+          .fontSize(16)
+          .fontWeight(FontWeight.Medium)
+          .fontColor(Color.White)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+        Text(new Date(session.startTime).toLocaleString())
           .fontSize(14)
           .fontColor($r('sys.color.font_on_secondary'))
-          .maxLines(2)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-          .margin({ top: 8 })
+          .margin({ top: 4, bottom: 4 })
+        if (session.summary) {
+          Text(session.summary)
+            .fontSize(14)
+            .fontColor($r('sys.color.font_on_secondary'))
+            .maxLines(2)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+            .margin({ top: 8 })
+        }
       }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
     }
     .width('calc(100% - 48vp)')
-    .alignItems(HorizontalAlign.Start)
     .padding(16)
     .margin({ left: 24, right: 24 })
-    .backgroundColor('#803c1464')
+    .backgroundColor(THEMES[this.themeColorIndex].secondaryColor)
     .borderRadius(24)
     .opacity(this.cardOpacities[index] ?? 1)
     .translate({ x: this.cardOffsets[index] ?? 0 })
@@ -272,12 +289,23 @@ export struct HistoryTabPage {
       })
       .buildEffect())
     .onClick(() => {
-      router.pushUrl({
-        url: 'pages/SessionDetailPage',
-        params: {
-          sessionId: session.id
-        }
-      });
+      if (session.type === 'scan') {
+        // TODO: 跳转到扫描详情页，或者复用 ScanPage
+        // 暂时复用 SessionDetailPage，但需要 SessionDetailPage 支持显示图片
+        router.pushUrl({
+          url: 'pages/SessionDetailPage',
+          params: {
+            sessionId: session.id
+          }
+        });
+      } else {
+        router.pushUrl({
+          url: 'pages/SessionDetailPage',
+          params: {
+            sessionId: session.id
+          }
+        });
+      }
     })
   }
 
@@ -333,7 +361,16 @@ export struct HistoryTabPage {
   }
 
   build() {
-    HdsNavigation() {
+    Stack() {
+      // 主题背景图片
+      if (THEMES[this.themeColorIndex].backgroundImage) {
+        Image(THEMES[this.themeColorIndex].backgroundImage)
+          .width('100%')
+          .height('100%')
+          .objectFit(ImageFit.Cover)
+      }
+
+      HdsNavigation() {
       List({ space: 8 }) {
         ListItem() {
           Column().height(TITLE_BAR_HEIGHT_MINI)
@@ -368,7 +405,7 @@ export struct HistoryTabPage {
     .height('100%')
     .backgroundColor(Color.Transparent)
     .titleMode(HdsNavigationTitleMode.MINI)
-    .hideBackButton(true)
+    .hideBackButton(false)
     .titleBar({
       style: {
         scrollEffectStyle: {
@@ -381,11 +418,11 @@ export struct HistoryTabPage {
             },
             menuStyle: {
               backgroundColor: $r('sys.color.comp_background_tertiary'),
-              iconColor: $r('sys.color.icon_tertiary')
+              iconColor: $r('sys.color.icon_on_tertiary')
             },
             backIconStyle: {
               backgroundColor: $r('sys.color.comp_background_tertiary'),
-              iconColor: $r('sys.color.icon_tertiary')
+              iconColor: $r('sys.color.icon_on_tertiary')
             }
           }
         },
@@ -397,13 +434,19 @@ export struct HistoryTabPage {
             menuStyle: {
               backgroundColor: $r('sys.color.comp_background_tertiary'),
               iconColor: Color.White
+            },
+            backIconStyle: {
+              backgroundColor: $r('sys.color.comp_background_tertiary'),
+              iconColor: Color.White
             }
           }
         }
       },
       content: {
         title: {
-          mainTitle: this.showFavorites ? '收藏' : '历史',
+          mainTitle: this.showFavorites 
+            ? (this.type === 'scan' ? '扫描收藏' : '翻译收藏')
+            : (this.type === 'scan' ? '扫描历史' : '翻译历史'),
         },
         menu: {
           value: [
@@ -462,6 +505,9 @@ export struct HistoryTabPage {
       },
       avoidLayoutSafeArea: true
     })
+    }
+    .width('100%')
+    .height('100%')
   }
 }
 
@@ -520,6 +566,7 @@ struct DeleteConfirmTabDialog {
 @CustomDialog
 struct HelpTabDialog {
   controller: CustomDialogController
+  @StorageLink('themeColorIndex') themeColorIndex: number = 0;
 
   build() {
     Column() {
@@ -646,7 +693,7 @@ struct HelpTabDialog {
         .width('80%')
         .borderRadius(30)
         .margin({ top: 20, bottom: 16 })
-        .backgroundColor('#3c1464')
+        .backgroundColor(THEMES[this.themeColorIndex].primaryColor)
         .fontColor(Color.White)
         .onClick(() => {
           this.controller.close();
@@ -656,5 +703,38 @@ struct HelpTabDialog {
     .backgroundColor(Color.White)
     .borderRadius(30)
     .alignItems(HorizontalAlign.Center)
+  }
+}
+
+// Entry wrapper for router navigation
+@Entry
+@Component
+struct HistoryPage {
+  @StorageLink('isLightEffectBright') isLightEffectBright: boolean = true;
+  @StorageLink('themeMode') themeMode: number = 1;
+  @State type: 'translation' | 'scan' = 'translation';
+  
+  get isDarkMode(): boolean {
+    return this.themeMode === 1;
+  }
+
+  aboutToAppear() {
+    const params = router.getParams() as Record<string, Object>;
+    if (params && params['type']) {
+      this.type = params['type'] as 'translation' | 'scan';
+    }
+  }
+
+  build() {
+    Column() {
+      HistoryTabPage({
+        isVisible: true,
+        isLightEffectBright: this.isLightEffectBright,
+        isDarkMode: this.isDarkMode,
+        type: this.type
+      })
+    }
+    .width('100%')
+    .height('100%')
   }
 }

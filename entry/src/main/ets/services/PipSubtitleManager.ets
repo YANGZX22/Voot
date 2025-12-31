@@ -309,6 +309,11 @@ export class PipSubtitleManager {
       return true;
     } catch (err) {
       const error = err as BusinessError;
+      // Error code 1300015 means repeated PiP operation (already starting/started)
+      if (error.code === 1300015) {
+        console.info(`${TAG} PiP start repeated (already starting/started)`);
+        return true;
+      }
       console.error(`${TAG} Failed to start PiP: ${error.code}, ${error.message}`);
       return false;
     }

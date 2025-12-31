@@ -136,6 +136,24 @@ const WELCOME_FEATURES: Array<WelcomeFeature> = [
     description: '手机、平板间翻译无缝流转。',
     icon: $r('app.media.share'),
     span: 2
+  },
+  {
+    title: '隔空手势',
+    description: '通过手势控制翻译、字幕与传译，无需触摸屏幕。',
+    icon: $r('app.media.airgesture'),
+    span: 2
+  },
+  {
+    title: '润色',
+    description: '智能优化文本表达，让语言更加精练。',
+    icon: $r('app.media.wand'),
+    span: 1
+  },
+  {
+    title: '扫描',
+    description: '拍照识别文字并翻译，轻松处理纸质文档。',
+    icon: $r('app.media.scan'),
+    span: 2
   }
 ];
 
@@ -163,8 +181,8 @@ struct WelcomePage {
   @State isTestingConnection: boolean = false;
 
   // 功能卡片状态
-  @State featureCardScales: number[] = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0];
-  @State breathingScales: number[] = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0];
+  @State featureCardScales: number[] = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0];
+  @State breathingScales: number[] = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0];
   @State activeFeatureCard: number = -1;
   @State currentFeatureIndex: number = 0;
   @State gradientAngle: number = 0;
@@ -300,6 +318,7 @@ struct WelcomePage {
       promptText: 'Act as an elite simultaneous interpreter who only hears imperfect microphone pickups. ' +
       'You receive roughly five-second snippets of speech, so rely on the snippet enclosed in [abc] and reasonably infer missing words while staying faithful to the speaker. ' +
       'Translate that snippet into {0} in a single fluent line, preserving intent and tone even when the audio is noisy. No matter how, you must output the translation directly.',
+      polishPromptText: '你是一个专业的文本润色助手。请对以下文本进行润色优化，使其更加通顺、专业、易读。\n\n要求：\n1. 保持原文的核心意思不变\n2. 优化语法和表达方式\n3. 直接输出润色后的文本，不要添加任何解释\n\n原文：\n{text}',
       openAiKeySlots: createDefaultMultiKeySlots('https://api.openai.com/v1/chat/completions', '', 'gpt-4o-mini'),
       deepLKeySlots: createDefaultMultiKeySlots('https://api-free.deepl.com/v2/translate', '', ''),
       ollamaKeySlots: createDefaultMultiKeySlots('http://localhost:11434/api/chat', '', ''),
@@ -388,6 +407,7 @@ struct WelcomePage {
 
     await ApiConfigStorage.saveSnapshot(context, currentConfig);
     await OnboardingStorage.markCompleted(context);
+    await OnboardingStorage.acceptAllPolicies(context);  // 记录已接受的政策版本
 
     router.replaceUrl({
       url: 'pages/Index'
@@ -422,7 +442,7 @@ struct WelcomePage {
     }
     // Reset all scales
     animateTo({ duration: 300 }, () => {
-      this.breathingScales = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0];
+      this.breathingScales = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0];
     });
   }
 
@@ -676,6 +696,15 @@ struct WelcomePage {
           })
         }
         .width('100%')
+        .margin({ bottom: 12 })
+
+        // Row 3: xx x x (隔空手势、润色、扫描)
+        Row({ space: 12 }) {
+          ForEach(WELCOME_FEATURES.slice(6, 9), (feature: WelcomeFeature, index: number) => {
+            this.FeatureCard(feature, index + 6);
+          })
+        }
+        .width('100%')
       }
       .visualEffect(new hdsEffect.HdsEffectBuilder()
         .pointLight({
@@ -685,7 +714,7 @@ struct WelcomePage {
       .width('90%')
       .constraintSize({ maxWidth: 360 })
       .padding(16)
-      .backgroundColor('#333c1464')
+      .backgroundColor('#8d3c1464')
       .borderRadius(18)
       .onAppear(() => {
         this.startSequentialBreathing();
@@ -988,7 +1017,7 @@ struct WelcomePage {
   @Builder
   KeyGuideSheetContent() {
     Column() {
-      Text('什么是 API Key？')
+      Text('什么是 API 密钥？')
         .fontSize(24)
         .fontWeight(FontWeight.Bold)
         .fontColor('#333333')
@@ -1000,8 +1029,8 @@ struct WelcomePage {
           // Card 1: The Brain
           this.ConceptCard(
             $r('app.media.translation'),
-            'Voot 是您的翻译助手',
-            '聆听 → Voot 本地识别 → 将源语言送到模型提供商 → 翻译成目标语言 → Voot 展示。翻译本身由你选择和信任的“翻译引擎”（如 豆包/ OpenAI / DeepL / Ollama 等）来完成。',
+            'Voot 是您的语言助手',
+            '聆听、输入或扫描 → Voot 本地识别 → 将源语言送到模型提供商 → 翻译成目标语言或获取结果 → Voot 展示。翻译或润色本身由你选择和信任的“翻译引擎”（如 豆包/ OpenAI / DeepL / Ollama 等）来完成。',
             0
           )
 
@@ -1017,7 +1046,7 @@ struct WelcomePage {
           this.ConceptCard(
             $r('app.media.cloud'),
             '如何工作？',
-            '在服务商后台创建 API Key → 粘贴到这里 → 点“完成配置并开始”。之后 Voot 会用它向该服务商发起加密请求并拿回翻译结果；不想使用时也可以在服务商后台随时撤销/重新生成，Voot 并不干预。',
+            '在服务商后台创建 API Key → 粘贴到这里 → 点“完成配置并开始”。之后 Voot 会用它向该服务商发起加密请求并拿回结果；不想使用时也可以在服务商后台随时撤销/重新生成，Voot 并不干预。',
             200
           )
 
@@ -1132,7 +1161,7 @@ struct WelcomePage {
           .width(32)
           .height(32)
           .objectFit(ImageFit.Contain)
-          .fillColor((this.activeFeatureCard === index || feature.title === '隐私守护') ? '#3c1464' : Color.White)
+          .fillColor((this.activeFeatureCard === index || feature.title === '隐私守护' || feature.title === '隔空手势') ? '#3c1464' : Color.White)
       }
       .width('100%')
       .height('100%')
@@ -1140,7 +1169,7 @@ struct WelcomePage {
       .alignItems(HorizontalAlign.Center)
     }
     .type(ButtonType.Normal)
-    .backgroundColor((this.activeFeatureCard === index || feature.title === '隐私守护') ? Color.White : "#b33c1464")
+    .backgroundColor((this.activeFeatureCard === index || feature.title === '隐私守护' || feature.title === '隔空手势') ? Color.White : "#b33c1464")
     .layoutWeight(feature.span)
     .aspectRatio(feature.span)
     .borderRadius(999)
@@ -1156,7 +1185,7 @@ struct WelcomePage {
     })
     .visualEffect(new hdsEffect.HdsEffectBuilder()
       .pointLight({
-        sourceType: (this.activeFeatureCard === index || feature.title === '隐私守护')
+        sourceType: (this.activeFeatureCard === index || feature.title === '隐私守护' || feature.title === '隔空手势')
           ? hdsEffect.PointLightSourceType.SOFT
           : hdsEffect.PointLightSourceType.NONE,
         illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
@@ -1180,7 +1209,7 @@ struct WelcomePage {
   build() {
     Stack() {
       // Background
-      Image($r('app.media.app_background_pic'))
+      Image($r('app.media.app_background_pic_voot_purple'))
         .width('100%')
         .height('100%')
         .objectFit(ImageFit.Cover)
@@ -1441,7 +1470,7 @@ struct DisclaimerDialog {
         .fontColor(Color.Black)
         .margin({ bottom: 16 })
 
-      Text('请确认您了解什么是 ⌈API⌋ 和 ⌈密钥⌋，您也可以稍后进入下一页了解。Voot 是一款依赖大模型运行的翻译工具，不提供任何公共翻译服务或内置密钥。\n\n您需要使用自己的 API Key（包括但不限于 豆包、OpenAI、DeepL 等）来驱动翻译功能。\n\n请确保您遵守相关大模型服务商的使用条款以及当地的使用法规。')
+      Text('请确认您了解什么是〖API〗和〖密钥〗，您也可以稍后进入下一页了解。Voot 是一款依赖大模型运行的语言处理工具，不提供任何公共语言处理服务或内置密钥。\n\n您需要使用自己的 API 密钥（包括但不限于 豆包、OpenAI、DeepL 等）来驱动功能。\n\n请确保您遵守相关大模型服务商的使用条款以及当地允许的法律法规。')
         .fontSize(16)
         .fontColor(Color.Gray)
         .textAlign(TextAlign.Center)

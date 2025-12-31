@@ -71,6 +71,12 @@
               "ohos.want.action.continue"
             ]
           }
+        ],
+        "metadata": [
+          {
+            "name": "ohos.ability.shortcuts",
+            "resource": "$profile:shortcuts_config"
+          }
         ]
       }
     ],

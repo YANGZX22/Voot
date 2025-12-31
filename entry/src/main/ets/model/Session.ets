@@ -7,4 +7,6 @@ export interface Session {
   translatedText: string;
   summary: string;
   isStarred: boolean;
+  type?: 'translation' | 'scan'; // 会话类型
+  imageUri?: string; // 扫描图片的 URI
 }

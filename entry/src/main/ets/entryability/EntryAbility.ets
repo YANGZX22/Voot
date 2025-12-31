@@ -7,6 +7,7 @@ import backgroundTaskManager from '@ohos.resourceschedule.backgroundTaskManager'
 import wantAgent, { WantAgent } from '@ohos.app.ability.wantAgent';
 import { BusinessError } from '@ohos.base';
 import rpc from '@ohos.rpc';
+import router from '@ohos.router';
 
 import formBindingData from '@ohos.app.form.formBindingData';
 import formProvider from '@ohos.app.form.formProvider';
@@ -39,6 +40,9 @@ export default class EntryAbility extends UIAbility {
     
     this.startContinuousTask();
     this.handleWidgetAction(want);
+    
+    // 处理快捷方式跳转参数（冷启动）
+    this.handleShortcutPage(want);
 
     // 检查是否是从流转恢复（冷启动）
     if (launchParam.launchReason === AbilityConstant.LaunchReason.CONTINUATION) {
@@ -83,6 +87,9 @@ export default class EntryAbility extends UIAbility {
   onNewWant(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     console.info('[EntryAbility] onNewWant, launchReason: ' + launchParam.launchReason);
     this.handleWidgetAction(want);
+    
+    // 处理快捷方式跳转参数（热启动）
+    this.handleShortcutPage(want);
     
     // 检查是否是热启动的流转恢复
     if (launchParam.launchReason === AbilityConstant.LaunchReason.CONTINUATION) {
@@ -153,6 +160,22 @@ export default class EntryAbility extends UIAbility {
         }
       } catch (e) {
         console.error('[EntryAbility] handleWidgetAction error: ' + JSON.stringify(e));
+      }
+    }
+  }
+
+  /**
+   * 处理快捷方式跳转参数
+   */
+  private handleShortcutPage(want: Want): void {
+    if (want.parameters && want.parameters['page']) {
+      const page = want.parameters['page'] as string;
+      console.info('[EntryAbility] Shortcut page: ' + page);
+      
+      // 将目标页面存储到 AppStorage，由页面组件监听并跳转
+      if (page === 'TranslationPage' || page === 'PolishPage' || page === 'ScanPage') {
+        AppStorage.setOrCreate('shortcutTargetPage', page);
+        console.info('[EntryAbility] Set shortcutTargetPage: ' + page);
       }
     }
   }

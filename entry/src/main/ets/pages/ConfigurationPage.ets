@@ -3,6 +3,7 @@ import { AuthUtil, LogUtil, ToastUtil } from '@pura/harmony-utils';
 import { userAuth } from '@kit.UserAuthenticationKit';
 import userIAM_userAuth from '@ohos.userIAM.userAuth';
 import { TokenUsageChart } from '../components/TokenUsageChart';
+import { THEMES } from '../model/Theme';
 
 const TITLE_BAR_HEIGHT_MINI: number = 110;
 const AUTH_SUCCESS_CODE: number = userAuth.UserAuthResultCode.SUCCESS
@@ -18,6 +19,7 @@ struct OptionSelectorSheet {
   @Prop isLightEffectBright: boolean = true;
   onSelect: (index: number) => void = () => {};
   onClose: () => void = () => {};
+  @StorageLink('themeColorIndex') themeColorIndex: number = 0;
 
   @State itemScales: number[] = [];
   @State itemOpacities: number[] = [];
@@ -102,16 +104,10 @@ struct OptionSelectorSheet {
         .height(50)
         .fontSize(16)
         .fontWeight(FontWeight.Bold)
-        .fontColor('#3c1464')
+        .fontColor(THEMES[this.themeColorIndex].primaryColor)
         .backgroundColor('#F5FFFFFF')
         .borderRadius(25)
         .margin({ top: 28, bottom: 28 })
-        .shadow({
-          radius: 16,
-          color: '#303c1464',
-          offsetX: 0,
-          offsetY: 6
-        })
         .onClick(() => this.onClose())
     }
     .width('100%')
@@ -122,8 +118,8 @@ struct OptionSelectorSheet {
     .linearGradient({
       angle: 180,
       colors: this.isDarkMode
-        ? [['#F0180530', 0.0], ['#D02a1250', 1.0]]
-        : [['#E03c1464', 0.0], ['#F04a1878', 1.0]]
+        ? [['#FF000000', 0.0], ['#FF000000', 1.0]]
+        : [[THEMES[this.themeColorIndex].primaryColor.replace('#', '#E0'), 0.0], [THEMES[this.themeColorIndex].primaryColor.replace('#', '#F0'), 1.0]]
     })
   }
 
@@ -134,26 +130,27 @@ struct OptionSelectorSheet {
       Text(option)
         .fontSize(15)
         .fontWeight(FontWeight.Medium) // 固定字重，避免宽度变化
-        .fontColor(this.selectedIndex === index ? '#3c1464' : Color.White)
+        .fontColor(this.selectedIndex === index ? THEMES[this.themeColorIndex].primaryColor : Color.White)
         .textAlign(TextAlign.Center)
         .transition(TransitionEffect.OPACITY.animation({ duration: 200, curve: Curve.EaseOut }))
     }
     .padding({ left: 20, right: 20, top: 12, bottom: 12 })
-    .backgroundColor(this.selectedIndex === index ? '#F8FFFFFF' : (this.pressedIndex === index ? '#50FFFFFF' : '#28FFFFFF'))
+    .backgroundColor(this.selectedIndex === index
+      ? Color.White
+      : (this.pressedIndex === index ? '#33FFFFFF' : '#14FFFFFF'))
     .borderRadius(20)
     .margin(5)
     .opacity(this.itemOpacities[index] ?? 1)
+    // 仅在选中时加柔和主题描边
     .border({
       width: 1.5,
-      color: this.selectedIndex === index ? '#A03c1464' : '#20FFFFFF',
+      color: this.selectedIndex === index
+        ? THEMES[this.themeColorIndex].primaryColor
+        : Color.Transparent,
       style: BorderStyle.Solid
     })
-    .shadow(this.selectedIndex === index ? {
-      radius: 12,
-      color: '#50FFFFFF',
-      offsetX: 0,
-      offsetY: 3
-    } : {
+    // 选中态不再增加额外阴影，保持干净
+    .shadow({
       radius: 0,
       color: Color.Transparent,
       offsetX: 0,
@@ -162,8 +159,8 @@ struct OptionSelectorSheet {
     // 使用 renderFit 配合 scale，让缩放不影响布局
     .renderFit(RenderFit.CENTER)
     .scale({
-      x: this.pressedIndex === index ? 0.92 : (this.selectedIndex === index ? 1.02 : 1.0),
-      y: this.pressedIndex === index ? 0.92 : (this.selectedIndex === index ? 1.02 : 1.0)
+      x: this.pressedIndex === index ? 0.95 : (this.selectedIndex === index ? 1.02 : 1.0),
+      y: this.pressedIndex === index ? 0.95 : (this.selectedIndex === index ? 1.02 : 1.0)
     })
     .animation({
       duration: 180,
@@ -223,6 +220,22 @@ struct ConfigCard {
   @State scaleValue: number = 1.0;
   @State bgColor: ResourceColor = '#803c1464';
   @State textColor: ResourceColor = $r('sys.color.font_on_primary');
+  @StorageLink('themeColorIndex') @Watch('onThemeColorChange') themeColorIndex: number = 0;
+
+  aboutToAppear() {
+    // 初始化背景色为当前主题色
+    this.bgColor = THEMES[this.themeColorIndex].secondaryColor;
+  }
+
+  onThemeColorChange() {
+    if (this.activeBtn === this.btnId) {
+      this.bgColor = Color.White;
+      this.textColor = THEMES[this.themeColorIndex].primaryColor;
+    } else {
+      this.bgColor = THEMES[this.themeColorIndex].secondaryColor;
+      this.textColor = Color.White;
+    }
+  }
 
   build() {
     Stack({ alignContent: Alignment.TopEnd }) {
@@ -326,7 +339,7 @@ struct ConfigCard {
       this.activeBtn = this.btnId;
       this.scaleValue = 0.95;
       this.bgColor = Color.White;
-      this.textColor = "#e63c1464";
+      this.textColor = THEMES[this.themeColorIndex].primaryColor;
     })
   }
 
@@ -337,7 +350,7 @@ struct ConfigCard {
     }, () => {
       this.activeBtn = 0;
       this.scaleValue = 1.0;
-      this.bgColor = '#803c1464';
+      this.bgColor = THEMES[this.themeColorIndex].secondaryColor;
       this.textColor = Color.White;
     })
   }
@@ -367,6 +380,7 @@ export struct ConfigurationPage {
   @Prop @Watch('onVisibleChange') isVisible: boolean = false;
   @Prop isLightEffectBright: boolean = true;
   @Prop isDarkMode: boolean = true;
+  @StorageLink('themeColorIndex') @Watch('onThemeColorChange') themeColorIndex: number = 0;
 
   // Callbacks
   onCycleApi: () => void = () => {};
@@ -398,7 +412,7 @@ export struct ConfigurationPage {
   @State disclaimerScale: number = 1.0;
   @State disclaimerBgColor: ResourceColor = '#803c1464';
   @State disclaimerTextColor: ResourceColor = Color.White;
-  @State disclaimerSubTextColor: ResourceColor = $r('sys.color.font_on_secondary');
+  @State disclaimerSubTextColor: ResourceColor = $r('sys.color.font_tertiary');
   
   // API 介绍展开状态 - 卡片动画展开
   @State isApiIntroExpanded: boolean = false;
@@ -412,6 +426,9 @@ export struct ConfigurationPage {
   private animationTimeouts: number[] = [];
 
   aboutToAppear() {
+    // 初始化disclaimer背景色为当前主题色
+    this.disclaimerBgColor = THEMES[this.themeColorIndex].secondaryColor;
+    this.disclaimerSubTextColor = THEMES[this.themeColorIndex].primaryColor.replace('#', '#CC');
     if (this.isVisible) {
       this.playAnimations();
     }
@@ -458,6 +475,18 @@ export struct ConfigurationPage {
     this.animationTimeouts = [];
   }
 
+  onThemeColorChange() {
+    if (this.activeBtn === 99) {
+      this.disclaimerBgColor = Color.White;
+      this.disclaimerTextColor = THEMES[this.themeColorIndex].primaryColor;
+      this.disclaimerSubTextColor = THEMES[this.themeColorIndex].primaryColor;
+    } else {
+      this.disclaimerBgColor = THEMES[this.themeColorIndex].secondaryColor;
+      this.disclaimerTextColor = Color.White;
+      this.disclaimerSubTextColor = THEMES[this.themeColorIndex].primaryColor.replace('#', '#CC');
+    }
+  }
+
   private getLanguageLabels(): string[] {
     if (this.languageDisplayOptions.length > 0) {
       return this.languageDisplayOptions;
@@ -501,8 +530,8 @@ export struct ConfigurationPage {
     animateTo({ duration: 100, curve: Curve.EaseIn }, () => {
       this.disclaimerScale = 0.95;
       this.disclaimerBgColor = Color.White;
-      this.disclaimerTextColor = '#3c1464';
-      this.disclaimerSubTextColor = '#CC3c1464';
+      this.disclaimerTextColor = THEMES[this.themeColorIndex].primaryColor;
+      this.disclaimerSubTextColor = THEMES[this.themeColorIndex].primaryColor;
     });
     
     // 开始长按计时器
@@ -520,9 +549,9 @@ export struct ConfigurationPage {
     
     animateTo({ duration: 100, curve: Curve.EaseOut }, () => {
       this.disclaimerScale = 1.0;
-      this.disclaimerBgColor = '#803c1464';
+      this.disclaimerBgColor = THEMES[this.themeColorIndex].secondaryColor;
       this.disclaimerTextColor = Color.White;
-      this.disclaimerSubTextColor = '#CCFFFFFF';
+      this.disclaimerSubTextColor = THEMES[this.themeColorIndex].primaryColor.replace('#', '#CC');
     });
   }
   
@@ -538,9 +567,9 @@ export struct ConfigurationPage {
     }, () => {
       this.collapsedContentOpacity = 0;
       this.disclaimerScale = 1.0;
-      this.disclaimerBgColor = '#803c1464';
+      this.disclaimerBgColor = THEMES[this.themeColorIndex].secondaryColor;
       this.disclaimerTextColor = Color.White;
-      this.disclaimerSubTextColor = $r('sys.color.font_on_secondary');
+      this.disclaimerSubTextColor = THEMES[this.themeColorIndex].primaryColor.replace('#', '#CC');
     });
     
     // 第二步：展开卡片
@@ -584,7 +613,9 @@ export struct ConfigurationPage {
         this.disclaimerWidth = 'calc(100% - 48vp)';
         this.disclaimerHeight = 120;
         this.disclaimerBorderRadius = 30;
-        this.disclaimerBgColor = '#803c1464';
+        this.disclaimerBgColor = THEMES[this.themeColorIndex].secondaryColor;
+        this.disclaimerTextColor = Color.White;
+        this.disclaimerSubTextColor = THEMES[this.themeColorIndex].primaryColor.replace('#', '#CC');
       });
     }, 150);
     
@@ -653,7 +684,7 @@ export struct ConfigurationPage {
                     .fontSize(24)
                     .fontColor([this.disclaimerTextColor])
                     .margin({ bottom: 8 })
-                  Text('Voot 不提供或转售任何 LLM 密钥')
+                  Text('Voot 不提供或转售任何 API 密钥')
                     .fontSize(16)
                     .fontColor(this.disclaimerTextColor)
                     .fontWeight(FontWeight.Medium)
@@ -661,7 +692,7 @@ export struct ConfigurationPage {
                     .textAlign(TextAlign.Center)
                   Text('长按了解')
                     .fontSize(12)
-                    .fontColor(this.disclaimerSubTextColor)
+                    .fontColor(this.disclaimerTextColor)
                     .margin({ top: 4 })
                 }
                 .opacity(this.collapsedContentOpacity)
@@ -710,7 +741,7 @@ export struct ConfigurationPage {
                             .fontSize(16)
                             .fontColor(Color.White)
                             .fontWeight(FontWeight.Medium)
-                          Text('API 密钥是您访问翻译服务的凭证。Voot 使用此密钥直接与服务商（如 OpenAI）通信。')
+                          Text('API 密钥是您访问大模型服务的凭证。Voot 使用此密钥直接与服务商（如 OpenAI、豆包）通信。')
                             .fontSize(14)
                             .fontColor('#CCFFFFFF')
                             .lineHeight(20)
@@ -847,7 +878,7 @@ export struct ConfigurationPage {
                     message: '点击切换可用的翻译 / LLM 服务：OpenAI、DeepL、Ollama、Doubao。选择后请在“配置API”里填写对应地址、（模型）和密钥。\nDoubao 并非仅限于“豆包”，支持广义HTTP请求大模型。',
                     confirm: {
                       value: '我知道了',
-                      fontColor: '#3c1464',
+                      fontColor: THEMES[this.themeColorIndex].primaryColor,
                       action: () => {}
                     }
                   })
@@ -871,10 +902,10 @@ export struct ConfigurationPage {
                 onInfoClick: () => {
                   AlertDialog.show({
                     title: '配置 API 说明',
-                    message: '使用您的屏幕锁定信息保护您的密钥。',
+                    message: '使用您的屏幕锁定信息保护您的密钥与配置。',
                     confirm: {
                       value: '我知道了',
-                      fontColor: '#3c1464',
+                      fontColor: THEMES[this.themeColorIndex].primaryColor,
                       action: () => {}
                     }
                   })
@@ -899,10 +930,10 @@ export struct ConfigurationPage {
                 onInfoClick: () => {
                   AlertDialog.show({
                     title: '原始语言说明',
-                    message: '暂时仅支持英语。',
+                    message: '翻译功能的原始语言，暂时仅支持英语。',
                     confirm: {
                       value: '我知道了',
-                      fontColor: '#3c1464',
+                      fontColor: THEMES[this.themeColorIndex].primaryColor,
                       action: () => {}
                     }
                   })
@@ -925,10 +956,10 @@ export struct ConfigurationPage {
                 onInfoClick: () => {
                   AlertDialog.show({
                     title: '目标语言说明',
-                    message: '翻译结果将输出为目标语言，点击切换下一个语言。',
+                    message: '翻译、扫描结果将输出为目标语言，点击切换下一个语言。',
                     confirm: {
                       value: '我知道了',
-                      fontColor: '#3c1464',
+                      fontColor: THEMES[this.themeColorIndex].primaryColor,
                       action: () => {}
                     }
                   })
@@ -948,7 +979,7 @@ export struct ConfigurationPage {
                 isDarkMode: this.isDarkMode,
                 callback: () => this.openOptionSheet(
                   '翻译间隔',
-                  '设置两次翻译请求之间的最小时间间隔（秒）',
+                  '设置两次翻译请求之间的最小时间间隔',
                   this.intervalOptions.map(v => v + ' 秒'),
                   this.selectedIntervalIndex,
                   'interval'
@@ -960,7 +991,7 @@ export struct ConfigurationPage {
                     message: '设置两次翻译请求之间的最小时间间隔（秒），同时也作为传译的时间间隔。\n较短的间隔能提供更实时的反馈，但会消耗更多 Token。\n默认间隔推荐为5。',
                     confirm: {
                       value: '我知道了',
-                      fontColor: '#3c1464',
+                      fontColor: THEMES[this.themeColorIndex].primaryColor,
                       action: () => {}
                     }
                   })
@@ -980,8 +1011,8 @@ export struct ConfigurationPage {
                 isDarkMode: this.isDarkMode,
                 callback: () => this.openOptionSheet(
                   '历史上下文',
-                  '更多上下文有助于模型理解语境，但会消耗更多 Token',
-                  this.contextsOptions.map(v => v + ' 轮对话'),
+                  '用于翻译功能。更多上下文有助于模型理解语境，但会消耗更多 Token',
+                  this.contextsOptions.map(v => v + ' 轮'),
                   this.selectedContextsIndex,
                   'contexts'
                 ),
@@ -989,10 +1020,10 @@ export struct ConfigurationPage {
                 onInfoClick: () => {
                   AlertDialog.show({
                     title: '上下文说明',
-                    message: '设置发送给翻译模型的历史对话轮数。\n更多的上下文有助于模型理解语境，提高翻译准确度，但会消耗更多 Token。\n默认上下文推荐为3。',
+                    message: '适用于翻译功能。设置发送给翻译模型的历史对话轮数。\n更多的上下文有助于模型理解语境，提高翻译准确度，但会消耗更多 Token。\n默认上下文推荐为3。',
                     confirm: {
                       value: '我知道了',
-                      fontColor: '#3c1464',
+                      fontColor: THEMES[this.themeColorIndex].primaryColor,
                       action: () => {}
                     }
                   })
@@ -1012,7 +1043,7 @@ export struct ConfigurationPage {
                 isDarkMode: this.isDarkMode,
                 callback: () => this.openOptionSheet(
                   '模型温度',
-                  '较低更确定，较高更随机（推荐 0.3）',
+                  '较低更确定，较高更随机',
                   this.temperatureOptions,
                   this.selectedTemperatureIndex,
                   'temperature'
@@ -1021,10 +1052,10 @@ export struct ConfigurationPage {
                 onInfoClick: () => {
                   AlertDialog.show({
                     title: '温度说明',
-                    message: '控制模型输出的随机性。\n较低的值（如0.2）使输出更集中和确定。较高的值（如0.8）使输出更随机和多样。\n默认温度推荐为0.3，且不建议过大。',
+                    message: '适用于翻译、润色和扫描。控制模型输出的随机性。\n较低的值使输出更集中和确定。较高的值使输出更随机和多样。\n默认温度推荐为0.3，且不建议过大。',
                     confirm: {
                       value: '我知道了',
-                      fontColor: '#3c1464',
+                      fontColor: THEMES[this.themeColorIndex].primaryColor,
                       action: () => {}
                     }
                   })
@@ -1044,8 +1075,8 @@ export struct ConfigurationPage {
                 isDarkMode: this.isDarkMode,
                 callback: () => this.openOptionSheet(
                   '最大 Token',
-                  '单次回复的最大长度（推荐 256）',
-                  this.maxTokensOptions.map(v => v + ' tokens'),
+                  '单次回复的最大长度',
+                  this.maxTokensOptions.map(v => v),
                   this.selectedMaxTokensIndex,
                   'maxTokens'
                 ),
@@ -1053,10 +1084,10 @@ export struct ConfigurationPage {
                 onInfoClick: () => {
                   AlertDialog.show({
                     title: '最大 Token 说明',
-                    message: '设置模型单次回复生成的最大 Token 数量。\n较小的值（如128）适合简短回复，响应更快。较大的值（如512）允许更长的回复，但可能增加延迟。\n默认最大 Token 推荐为256。',
+                    message: '适用于翻译、润色和扫描。设置模型单次回复生成的最大 Token 数量。\n较小的值适合简短回复，响应更快。较大的值允许更长的回复，但可能增加延迟。\n默认最大 Token 推荐为256。',
                     confirm: {
                       value: '我知道了',
-                      fontColor: '#3c1464',
+                      fontColor: THEMES[this.themeColorIndex].primaryColor,
                       action: () => {}
                     }
                   })
@@ -1075,7 +1106,7 @@ export struct ConfigurationPage {
                 isLightEffectBright: this.isLightEffectBright,
                 isDarkMode: this.isDarkMode,
                 callback: () => this.openOptionSheet(
-                  '语音检测灵敏度',
+                  'VAD 灵敏度',
                   '较高更敏感但可能误报噪音',
                   this.vadSensitivityOptions,
                   this.selectedVadSensitivityIndex,
@@ -1085,10 +1116,10 @@ export struct ConfigurationPage {
                 onInfoClick: () => {
                   AlertDialog.show({
                     title: 'VAD 灵敏度说明',
-                    message: '设置语音活动检测的灵敏度。\n较高的灵敏度更容易检测到语音，但也可能误报噪音。\n默认为中。',
+                    message: '适用于翻译功能。设置语音活动检测的灵敏度。\n较高的灵敏度更容易检测到语音，但也可能误报噪音。\n默认 VAD 灵敏度推荐为中。',
                     confirm: {
                       value: '我知道了',
-                      fontColor: '#3c1464',
+                      fontColor: THEMES[this.themeColorIndex].primaryColor,
                       action: () => {}
                     }
                   })
@@ -1117,10 +1148,10 @@ export struct ConfigurationPage {
                 onInfoClick: () => {
                   AlertDialog.show({
                     title: '最小匹配长度说明',
-                    message: '设置智能拼接文本时的最小重叠字符数。\n较大的值能减少误拼接，但可能导致重复。\n默认为5。',
+                    message: '适用于翻译功能。设置智能拼接文本时的最小重叠字符数。\n较大的值能减少误拼接，但可能导致重复。\n默认最小匹配长度推荐为5。',
                     confirm: {
                       value: '我知道了',
-                      fontColor: '#3c1464',
+                      fontColor: THEMES[this.themeColorIndex].primaryColor,
                       action: () => {}
                     }
                   })
@@ -1172,11 +1203,11 @@ export struct ConfigurationPage {
             },
             menuStyle: {
               backgroundColor: $r('sys.color.comp_background_tertiary'),
-              iconColor: $r('sys.color.icon_tertiary')
+              iconColor: $r('sys.color.icon_on_tertiary')
             },
             backIconStyle: {
               backgroundColor: $r('sys.color.comp_background_tertiary'),
-              iconColor: $r('sys.color.icon_tertiary')
+              iconColor: $r('sys.color.icon_on_tertiary')
             }
           }
         },

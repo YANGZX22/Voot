@@ -2,6 +2,7 @@
   "src": [
     "pages/WelcomePage",
     "pages/Index",
-    "pages/SessionDetailPage"
+    "pages/SessionDetailPage",
+    "pages/HistoryTabPage"
   ]
 }

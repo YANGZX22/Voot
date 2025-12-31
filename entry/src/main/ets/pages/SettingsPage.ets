@@ -6,8 +6,10 @@ import bundleManager from '@ohos.bundle.bundleManager';
 import { PolicySheetType, PolicySheetContent, getPolicySheetConfig } from '../components/PolicySheet';
 import promptAction from '@ohos.promptAction';
 import router from '@ohos.router';
+import { THEMES, Theme } from '../model/Theme';
 
 const TITLE_BAR_HEIGHT_MINI: number = 94;
+const SETTINGS_SECTION_COUNT: number = 6;
 type ToggleKey = 'subtitles' | 'liveWindow';
 
 @CustomDialog
@@ -17,6 +19,7 @@ struct CustomDialogSubtitle {
   message: string = '';
   confirmText: string = '我知道了';
   onDismiss: () => void = () => {};
+  @StorageLink('themeColorIndex') themeColorIndex: number = 0;
 
   build() {
     Column() {
@@ -31,7 +34,7 @@ struct CustomDialogSubtitle {
         .margin({ bottom: 20 })
       Button(this.confirmText)
         .type(ButtonType.Capsule)
-        .backgroundColor("#e63c1464")
+        .backgroundColor(THEMES[this.themeColorIndex].primaryColor)
         .onClick(() => {
           this.controller.close();
           this.onDismiss();
@@ -55,6 +58,7 @@ struct CustomDialogLiveWindows {
   message: string = '';
   confirmText: string = '我知道了';
   onDismiss: () => void = () => {};
+  @StorageLink('themeColorIndex') themeColorIndex: number = 0;
 
   build() {
     Column() {
@@ -69,7 +73,7 @@ struct CustomDialogLiveWindows {
         .margin({ bottom: 20 })
       Button(this.confirmText)
         .type(ButtonType.Capsule)
-        .backgroundColor("#e63c1464")
+        .backgroundColor(THEMES[this.themeColorIndex].primaryColor)
         .onClick(() => {
           this.controller.close();
           this.onDismiss();
@@ -94,12 +98,13 @@ struct SubtitleStyleDialog {
   @Link subtitleHeight: number
   onConfirm: () => void = () => {}
   onChange: () => void = () => {}
+  @StorageLink('themeColorIndex') themeColorIndex: number = 0;
 
   // Predefined colors - Modern Palette
   private colors: string[] = [
     '#FFFFFF', // White
     '#1A1A1A', // Soft Black
-    '#3c1464', // Brand Purple
+    '#3c1464', // Voot Purple
     '#ED3A55', // Huawei Brand Red
     '#2ED573', // Emerald Green
     '#0A59F7', // Huawei Brand Blue
@@ -119,12 +124,12 @@ struct SubtitleStyleDialog {
       Row() {
         Text('字体大小')
         Slider({ value: this.fontSize, min: 10, max: 50, step: 1 })
+          .selectedColor(THEMES[this.themeColorIndex].primaryColor)
+          .layoutWeight(1)
           .onChange((value: number) => {
             this.fontSize = value
             this.onChange()
           })
-          .selectedColor('#3c1464')
-          .layoutWeight(1)
         Text(this.fontSize.toFixed(0))
           .width(40)
           .textAlign(TextAlign.End)
@@ -136,12 +141,12 @@ struct SubtitleStyleDialog {
       Row() {
         Text('字幕高度')
         Slider({ value: this.subtitleHeight, min: 5, max: 30, step: 1 })
+          .selectedColor(THEMES[this.themeColorIndex].primaryColor)
+          .layoutWeight(1)
           .onChange((value: number) => {
             this.subtitleHeight = value
             this.onChange()
           })
-          .selectedColor('#3c1464')
-          .layoutWeight(1)
         Text(this.subtitleHeight.toFixed(0))
           .width(40)
           .textAlign(TextAlign.End)
@@ -198,13 +203,208 @@ struct SubtitleStyleDialog {
           this.onConfirm()
           this.controller.close()
         })
-        .backgroundColor('#3c1464')
+        .backgroundColor(THEMES[this.themeColorIndex].primaryColor)
         .width('80%')
     }
     .padding(24)
     .backgroundColor(Color.Transparent)
     .borderRadius(24)
     .width('90%')
+  }
+}
+
+@Component
+struct SettingsItem {
+  @Prop title: string
+  @Prop subtitle: string = ''
+  @Builder emptyBuilder() {}
+  @BuilderParam rightContent: () => void = this.emptyBuilder
+  @Prop hasArrow: boolean = false
+  onClickItem: () => void = () => {}
+  @StorageLink('themeColorIndex') themeColorIndex: number = 0
+  @Prop isDarkMode: boolean = false
+
+  build() {
+    Row() {
+      Column() {
+        Text(this.title)
+          .fontSize(16)
+          .fontWeight(FontWeight.Medium)
+          .fontColor(Color.White)
+          .alignSelf(ItemAlign.Start)
+        
+        if (this.subtitle) {
+          Text(this.subtitle)
+            .fontSize(12)
+            .fontColor($r('sys.color.font_on_secondary'))
+            .margin({ top: 4 })
+            .alignSelf(ItemAlign.Start)
+        }
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+
+      if (this.rightContent) {
+        this.rightContent()
+      }
+
+      if (this.hasArrow) {
+        SymbolGlyph($r('sys.symbol.chevron_right'))
+          .fontSize(20)
+          .fontColor([$r('sys.color.icon_on_primary')])
+          .margin({ left: 8 })
+      }
+    }
+    .width('100%')
+    .padding({ left: 16, right: 16, top: 14, bottom: 14 })
+    .backgroundColor(Color.Transparent)
+    .onClick(() => {
+      if (this.onClickItem) {
+        this.onClickItem();
+      }
+    })
+  }
+}
+
+@Component
+struct SettingsGroup {
+  @Prop title: string
+  @Prop icon: Resource
+  @Link isOpen: boolean
+  @BuilderParam content: () => void
+  @StorageLink('themeColorIndex') themeColorIndex: number = 0
+  @Prop isDarkMode: boolean = false
+
+  build() {
+    Column() {
+      // Header
+      Row() {
+        Row({ space: 12 }) {
+          Stack({ alignContent: Alignment.Center }) {
+            Circle({ width: 32, height: 32 })
+              .fill(THEMES[this.themeColorIndex].primaryColor)
+              .opacity(this.isOpen ? 0.35 : 0.22)
+            SymbolGlyph(this.icon)
+              .fontSize(16)
+              .fontColor([Color.White])
+          }
+          .width(32)
+          .height(32)
+
+          Text(this.title)
+            .fontColor(Color.White)
+            .fontSize(16)
+            .fontWeight(FontWeight.Medium)
+        }
+        
+        Blank()
+        
+        SymbolGlyph($r('sys.symbol.chevron_down'))
+          .fontSize(16)
+          .fontColor([Color.White])
+          .rotate({ angle: this.isOpen ? 180 : 0 })
+          .animation({ duration: 300, curve: Curve.FastOutSlowIn })
+      }
+      .width('100%')
+      .height(64)
+      .padding({ left: 16, right: 16 })
+      .onClick(() => {
+        animateTo({ duration: 300, curve: Curve.FastOutSlowIn }, () => {
+          this.isOpen = !this.isOpen;
+        })
+      })
+
+      // Content
+      if (this.isOpen) {
+        Column() {
+          this.content()
+        }
+        .width('100%')
+        .transition(TransitionEffect.OPACITY.animation({ duration: 300, curve: Curve.FastOutSlowIn }).combine(TransitionEffect.translate({ y: -10 })))
+      }
+    }
+    .width('100%')
+    .backgroundColor(this.isDarkMode ? '#1A000000' : THEMES[this.themeColorIndex].tertiaryColor)
+    .borderRadius(24)
+    .clip(true)
+    .margin({ bottom: 16 })
+    .border({ width: 1, color: this.isDarkMode ? '#26FFFFFF' : '#40FFFFFF' })
+    .shadow({ radius: 20, color: '#1A000000', offsetX: 0, offsetY: 8 })
+  }
+}
+
+@Component
+struct GestureActionRow {
+  @Prop title: string
+  @Prop value: string
+  onChange: (val: string) => void = () => {}
+  @StorageLink('themeColorIndex') themeColorIndex: number = 0
+  @Prop isDarkMode: boolean = false
+
+  getActionIndex(val: string): number {
+    switch(val) {
+      case 'none': return 0;
+      case 'record': return 1;
+      case 'subtitle': return 2;
+      case 'translate': return 3;
+      default: return 0;
+    }
+  }
+
+  getActionLabel(val: string): string {
+    switch(val) {
+      case 'none': return '无';
+      case 'record': return '开关录音';
+      case 'subtitle': return '开关字幕';
+      case 'translate': return '开关传译';
+      default: return '无';
+    }
+  }
+
+  getActionValue(index: number): string {
+    switch(index) {
+      case 0: return 'none';
+      case 1: return 'record';
+      case 2: return 'subtitle';
+      case 3: return 'translate';
+      default: return 'none';
+    }
+  }
+
+  build() {
+    Row() {
+      Text(this.title)
+        .fontColor(Color.White)
+        .fontSize(14)
+      Blank()
+
+      Select([
+        { value: '无', icon: $r('sys.symbol.xmark') },
+        { value: '开关录音', icon: $r('sys.symbol.mic') },
+        { value: '开关字幕', icon: $r('sys.symbol.doc_text') },
+        { value: '开关传译', icon: $r('sys.symbol.mic') }
+      ])
+        .selected(this.getActionIndex(this.value))
+        .value(this.getActionLabel(this.value))
+        .font({ size: 14, weight: FontWeight.Medium })
+        .fontColor(Color.White)
+        .selectedOptionFont({ size: 14, weight: FontWeight.Medium })
+        .optionFont({ size: 14, weight: FontWeight.Medium })
+        .backgroundColor(THEMES[this.themeColorIndex].secondaryColor)
+        .onSelect((index: number) => {
+          this.onChange(this.getActionValue(index));
+        })
+        .selectedOptionBgColor(THEMES[this.themeColorIndex].secondaryColor)
+        .selectedOptionFontColor($r('sys.color.font_on_primary'))
+        .menuBackgroundBlurStyle(BlurStyle.Thin)
+
+    }
+    .width('100%')
+    .height(56)
+    .padding({ left: 12, right: 12 })
+    .borderRadius(18)
+    .backgroundColor(THEMES[this.themeColorIndex].tertiaryColor)
+    .margin({ bottom: 8 })
   }
 }
 
@@ -221,6 +421,18 @@ export struct SettingsPage {
   @Link isLightEffectBright: boolean;
   @Link themeMode: number;  // 0 = 浅色, 1 = 深色, 2 = 跟随系统
   @Prop isDarkMode: boolean = true;  // 计算后的暗色模式状态（用于光效）
+
+  // Theme Color
+  @StorageLink('themeColorIndex') @Watch('onThemeColorChange') themeColorIndex: number = 0;
+
+  onThemeColorChange() {
+    this.settingsBtnBgColor = THEMES[this.themeColorIndex].primaryColor;
+  }
+
+  // Air Gestures Settings
+  @StorageLink('airGesturesEnabled') airGesturesEnabled: boolean = false;
+  @StorageLink('airGestureUpAction') airGestureUpAction: string = 'record';
+  @StorageLink('airGestureDownAction') airGestureDownAction: string = 'translate';
 
   // Callbacks
   onTogglePipSubtitle: (isOn: boolean) => void = () => {}; // PiP 字幕切换回调
@@ -245,16 +457,39 @@ export struct SettingsPage {
     alignment: DialogAlignment.Center,
   })
 
-
-  // State for Lighting Effect
-  // 0 = None, 1 = Mic Button, 2 = Translate Button
-
-  @State activeBtn: number = 0;
-
-  @State button1Scale: number = 1.0;
   @State appVersion: string = '';
+  @State pageOpacity: number = 0;
+  @State pageOffsetY: number = 18;
+  @State pageScale: number = 0.98;
+  @State backgroundAngle: number = 150;
+  @State sectionOpacities: number[] = new Array(SETTINGS_SECTION_COUNT).fill(0);
+  @State sectionOffsets: number[] = new Array(SETTINGS_SECTION_COUNT).fill(16);
 
   async aboutToAppear() {
+    this.settingsBtnBgColor = THEMES[this.themeColorIndex].primaryColor;
+    this.pageOpacity = 0;
+    this.pageOffsetY = 18;
+    this.pageScale = 0.98;
+    this.backgroundAngle = 150;
+    this.sectionOpacities = new Array(SETTINGS_SECTION_COUNT).fill(0);
+    this.sectionOffsets = new Array(SETTINGS_SECTION_COUNT).fill(16);
+
+    setTimeout(() => {
+      animateTo({ duration: 320, curve: Curve.FastOutSlowIn }, () => {
+        this.pageOpacity = 1;
+        this.pageOffsetY = 0;
+        this.pageScale = 1.0;
+      });
+    }, 40);
+
+    for (let i = 0; i < SETTINGS_SECTION_COUNT; i++) {
+      setTimeout(() => {
+        animateTo({ duration: 280, curve: Curve.FastOutSlowIn }, () => {
+          this.sectionOpacities[i] = 1;
+          this.sectionOffsets[i] = 0;
+        });
+      }, 120 + i * 70);
+    }
     try {
       let bundleInfo = await bundleManager.getBundleInfoForSelf(bundleManager.BundleFlag.GET_BUNDLE_INFO_WITH_APPLICATION);
       this.appVersion = bundleInfo.versionName;
@@ -263,7 +498,6 @@ export struct SettingsPage {
     }
   }
 
-  @State button2Scale: number = 1.0;
   @State liveWindowEnabled: boolean = false;
   @State isPolicySheetOpen: boolean = false;
   @State currentPolicySheet: PolicySheetType = PolicySheetType.Privacy;
@@ -274,30 +508,15 @@ export struct SettingsPage {
   @State settingsBtnTextColor: ResourceColor = Color.White;
   @State isSettingsBtnActive: boolean = false;
 
-  // State for Dark Mode button
-  @State darkModeBtnScale: number = 1.0;
-  @State isDarkModeBtnActive: boolean = false;
+  // Section expand states
+  @State isSubtitleSectionOpen: boolean = true;
+  @State isTranslateSectionOpen: boolean = true;
+  @State isGestureSectionOpen: boolean = false;
+  @State isAppearanceSectionOpen: boolean = false;
+  @State isInfoSectionOpen: boolean = false;
+  @State isFaqSectionOpen: boolean = false;
 
-  // State for Terms button
-  @State termsBtnScale: number = 1.0;
-  @State isTermsBtnActive: boolean = false;
-
-  // State for Privacy button
-  @State privacyBtnScale: number = 1.0;
-  @State isPrivacyBtnActive: boolean = false;
-
-  // State for About button
-  @State aboutBtnScale: number = 1.0;
-  @State isAboutBtnActive: boolean = false;
-
-  private liveWindowDialogController?: CustomDialogController;
   private policyWebController: webview.WebviewController = new webview.WebviewController();
-
-  private handleDialogDismiss(key: ToggleKey): void {
-    if (key === 'liveWindow') {
-      this.liveWindowEnabled = false;
-    }
-  }
 
   private openPolicySheet(sheet: PolicySheetType): void {
     this.currentPolicySheet = sheet;
@@ -309,509 +528,348 @@ export struct SettingsPage {
     this.isPolicySheetOpen = false;
   }
 
-  private pressSettingsButton(): void {
-    animateTo({ duration: 250, curve: Curve.EaseIn }, () => {
-      this.isSettingsBtnActive = true;
-      this.settingsBtnScale = 0.9;
-      this.settingsBtnBgColor = Color.White;
-      this.settingsBtnTextColor = '#3c1464';
-    });
+  @Builder
+  ThemeListBuilder() {
+    Row({ space: 10 }) {
+      ForEach(THEMES, (theme: Theme, index: number) => {
+        Stack({ alignContent: Alignment.Center }) {
+          Circle({ width: 28, height: 28 })
+            .fill(theme.primaryColor)
+            .shadow(this.themeColorIndex === index ? { radius: 12, color: theme.primaryColor, offsetX: 0, offsetY: 4 } : { radius: 0, color: Color.Transparent, offsetX: 0, offsetY: 0 })
+            .scale({ x: this.themeColorIndex === index ? 1.0 : 0.85, y: this.themeColorIndex === index ? 1.0 : 0.85 })
+            .animation({ duration: 250, curve: Curve.FastOutSlowIn })
+          
+          if (this.themeColorIndex === index) {
+            SymbolGlyph($r('sys.symbol.checkmark'))
+              .fontSize(14)
+              .fontColor([Color.White])
+              .fontWeight(FontWeight.Bold)
+          }
+        }
+        .width(36)
+        .height(36)
+        .borderRadius(18)
+        .clip(true)
+        .backgroundColor(this.themeColorIndex === index ? '#20FFFFFF' : Color.Transparent)
+        .border({ width: this.themeColorIndex === index ? 2 : 0, color: Color.White })
+        .animation({ duration: 250, curve: Curve.FastOutSlowIn })
+        .onClick(() => {
+          animateTo({ duration: 250, curve: Curve.FastOutSlowIn }, () => {
+            this.themeColorIndex = index;
+          })
+        })
+      })
+    }
   }
 
-  private releaseSettingsButton(): void {
-    animateTo({ duration: 200, curve: Curve.EaseOut }, () => {
-      this.isSettingsBtnActive = false;
-      this.settingsBtnScale = 1.0;
-      this.settingsBtnBgColor = '#3c1464';
-      this.settingsBtnTextColor = Color.White;
-    });
+  @Builder
+  PipToggleItem() {
+    SettingsItem({
+      title: '画中画字幕',
+      subtitle: '在应用外也可显示翻译'
+    }) {
+      Toggle({ type: ToggleType.Switch, isOn: this.isPipSubtitleEnabled })
+        .selectedColor(THEMES[this.themeColorIndex].primaryColor)
+        .enabled(this.isPipAvailable)
+        .onChange((isOn: boolean) => {
+          this.onTogglePipSubtitle(isOn);
+        })
+    }
+
+    SettingsItem({
+      title: '字幕样式',
+      hasArrow: true,
+      onClickItem: () => {
+        this.dialogController.open()
+      }
+    })
   }
 
-  private pressButtonEffect(btnId: number): void {
-    animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => {
-      if (btnId === 1) { this.isDarkModeBtnActive = true; this.darkModeBtnScale = 0.9; }
-      if (btnId === 2) { this.isTermsBtnActive = true; this.termsBtnScale = 0.9; }
-      if (btnId === 3) { this.isPrivacyBtnActive = true; this.privacyBtnScale = 0.9; }
-      if (btnId === 4) { this.isAboutBtnActive = true; this.aboutBtnScale = 0.9; }
-    });
+  @Builder
+  RealtimeReadingItem() {
+    SettingsItem({
+      title: '实时朗读',
+      subtitle: '打开后，翻译成功时传译将自动开启'
+    }) {
+      Toggle({ type: ToggleType.Switch, isOn: this.isRealtimeReadingEnabled })
+        .selectedColor(THEMES[this.themeColorIndex].primaryColor)
+        .onChange((isOn: boolean) => {
+          this.isRealtimeReadingEnabled = isOn;
+          this.onToggleRealtimeReading();
+        })
+    }
   }
 
-  private releaseButtonEffect(btnId: number): void {
-    animateTo({ duration: 200, curve: Curve.EaseOut }, () => {
-      if (btnId === 1) { this.isDarkModeBtnActive = false; this.darkModeBtnScale = 1.0; }
-      if (btnId === 2) { this.isTermsBtnActive = false; this.termsBtnScale = 1.0; }
-      if (btnId === 3) { this.isPrivacyBtnActive = false; this.privacyBtnScale = 1.0; }
-      if (btnId === 4) { this.isAboutBtnActive = false; this.aboutBtnScale = 1.0; }
-    });
+  @Builder
+  AirGestureToggleItem() {
+    SettingsItem({
+      title: '启用隔空手势',
+      subtitle: '上下滑动控制录音/字幕/传译'
+    }) {
+      Toggle({ type: ToggleType.Switch, isOn: this.airGesturesEnabled })
+        .selectedColor(THEMES[this.themeColorIndex].primaryColor)
+        .onChange((isOn: boolean) => {
+          this.airGesturesEnabled = isOn;
+        })
+    }
+  }
+
+  @Builder
+  AppearanceItems() {
+    SettingsItem({
+      title: '主题模式',
+      subtitle: '深色模式下光效被禁用'
+    }) {
+      CapsuleSegmentButtonV2({
+        items: new SegmentButtonV2Items([
+          { text: '浅色' },
+          { text: '深色' },
+          { text: '自动' }
+        ]),
+        selectedIndex: this.themeMode,
+        $selectedIndex: (index: number) => {
+          this.themeMode = index;
+          this.onThemeModeChange(index);
+        },
+        buttonBackgroundColor: ColorMetrics.resourceColor($r('sys.color.comp_background_tertiary')),
+        itemSelectedBackgroundColor: ColorMetrics.resourceColor(THEMES[this.themeColorIndex].primaryColor),
+        itemFontColor: ColorMetrics.resourceColor($r('sys.color.font_on_secondary'))
+      })
+        .width(150)
+    }
+
+    SettingsItem({
+      title: '全局主题',
+      subtitle: THEMES[this.themeColorIndex].name
+    }) {
+      this.ThemeListBuilder()
+    }
+
+    SettingsItem({
+      title: '光效亮度',
+      subtitle: '按下部分卡片或按钮的点光源效果'
+    }) {
+      CapsuleSegmentButtonV2({
+        items: new SegmentButtonV2Items([
+          { text: '明亮' },
+          { text: '柔和' }
+        ]),
+        selectedIndex: this.isLightEffectBright ? 0 : 1,
+        $selectedIndex: (index: number) => {
+          this.isLightEffectBright = index === 0;
+        },
+        buttonBackgroundColor: ColorMetrics.resourceColor($r('sys.color.comp_background_tertiary')),
+        itemSelectedBackgroundColor: ColorMetrics.resourceColor(THEMES[this.themeColorIndex].primaryColor),
+        itemFontColor: ColorMetrics.resourceColor($r('sys.color.font_on_secondary'))
+      })
+        .width(100)
+        .enabled(!this.isDarkMode)
+        .opacity(this.isDarkMode ? 0.5 : 1.0)
+    }
   }
 
   build() {
-    HdsNavigation() {
-      Scroll() {
-        Column() {
-          Blank().height(TITLE_BAR_HEIGHT_MINI);
+    Stack() {
+      HdsNavigation() {
+        Scroll() {
+          Column() {
+            Blank().height(TITLE_BAR_HEIGHT_MINI);
 
-          Text('字幕')
-            .fontColor(Color.White)
-            .fontSize(16)
-            .fontWeight(FontWeight.Medium)
-            .margin({ bottom: 8 });
-
-          // PiP 字幕开关
-          Row() {
-            Blank().width(12)
+            // Subtitle Section
             Column() {
-              Text('画中画字幕').fontColor(Color.White).alignSelf(ItemAlign.Start)
-              Text('在应用外也可显示翻译')
-                .fontColor($r('sys.color.font_on_secondary'))
-                .fontSize(12)
-                .alignSelf(ItemAlign.Start)
-            }
-
-            Blank()
-
-            Toggle({
-              type: ToggleType.Switch,
-              isOn: this.isPipSubtitleEnabled
-            })
-            .selectedColor('#3c1464')
-            .enabled(this.isPipAvailable)
-            .onChange((isOn: boolean) => {
-              this.onTogglePipSubtitle(isOn);
-            })
-
-            Blank().width(12)
-          }
-          .width('100%')
-          .height(70)
-          .padding(4)
-          .margin({ bottom: 12 })
-          .borderRadius(24)
-          .backgroundColor(this.isPipAvailable ? '#803c1464' : '#403c1464')
-          .opacity(this.isPipAvailable ? 1.0 : 0.6)
-          .visualEffect(new hdsEffect.HdsEffectBuilder()
-            .pointLight({
-              illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE : hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
-            })
-            .buildEffect())
-
-          Row() {
-            Blank().width(12)
-
-            Text('字幕样式').fontColor(Color.White)
-
-            Blank()
-
-            Button('设置')
-              .type(ButtonType.Capsule)
-              .backgroundColor(this.settingsBtnBgColor)
-              .fontColor(this.settingsBtnTextColor)
-              .height(30)
-              .scale({ x: this.settingsBtnScale, y: this.settingsBtnScale })
-              .visualEffect(new hdsEffect.HdsEffectBuilder()
-                .pointLight({
-                  sourceType: this.isDarkMode ? hdsEffect.PointLightSourceType.NONE :
-                    (this.isSettingsBtnActive ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT) : hdsEffect.PointLightSourceType.NONE),
-                  illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE :
-                    (this.isSettingsBtnActive ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT : hdsEffect.PointLightIlluminatedType.NONE)
-                })
-                .buildEffect())
-              .onTouch((event: TouchEvent) => {
-                if (event.type === TouchType.Down) {
-                  this.pressSettingsButton();
-                } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
-                  this.releaseSettingsButton();
-                }
-              })
-              .onClick(() => {
-                this.dialogController.open()
-              })
-
-            Blank().width(12)
-          }
-          .width('100%')
-          .height(60)
-          .padding(4)
-          .margin({ bottom: 12 })
-          .borderRadius(24)
-          .backgroundColor('#803c1464')
-          .visualEffect(new hdsEffect.HdsEffectBuilder()
-            .pointLight({
-              illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE : hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
-            })
-            .buildEffect())
-
-          Blank().height(12)
-
-          Row() {
-            Text('传译')
-              .fontColor(Color.White)
-              .fontSize(16)
-              .fontWeight(FontWeight.Medium)
-
-            SymbolGlyph($r('sys.symbol.info_circle'))
-              .fontSize(16)
-              .fontColor([Color.White])
-              .margin({ left: 4 })
-              .onClick(() => {
-                AlertDialog.show({
-                  title: '传译说明',
-                  message: '开启实时朗读开关后，当翻译成功时传译器会自动打开。\n',
-                  confirm: {
-                    value: '我知道了',
-                    fontColor: '#3c1464',
-                    action: () => {}
-                  }
-                })
-              })
-          }
-          .width('100%')
-          .justifyContent(FlexAlign.Center)
-          .margin({ bottom: 8 })
-
-          Row() {
-            Blank().width(12)
-            Text('实时朗读').fontColor(Color.White)
-
-            Blank()
-
-            Toggle({
-              type: ToggleType.Switch,
-              isOn: this.isRealtimeReadingEnabled
-            })
-            .selectedColor('#3c1464')
-            .onChange((isOn: boolean) => {
-              this.isRealtimeReadingEnabled = isOn;
-              this.onToggleRealtimeReading();
-            })
-
-            Blank().width(12)
-          }
-          .width('100%')
-          .height(60)
-          .padding(4)
-          .margin({ bottom: 12 })
-          .borderRadius(24)
-          .backgroundColor('#803c1464')
-          .visualEffect(new hdsEffect.HdsEffectBuilder()
-            .pointLight({
-              illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE : hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
-            })
-            .buildEffect())
-
-          Blank().height(12)
-
-          Text('外观')
-            .fontColor(Color.White)
-            .fontSize(16)
-            .fontWeight(FontWeight.Medium)
-            .margin({ bottom: 8 });
-
-          Row() {
-            Blank().width(12)
-            Column() {
-              Text('主题模式').fontColor(Color.White).alignSelf(ItemAlign.Start)
-              Text('深色模式下光效被禁用')
-                .fontColor($r('sys.color.font_on_secondary'))
-                .fontSize(12)
-                .alignSelf(ItemAlign.Start)
-            }
-
-            Blank()
-
-            CapsuleSegmentButtonV2({
-              items: new SegmentButtonV2Items([
-                { text: '浅色' },
-                { text: '深色' },
-                { text: '自动' }
-              ]),
-              selectedIndex: this.themeMode,
-              $selectedIndex: (index: number) => {
-                this.themeMode = index;
-                this.onThemeModeChange(index);
-              },
-              buttonBackgroundColor: ColorMetrics.resourceColor($r('sys.color.comp_background_secondary')),
-              itemSelectedBackgroundColor: ColorMetrics.rgba(60, 20, 100, 1),
-              itemFontColor: ColorMetrics.resourceColor($r('sys.color.font_on_secondary'))
-            })
-            .width(150)
-
-            Blank().width(12)
-          }
-          .width('100%')
-          .height(70)
-          .padding(4)
-          .margin({ bottom: 12 })
-          .borderRadius(24)
-          .backgroundColor('#803c1464')
-          .visualEffect(new hdsEffect.HdsEffectBuilder()
-            .pointLight({
-              illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE : hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
-            })
-            .buildEffect())
-
-          Row() {
-            Blank().width(12)
-            Text('光效亮度').fontColor(this.isDarkMode ? '#80FFFFFF' : Color.White)
-
-            Blank()
-
-            CapsuleSegmentButtonV2({
-              items: new SegmentButtonV2Items([
-                { text: '明亮' },
-                { text: '柔和' }
-              ]),
-              selectedIndex: this.isLightEffectBright ? 0 : 1,
-              $selectedIndex: (index: number) => {
-                this.isLightEffectBright = index === 0;
-              },
-              buttonBackgroundColor: ColorMetrics.resourceColor($r('sys.color.comp_background_secondary')),
-              itemSelectedBackgroundColor: ColorMetrics.rgba(60, 20, 100, 1),
-              itemFontColor: ColorMetrics.resourceColor($r('sys.color.font_on_secondary'))
-              // buttonBackgroundEffect: {radius: 24}
-            })
-            .width(100)
-            .enabled(!this.isDarkMode)
-            .opacity(this.isDarkMode ? 0.5 : 1.0)
-
-            Blank().width(12)
-          }
-          .width('100%')
-          .height(60)
-          .padding(4)
-          .margin({ bottom: 12 })
-          .borderRadius(24)
-          .backgroundColor('#803c1464')
-          .opacity(this.isDarkMode ? 0.5 : 1.0)
-          .visualEffect(new hdsEffect.HdsEffectBuilder()
-            .pointLight({
-              illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE : hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
-            })
-            .buildEffect())
-
-          Blank().height(12)
-
-          Text('基本信息')
-            .fontColor(Color.White)
-            .fontSize(16)
-            .fontWeight(FontWeight.Medium)
-            .margin({ bottom: 8 });
-
-          Row() {
-            Blank().width(12)
-
-            Text('用户协议').fontColor(Color.White)
-
-            Blank()
-
-            Button({ type: ButtonType.Circle, stateEffect: true }) {
-              SymbolGlyph($r('sys.symbol.arrow_right')).fontColor(["#3c1464"])
-            }
-            .width(30)
-            .height(30)
-            .margin(20)
-            .backgroundColor(Color.White)
-            .scale({ x: this.termsBtnScale, y: this.termsBtnScale })
-            .visualEffect(new hdsEffect.HdsEffectBuilder()
-              .pointLight({
-                sourceType: this.isDarkMode ? hdsEffect.PointLightSourceType.NONE :
-                  (this.isTermsBtnActive ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT) : hdsEffect.PointLightSourceType.NONE),
-                illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE :
-                  (this.isTermsBtnActive ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT : hdsEffect.PointLightIlluminatedType.NONE)
-              })
-              .buildEffect())
-            .onTouch((event: TouchEvent) => {
-              if (event.type === TouchType.Down) {
-                this.pressButtonEffect(2);
-              } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
-                this.releaseButtonEffect(2);
+              SettingsGroup({
+                title: '字幕',
+                icon: $r('sys.symbol.AI_subtitles'),
+                isOpen: $isSubtitleSectionOpen,
+                isDarkMode: this.isDarkMode
+              }) {
+                this.PipToggleItem()
               }
-            })
-            .onClick(() => this.openPolicySheet(PolicySheetType.Terms))
-
-          }
-          .width('100%')
-          .height(60)
-          .padding(4)
-          .margin({ bottom: 12 })
-          .borderRadius(24)
-          .backgroundColor('#803c1464')
-          .visualEffect(new hdsEffect.HdsEffectBuilder()
-            .pointLight({
-              illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE : hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
-            })
-            .buildEffect())
-
-          Row() {
-            Blank().width(12)
-
-            Text('隐私政策').fontColor(Color.White)
-
-            Blank()
-
-            Button({ type: ButtonType.Circle, stateEffect: true }) {
-              SymbolGlyph($r('sys.symbol.arrow_right')).fontColor(["#3c1464"])
             }
-              .width(30)
-              .height(30)
-              .margin(20)
-              .backgroundColor(Color.White)
-              .scale({ x: this.privacyBtnScale, y: this.privacyBtnScale })
-              .visualEffect(new hdsEffect.HdsEffectBuilder()
-                .pointLight({
-                  sourceType: this.isDarkMode ? hdsEffect.PointLightSourceType.NONE :
-                    (this.isPrivacyBtnActive ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT) : hdsEffect.PointLightSourceType.NONE),
-                  illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE :
-                    (this.isPrivacyBtnActive ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT : hdsEffect.PointLightIlluminatedType.NONE)
-                })
-                .buildEffect())
-              .onTouch((event: TouchEvent) => {
-                if (event.type === TouchType.Down) {
-                  this.pressButtonEffect(3);
-                } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
-                  this.releaseButtonEffect(3);
-                }
-              })
-              .onClick(() => this.openPolicySheet(PolicySheetType.Privacy))
+            .opacity(this.sectionOpacities[0])
+            .offset({ y: this.sectionOffsets[0] })
 
-          }
-          .width('100%')
-          .height(60)
-          .padding(4)
-          .margin({ bottom: 12 })
-          .borderRadius(24)
-          .backgroundColor('#803c1464')
-          .visualEffect(new hdsEffect.HdsEffectBuilder()
-            .pointLight({
-              illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE : hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
-            })
-            .buildEffect())
-
-          Row() {
-            Blank().width(12)
-
-            Text('关于').fontColor(Color.White)
-
-            Blank()
-
-            Button({ type: ButtonType.Circle, stateEffect: true }) {
-              SymbolGlyph($r('sys.symbol.arrow_right')).fontColor(["#3c1464"])
+            // Translate Section
+            Column() {
+              SettingsGroup({
+                title: '传译',
+                icon: $r('sys.symbol.voice_convert_text'),
+                isOpen: $isTranslateSectionOpen,
+                isDarkMode: this.isDarkMode
+              }) {
+                this.RealtimeReadingItem()
+              }
             }
-              .width(30)
-              .height(30)
-              .margin(20)
-              .backgroundColor(Color.White)
-              .scale({ x: this.aboutBtnScale, y: this.aboutBtnScale })
-              .visualEffect(new hdsEffect.HdsEffectBuilder()
-                .pointLight({
-                  sourceType: this.isDarkMode ? hdsEffect.PointLightSourceType.NONE :
-                    (this.isAboutBtnActive ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT) : hdsEffect.PointLightSourceType.NONE),
-                  illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE :
-                    (this.isAboutBtnActive ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT : hdsEffect.PointLightIlluminatedType.NONE)
-                })
-                .buildEffect())
-              .onTouch((event: TouchEvent) => {
-                if (event.type === TouchType.Down) {
-                  this.pressButtonEffect(4);
-                } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
-                  this.releaseButtonEffect(4);
-                }
-              })
-              .onClick(() => this.openPolicySheet(PolicySheetType.About))
+            .opacity(this.sectionOpacities[1])
+            .offset({ y: this.sectionOffsets[1] })
 
+            // Gesture Section
+            Column() {
+              SettingsGroup({
+                title: '隔空手势',
+                icon: $r('sys.symbol.hand_raised_hexagon'),
+                isOpen: $isGestureSectionOpen,
+                isDarkMode: this.isDarkMode
+              }) {
+                this.AirGestureToggleItem()
+
+                if (this.airGesturesEnabled) {
+                  Column() {
+                    GestureActionRow({
+                      title: '向上挥手',
+                      value: this.airGestureUpAction,
+                      onChange: (val: string) => { this.airGestureUpAction = val },
+                      isDarkMode: this.isDarkMode
+                    })
+                    GestureActionRow({
+                      title: '向下挥手',
+                      value: this.airGestureDownAction,
+                      onChange: (val: string) => { this.airGestureDownAction = val },
+                      isDarkMode: this.isDarkMode
+                    })
+                  }
+                  .padding({ left: 12, right: 12 })
+                }
+              }
+            }
+            .opacity(this.sectionOpacities[2])
+            .offset({ y: this.sectionOffsets[2] })
+
+            // Appearance Section
+            Column() {
+              SettingsGroup({
+                title: '外观',
+                icon: $r('sys.symbol.skin_tone'),
+                isOpen: $isAppearanceSectionOpen,
+                isDarkMode: this.isDarkMode
+              }) {
+                this.AppearanceItems()
+              }
+            }
+            .opacity(this.sectionOpacities[3])
+            .offset({ y: this.sectionOffsets[3] })
+
+            // Info Section
+            Column() {
+              SettingsGroup({
+                title: '基本信息',
+                icon: $r('sys.symbol.info_circle'),
+                isOpen: $isInfoSectionOpen,
+                isDarkMode: this.isDarkMode
+              }) {
+                SettingsItem({
+                  title: '用户协议',
+                  hasArrow: true,
+                  onClickItem: () => this.openPolicySheet(PolicySheetType.Terms)
+                })
+                SettingsItem({
+                  title: '隐私政策',
+                  hasArrow: true,
+                  onClickItem: () => this.openPolicySheet(PolicySheetType.Privacy)
+                })
+                SettingsItem({
+                  title: '关于',
+                  hasArrow: true,
+                  onClickItem: () => this.openPolicySheet(PolicySheetType.About)
+                })
+              }
+            }
+            .opacity(this.sectionOpacities[4])
+            .offset({ y: this.sectionOffsets[4] })
+
+            // FAQ Section
+            Column() {
+              SettingsGroup({
+                title: '常见问题',
+                icon: $r('sys.symbol.questionmark_circle'),
+                isOpen: $isFaqSectionOpen,
+                isDarkMode: this.isDarkMode
+              }) {
+                SettingsItem({
+                  title: 'Voot 持有面向用户的集中式服务器吗？',
+                  subtitle: '没有。Voot 是一款纯客户端应用，所有数据处理均在本地或直接与您配置的第三方 API 通信，我们不持有任何用户数据服务器。'
+                })
+                SettingsItem({
+                  title: '在 Voot 保存的密钥怎么保证安全？',
+                  subtitle: '您的 API 密钥仅存储在您设备的本地安全存储区中，绝不会上传到我们的服务器，我们也不持有服务器。应用仅在向服务商发起请求时使用密钥。'
+                })
+                SettingsItem({
+                  title: '我们如何接受政府组织对 AI 的监管？',
+                  subtitle: 'Voot 严格遵守当地法律法规。作为工具提供方，我们不提供内置的 AI 模型服务，用户需自行确保所使用的第三方 API 服务符合相关监管要求。'
+                })
+              }
+            }
+            .opacity(this.sectionOpacities[5])
+            .offset({ y: this.sectionOffsets[5] })
+
+            Blank().height(70)
           }
+          .opacity(this.pageOpacity)
+          .offset({ y: this.pageOffsetY })
+          .scale({ x: this.pageScale, y: this.pageScale })
           .width('100%')
-          .height(60)
-          .padding(4)
-          .margin({ bottom: 12 })
-          .borderRadius(24)
-          .backgroundColor('#803c1464')
-          .visualEffect(new hdsEffect.HdsEffectBuilder()
-            .pointLight({
-              illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE : hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
-            })
-            .buildEffect())
+          .padding({ left: 24, right: 24, top: 16, bottom: 70 })
         }
-        .width('100%')
-        .padding({ left: 24, right: 24, top: 16, bottom: 70 });
+        .scrollable(ScrollDirection.Vertical)
+        .scrollBar(BarState.Auto)
+        .edgeEffect(EdgeEffect.Spring)
       }
-      .scrollable(ScrollDirection.Vertical)
-      .scrollBar(BarState.Auto)
-      .edgeEffect(EdgeEffect.Spring)
+      .mode(NavigationMode.Stack)
+      .width('100%')
+      .height('100%')
+      .backgroundColor(Color.Transparent)
+      .titleMode(HdsNavigationTitleMode.MINI)
+      .hideBackButton(true)
+      .titleBar({
+        style: {
+          scrollEffectStyle: {
+            backgroundStyle: {
+              backgroundColor: $r('sys.color.ohos_id_color_background_transparent'),
+            },
+            contentStyle: {
+              titleStyle: {
+                mainTitleColor: $r('sys.color.font_on_tertiary'),
+              },
+              menuStyle: {
+                backgroundColor: $r('sys.color.comp_background_tertiary'),
+                iconColor: $r('sys.color.icon_on_tertiary')
+              },
+              backIconStyle: {
+                backgroundColor: $r('sys.color.comp_background_tertiary'),
+                iconColor: $r('sys.color.icon_on_tertiary')
+              }
+            }
+          },
+          originalStyle: {
+            contentStyle: {
+              titleStyle: {
+                mainTitleColor: Color.White,
+              },
+              backIconStyle: {
+                backgroundColor: $r('sys.color.comp_background_tertiary'),
+                iconColor: $r('sys.color.icon_primary')
+              }
+            }
+          },
+        },
+        content: {
+          title: { mainTitle: '设置' },
+        },
+        avoidLayoutSafeArea: true
+      })
+      .bindSheet(
+        $$this.isPolicySheetOpen,
+        PolicySheetContent(getPolicySheetConfig(this.currentPolicySheet, this.appVersion), this.policyWebController, () => {
+          this.closePolicySheet();
+        }, getContext(this) as common.UIAbilityContext, this.themeColorIndex), {
+        detents: [SheetSize.FIT_CONTENT, SheetSize.MEDIUM, SheetSize.LARGE],
+        dragBar: true,
+        backgroundColor: Color.Transparent,
+        blurStyle: BlurStyle.BACKGROUND_THIN,
+        enableOutsideInteractive: true,
+      })
     }
-    .mode(NavigationMode.Stack)
     .width('100%')
     .height('100%')
-    .backgroundColor(Color.Transparent)
-    .titleMode(HdsNavigationTitleMode.MINI)
-    .hideBackButton(true)
-    .titleBar({
-      style: {
-        scrollEffectStyle: {
-          backgroundStyle: {
-            backgroundColor: $r('sys.color.ohos_id_color_background_transparent'),
-          },
-          contentStyle: {
-            titleStyle: {
-              mainTitleColor: $r('sys.color.font_on_tertiary'),
-            },
-            menuStyle: {
-              backgroundColor: $r('sys.color.comp_background_tertiary'),
-              iconColor: $r('sys.color.icon_tertiary')
-            },
-            backIconStyle: {
-              backgroundColor: $r('sys.color.comp_background_tertiary'),
-              iconColor: $r('sys.color.icon_tertiary')
-            }
-          }
-        },
-        originalStyle: {
-          contentStyle: {
-            titleStyle: {
-              mainTitleColor: Color.White,
-            },
-            backIconStyle: {
-              backgroundColor: $r('sys.color.comp_background_tertiary'),
-              iconColor: $r('sys.color.icon_primary')
-            }
-          }
-        },
-      },
-      content: {
-        title: { mainTitle: '设置' },
-      },
-      avoidLayoutSafeArea: true
-    })
-    .bindSheet(
-      $$this.isPolicySheetOpen,
-      PolicySheetContent(getPolicySheetConfig(this.currentPolicySheet, this.appVersion), this.policyWebController, () => {
-        this.closePolicySheet();
-      }, getContext(this) as common.UIAbilityContext), {
-      detents: [SheetSize.FIT_CONTENT, SheetSize.MEDIUM, SheetSize.LARGE],
-      dragBar: true,
-      backgroundColor: Color.Transparent,
-      blurStyle: BlurStyle.BACKGROUND_THIN,
-      enableOutsideInteractive: true,
-    })
-  }
-
-  pressButton(btnId: number) {
-    animateTo({
-      duration: 300,
-      curve: Curve.EaseIn
-    }, () => {
-      if (btnId === 1) this.button1Scale = 0.95;
-      if (btnId === 2) this.button2Scale = 0.95;
-    })
-  }
-
-  leaveButton(btnId: number) {
-    animateTo({
-      duration: 300,
-      curve: Curve.EaseOut
-    }, () => {
-      if (btnId === 1) this.button1Scale = 1.0;
-      if (btnId === 2) this.button2Scale = 1.0;
-    })
   }
 }

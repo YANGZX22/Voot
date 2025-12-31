@@ -64,7 +64,19 @@
     },
     {
       "name": "distributed_reason",
-      "value": "Voot 需要分布式同步权限，用于将字幕流转到平板或电脑继续查看。"
+      "value": "Voot 需要分布式同步权限将字幕流转到平板或电脑继续查看。"
+    },
+    {
+      "name": "shortcut_translation",
+      "value": "翻译"
+    },
+    {
+      "name": "shortcut_polish",
+      "value": "润色"
+    },
+    {
+      "name": "shortcut_scan",
+      "value": "扫描"
     }
   ]
 }

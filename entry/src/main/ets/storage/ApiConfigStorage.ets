@@ -30,6 +30,7 @@ export function createDefaultMultiKeySlots(defaultUrl: string, defaultKey: strin
 
 export interface ApiConfigSnapshot {
   promptText: string;
+  polishPromptText: string; // 润色提示词
   // OpenAI 多密钥槽位
   openAiKeySlots: MultiKeySlots;
   // DeepL 多密钥槽位
@@ -70,6 +71,7 @@ export interface ApiConfigSnapshot {
 
 export interface PartialApiConfigSnapshot {
   promptText?: string;
+  polishPromptText?: string; // 润色提示词
   // 多密钥槽位
   openAiKeySlots?: MultiKeySlots;
   deepLKeySlots?: MultiKeySlots;
@@ -152,6 +154,7 @@ export class ApiConfigStorage {
     }
 
     sanitized.promptText = ApiConfigStorage.pickString(candidate.promptText, defaults.promptText);
+    sanitized.polishPromptText = ApiConfigStorage.pickString(candidate.polishPromptText, defaults.polishPromptText);
     
     // 处理多密钥槽位（支持旧版本迁移）
     sanitized.openAiKeySlots = ApiConfigStorage.migrateKeySlots(
@@ -278,6 +281,7 @@ export class ApiConfigStorage {
   private static cloneSnapshot(snapshot: ApiConfigSnapshot): ApiConfigSnapshot {
     return {
       promptText: snapshot.promptText,
+      polishPromptText: snapshot.polishPromptText,
       openAiKeySlots: ApiConfigStorage.cloneMultiKeySlots(snapshot.openAiKeySlots),
       deepLKeySlots: ApiConfigStorage.cloneMultiKeySlots(snapshot.deepLKeySlots),
       ollamaKeySlots: ApiConfigStorage.cloneMultiKeySlots(snapshot.ollamaKeySlots),
