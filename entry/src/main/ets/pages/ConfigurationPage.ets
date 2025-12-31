@@ -166,7 +166,6 @@ struct OptionSelectorSheet {
       duration: 180,
       curve: Curve.FastOutSlowIn
     })
-    // 添加点光效果
     .visualEffect(new hdsEffect.HdsEffectBuilder()
       .pointLight({
         sourceType: this.isDarkMode ? hdsEffect.PointLightSourceType.NONE :
@@ -414,7 +413,7 @@ export struct ConfigurationPage {
   @State disclaimerTextColor: ResourceColor = Color.White;
   @State disclaimerSubTextColor: ResourceColor = $r('sys.color.font_tertiary');
   
-  // API 介绍展开状态 - 卡片动画展开
+  // API 介绍展开状态
   @State isApiIntroExpanded: boolean = false;
   @State disclaimerWidth: string = 'calc(100% - 48vp)';
   @State disclaimerHeight: number = 120;
@@ -560,7 +559,7 @@ export struct ConfigurationPage {
     this.isApiIntroExpanded = true;
     this.activeBtn = 0; // 关闭光效
     
-    // 第一步：先淡出简短内容
+    // 淡出简短内容
     animateTo({
       duration: 150,
       curve: Curve.EaseOut
@@ -572,7 +571,7 @@ export struct ConfigurationPage {
       this.disclaimerSubTextColor = THEMES[this.themeColorIndex].primaryColor.replace('#', '#CC');
     });
     
-    // 第二步：展开卡片
+    // 展开卡片
     setTimeout(() => {
       animateTo({
         duration: 400,
@@ -584,7 +583,7 @@ export struct ConfigurationPage {
       });
     }, 100);
     
-    // 第三步：淡入详细内容
+    // 淡入详细内容
     setTimeout(() => {
       animateTo({
         duration: 300,
@@ -596,7 +595,7 @@ export struct ConfigurationPage {
   }
   
   hideApiIntro(): void {
-    // 第一步：淡出详细内容
+    // 淡出详细内容
     animateTo({
       duration: 200,
       curve: Curve.EaseIn
@@ -604,7 +603,7 @@ export struct ConfigurationPage {
       this.expandedContentOpacity = 0;
     });
     
-    // 第二步：收缩卡片
+    // 收缩卡片
     setTimeout(() => {
       animateTo({
         duration: 350,
@@ -619,7 +618,7 @@ export struct ConfigurationPage {
       });
     }, 150);
     
-    // 第三步：淡入简短内容
+    // 淡入简短内容
     setTimeout(() => {
       animateTo({
         duration: 250,
@@ -816,7 +815,6 @@ export struct ConfigurationPage {
             .padding(20)
           .margin({ bottom: 10 })
           .backgroundColor(this.disclaimerBgColor)
-          // .backgroundBlurStyle(this.isApiIntroExpanded ? BlurStyle.BACKGROUND_THICK : BlurStyle.NONE)
           .borderRadius(this.disclaimerBorderRadius)
           .alignItems(HorizontalAlign.Center)
           .justifyContent(this.isApiIntroExpanded ? FlexAlign.Start : FlexAlign.Center)
@@ -924,7 +922,7 @@ export struct ConfigurationPage {
                 isLightEffectBright: this.isLightEffectBright,
                 isDarkMode: this.isDarkMode,
                 callback: () => {
-                  // ToastUtil.showToast('当前仅支持英语作为原始语言 😭');
+                  // ToastUtil.showToast('当前仅支持英语作为原始语言');
                 },
                 activeBtn: $activeBtn,
                 onInfoClick: () => {

@@ -86,7 +86,19 @@ It is designed with three core principles: **security, privacy, and simplicity**
   - **Control Card**: Start/stop subtitle and interpretation directly from the home screen.
   - **Token Card**: Monitor your API token usage without opening the app.
 
-- 💡 **Simple UI, ArkTS only**
+- � **Air Gestures (隔空手势)**
+  - Control translation start/stop without touching the screen.
+  - Ideal for hands-free operation during presentations or cooking.
+
+- ✨ **Text Polishing (润色)**
+  - Improve the quality and tone of translated text.
+  - Refine rough translations into more natural and professional language.
+
+- 📷 **Scan & Translate (扫描)**
+  - Scan text from physical documents or screens using the camera.
+  - Instantly translate scanned text with save functionality.
+
+- �💡 **Simple UI, ArkTS only**
   - Frontend written purely in **ArkTS**, no extra UI framework.
   - Minimalist layout: buttons, text, and light effects – optimized for real-time usage.
 
@@ -202,21 +214,33 @@ In the **“术语库 / Glossary”** menu:
 ## Usage
 
 1. Launch **Voot** on your HarmonyOS device.
-2. In the **配置 API** tab:
 
-   * Pick an API provider.
-   * Configure API URL + Key.
-   * Set your target language.
-3. Go to the **翻译 / Translate** tab:
+2. **Configure API (配置)**:
+   * Go to the first tab **Configuration**.
+   * Select an API provider (OpenAI, DeepL, etc.) and enter your API Key/URL.
+   * Set your **Target Language**.
 
+3. **Live Translation (翻译)**:
+   * Switch to the **Translation** tab.
    * Tap **“开启麦克风”** to start capturing audio.
-   * Speak in the source language.
-4. The UI will show:
+   * Speak in the source language; the app will transcribe and translate in real-time.
+   * **Air Gestures**: Wave your hand above the front camera to start/stop translation without touching the screen.
+   * **Device Continuation**: Tap the **Transfer (流转)** icon to move the session to another HarmonyOS device.
 
-   * **原始文本** (recognized source text)
-   * **翻译文本** (translated result)
+4. **Text Polishing (润色)**:
+   * Switch to the **Polishing** tab.
+   * Input or paste text that needs refinement.
+   * The AI will improve the tone, grammar, and clarity of the text.
 
-Use it as a live interpreter in meetings, lectures, or travel scenarios.
+5. **Scan & Translate (扫描)**:
+   * Switch to the **Scan** tab.
+   * Point the camera at a document or screen.
+   * The app will recognize the text and provide an instant translation.
+   * You can save the scanned results to History.
+
+6. **Settings (设置)**:
+   * Customize UI appearance (font size, colors).
+   * Manage general preferences and view FAQ.
 
 
 ## Security & Privacy
@@ -250,6 +274,9 @@ Finished / planned / possible steps:
 * Glossary / Terminology Support (Realized ✅)
 * Device Continuation (Realized ✅)
 * History & Favorites (Realized ✅)
+* Air Gestures (Realized ✅)
+* Text Polishing (Realized ✅)
+* Scan & Translate (Realized ✅)
 * Support for more LLM / translation APIs (e.g. Google Translate)
 * Enhanced ASR and cutoff logic
 * More supported original languages

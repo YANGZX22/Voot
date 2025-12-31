@@ -2,7 +2,6 @@
  * PiP (Picture-in-Picture) Subtitle Manager
  *
  * Implements floating subtitle window using PiP, no SYSTEM_FLOAT_WINDOW permission required.
- * Based on HarmonyOS PiPWindow API.
  *
  * @fileoverview This file contains code related to AI content generation.
  * @compliance EU AI Act, US EO 14110, China Interim Measures for Generative AI Services

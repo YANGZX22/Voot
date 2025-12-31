@@ -158,7 +158,7 @@ interface DoubaoChatResponse {
   usage?: DoubaoUsage;
 }
 
-// 功能特性（用于 FeatureDialog）
+// 功能特性 (FeatureDialog)
 interface WelcomeFeature {
   title: string;
   description: string;
@@ -902,7 +902,7 @@ struct Index {
   }
 
   async aboutToAppear(): Promise<void> {
-    // Initialize theme mode from system setting (跟随系统模式)
+    // Initialize theme mode from system setting
     if (this.themeMode === 2) {
       if (this.currentMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK) {
         this.isDarkMode = true;
@@ -933,7 +933,7 @@ struct Index {
       this.startMainExperience();
     }
 
-    // 设置应用为可迁移状态（官方接续指导）
+    // 设置应用为可迁移状态
     try {
       const ctx = getContext(this) as common.UIAbilityContext;
       ctx.setMissionContinueState(AbilityConstant.ContinueState.ACTIVE, (result) => {
@@ -1764,7 +1764,6 @@ struct Index {
             }
           }
           .width('100%')
-          // .padding({ left: 24, right: 24, top: 24, bottom: 48 });
         }
         .tabBar(new BottomTabBarStyle($r('app.media.configuration') ,'配置')
           .iconStyle({
@@ -1813,7 +1812,6 @@ struct Index {
             });
           }
           .width('100%')
-          // .padding({ left: 24, right: 24, top: 24, bottom: 48 });
         }
         .tabBar(new BottomTabBarStyle($r('app.media.translation') ,'翻译')
           .iconStyle({
@@ -1931,7 +1929,6 @@ struct Index {
             });
           }
           .width('100%')
-          // .padding({ left: 24, right: 24, top: 24, bottom: 48 });
         }
         .tabBar(new BottomTabBarStyle($r('app.media.settings') ,'设置')
           .iconStyle({
@@ -1975,7 +1972,6 @@ struct Index {
       });
       }
       .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP])
-      // .backgroundColor("#ff0f5f5f")
       .width('100%')
       .height('100%')
 
@@ -3144,7 +3140,7 @@ struct FeatureDialog {
 
   build() {
     Column() {
-      // Animation: A gentle breathing effect
+      // Animation breathing effect
       Image(WELCOME_FEATURES[this.index].icon)
         .width(80)
         .height(80)

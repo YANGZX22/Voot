@@ -290,7 +290,7 @@ export struct HistoryTabPage {
       .buildEffect())
     .onClick(() => {
       if (session.type === 'scan') {
-        // TODO: 跳转到扫描详情页，或者复用 ScanPage
+        // TODO: 跳转到扫描详情页，或者复用 ScanPage？
         // 暂时复用 SessionDetailPage，但需要 SessionDetailPage 支持显示图片
         router.pushUrl({
           url: 'pages/SessionDetailPage',
@@ -312,7 +312,7 @@ export struct HistoryTabPage {
   @Builder
   DeleteButton(id: number, session: Session) {
     Row({ space: 8 }) {
-      // 删除按钮 - 红色
+      // 删除按钮
       SwipeActionButton({
         icon: $r('sys.symbol.trash'),
         bgColor: Color.Red,
@@ -328,7 +328,7 @@ export struct HistoryTabPage {
         }
       })
 
-      // 收藏按钮 - 黄色
+      // 收藏按钮
       SwipeActionButton({
         icon: session.isStarred ? $r('sys.symbol.star_fill') : $r('sys.symbol.star'),
         bgColor: '#FFB800',
@@ -341,7 +341,7 @@ export struct HistoryTabPage {
         }
       })
 
-      // 分享按钮 - 绿色
+      // 分享按钮
       SwipeActionButton({
         icon: $r('sys.symbol.share'),
         bgColor: '#4CAF50',

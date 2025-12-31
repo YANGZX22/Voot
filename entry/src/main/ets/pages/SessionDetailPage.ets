@@ -442,11 +442,6 @@ struct SessionDetailPage {
               }
             }]
           },
-          // backIcon: {
-          //   label: 'backButton',
-          //   icon: $r('sys.symbol.backward_fill'),
-          //   isEnabled: true,
-          // }
         },
         avoidLayoutSafeArea: true
       })

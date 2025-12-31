@@ -1,6 +1,6 @@
 /**
- * @fileoverview Welcome Page - 欢迎引导页面
- * 类似私有云音乐播放器的引导界面，展示应用介绍
+ * @fileoverview Welcome Page
+ * 展示应用介绍
  */
 import router from '@ohos.router';
 import http from '@ohos.net.http';

@@ -31,9 +31,6 @@ export class VoiceRecognitionService {
     this.audioCapturer = await audio.createAudioCapturer(this.config);
   }
 
-  /**
-   * NEW: takes 3 callbacks here
-   */
   async startRecognition(
     onResult: (r: RecognitionResult) => void,
     onError: (msg: string) => void,

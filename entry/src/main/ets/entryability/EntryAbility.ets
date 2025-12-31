@@ -365,10 +365,10 @@ export default class EntryAbility extends UIAbility {
       const fullTranslatedText = AppStorage.get<string>('voot_full_translated_text') || '';
       const apiConfig = AppStorage.get<string>('voot_api_config_json') || '{}';
       const currentTab = AppStorage.get<number>('voot_current_tab') ?? 1;
-      // 新增：获取实时朗读和 PiP 状态
+      // 获取实时朗读和 PiP 状态
       const isRealtimeReading = AppStorage.get<boolean>('voot_is_realtime_reading') || false;
       const isPipEnabled = AppStorage.get<boolean>('voot_is_pip_enabled') || false;
-      // 新增：获取字幕样式配置
+      // 获取字幕样式配置
       const subtitleConfigJson = AppStorage.get<string>('voot_subtitle_config') || '{}';
       let subtitleConfig: SubtitleStyleConfig | undefined;
       try {
@@ -446,10 +446,10 @@ export default class EntryAbility extends UIAbility {
       AppStorage.setOrCreate('voot_is_listening', state.isListening);
       AppStorage.setOrCreate('voot_is_translating', state.isTranslating ?? false);
       AppStorage.setOrCreate('voot_current_tab', state.currentTab ?? 1);
-      // 新增：恢复实时朗读和 PiP 状态
+      // 恢复实时朗读和 PiP 状态
       AppStorage.setOrCreate('voot_is_realtime_reading', state.isRealtimeReading ?? false);
       AppStorage.setOrCreate('voot_is_pip_enabled', state.isPipEnabled ?? false);
-      // 新增：恢复字幕样式配置
+      // 恢复字幕样式配置
       if (state.subtitleConfig) {
         AppStorage.setOrCreate('voot_subtitle_config', JSON.stringify(state.subtitleConfig));
       }
