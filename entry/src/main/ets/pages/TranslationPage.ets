@@ -15,6 +15,8 @@
 import { hdsEffect, HdsNavigation, HdsNavigationAttribute, HdsNavigationTitleMode } from '@kit.UIDesignKit';
 import promptAction from '@ohos.promptAction';
 import { THEMES } from '../model/Theme';
+import { ContinuityService, DeviceInfo } from '../services/ContinuityService';
+import { common } from '@kit.AbilityKit';
 
 const TITLE_BAR_HEIGHT_MINI: number = 94;
 
@@ -38,7 +40,7 @@ export struct TranslationPage {
   onTranslateDemo: () => void = () => {};
   onOriginalTextChange: (value: string) => void = () => {};
   onTranslatedTextChange: (value: string) => void = () => {};
-  onContinuityTransfer: () => void = () => {};
+  onContinuityTransfer: (device?: DeviceInfo) => void = () => {};
   onOpenHistory: () => void = () => {};
 
   // State for Lighting Effect
@@ -56,6 +58,10 @@ export struct TranslationPage {
   @State button3Scale: number = 1.0;
   @State btn3BgColor: ResourceColor = Color.White;
   @State btn3TextColor: ResourceColor = THEMES[this.themeColorIndex].secondaryColor;
+
+  // Device selection states
+  @State showDeviceDialog: boolean = false;
+  @State deviceList: DeviceInfo[] = [];
 
   helpDialogController: CustomDialogController = new CustomDialogController({
     builder: ContinuityHelpDialog(),
@@ -91,6 +97,169 @@ export struct TranslationPage {
         this.btn1TextColor = Color.White;
       }
     })
+  }
+
+  // Device discovery and selection methods
+  private async startDeviceDiscovery(): Promise<void> {
+    try {
+      const ctx = getContext(this) as common.UIAbilityContext;
+      const service = ContinuityService.getInstance();
+      const initialized = await service.init(ctx);
+
+      if (!initialized) {
+        promptAction.showToast({ message: '无法初始化设备管理服务，请前往设置开启发现设备权限' });
+        return;
+      }
+
+      this.deviceList = service.getTrustedDevices();
+
+      service.setOnDeviceFoundCallback((device: DeviceInfo) => {
+        const exists = this.deviceList.some(d => d.deviceId === device.deviceId);
+        if (!exists) {
+          this.deviceList.push(device);
+        }
+      });
+
+      service.setOnDeviceLostCallback((deviceId: string) => {
+        this.deviceList = this.deviceList.filter(d => d.deviceId !== deviceId);
+      });
+
+      service.startDiscovering();
+      this.showDeviceDialog = true;
+
+    } catch (err) {
+      console.error('[TranslationPage] startDeviceDiscovery error: ' + JSON.stringify(err));
+      promptAction.showToast({ message: '流转失败: ' + JSON.stringify(err) });
+    }
+  }
+
+  private selectDevice(device: DeviceInfo): void {
+    this.showDeviceDialog = false;
+    ContinuityService.getInstance().stopDiscovering();
+    // Delegate to parent for actual transfer with selected device
+    this.onContinuityTransfer(device);
+  }
+
+  private getDeviceTypeLabel(type: number | string): string {
+    if (typeof type === 'string') {
+      const typeUpper = type.toUpperCase();
+      switch (typeUpper) {
+        case 'PHONE': return '手机';
+        case 'TABLET':
+        case 'PAD': return '平板';
+        case 'WEARABLE':
+        case 'WATCH': return '手表';
+        case 'TV': return '智慧屏';
+        case '2IN1': return '二合一';
+        case 'CAR': return '车机';
+        case 'PC': return '电脑';
+      }
+    }
+    return '其他设备';
+  }
+
+  private getDeviceIcon(type: number | string): Resource {
+    let typeStr = '';
+    if (typeof type === 'string') {
+      typeStr = type.toUpperCase();
+    }
+    switch (typeStr) {
+      case 'PHONE': return $r('sys.symbol.phone_1');
+      case 'TABLET': return $r('sys.symbol.unknown_device');
+      case 'PAD': return $r('sys.symbol.pad');
+      case 'WEARABLE': return $r('sys.symbol.unknown_device');
+      case 'WATCH': return $r('sys.symbol.watch');
+      case 'TV': return $r('sys.symbol.TV_tv');
+      case '2IN1': return $r('sys.symbol.unknown_device');
+      case 'PC': return $r('sys.symbol.pc');
+      case 'CAR': return $r('sys.symbol.car');
+      default: return $r('sys.symbol.bluetooth');
+    }
+  }
+
+  @Builder
+  private DeviceSelectionDialog() {
+    Column() {
+      Text('选择流转设备')
+        .fontSize(20)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(Color.White)
+        .margin({ bottom: 8, top: 16 })
+        .width('100%')
+        .textAlign(TextAlign.Center)
+
+      Text('暂仅支持手机与平板流转')
+        .fontSize(12)
+        .fontColor($r('sys.color.font_on_secondary'))
+        .margin({ bottom: 16 })
+        .width('100%')
+        .textAlign(TextAlign.Center)
+
+      if (this.deviceList.length === 0) {
+        Column() {
+          LoadingProgress()
+            .width(40)
+            .height(40)
+            .margin({ bottom: 10 })
+          Text('正在搜索设备...')
+            .fontSize(14)
+            .fontColor($r('sys.color.font_on_secondary'))
+        }
+        .height(150)
+        .justifyContent(FlexAlign.Center)
+      } else {
+        List() {
+          ForEach(this.deviceList, (device: DeviceInfo) => {
+            ListItem() {
+              Row() {
+                SymbolGlyph(this.getDeviceIcon(device.deviceType))
+                  .fontSize(24)
+                  .fontColor([Color.White])
+                  .margin({ right: 16 })
+
+                Column() {
+                  Text(device.deviceName)
+                    .fontSize(16)
+                    .fontColor(Color.White)
+                    .fontWeight(FontWeight.Medium)
+                  Text(this.getDeviceTypeLabel(device.deviceType))
+                    .fontSize(12)
+                    .fontColor($r('sys.color.font_on_secondary'))
+                    .margin({ top: 4 })
+                }
+                .alignItems(HorizontalAlign.Start)
+
+                Blank()
+
+                Button('流转')
+                  .fontSize(14)
+                  .height(32)
+                  .backgroundColor(THEMES[this.themeColorIndex].primaryColor)
+                  .onClick(() => {
+                    this.selectDevice(device);
+                  })
+              }
+              .width('100%')
+              .padding({ top: 12, bottom: 12, left: 16, right: 16 })
+            }
+          })
+        }
+        .constraintSize({ minHeight: 100, maxHeight: 300 })
+        .width('100%')
+      }
+
+      Button('取消')
+        .width('90%')
+        .margin({ top: 16, bottom: 16 })
+        .backgroundColor(THEMES[this.themeColorIndex].primaryColor)
+        .onClick(() => {
+          this.showDeviceDialog = false;
+          ContinuityService.getInstance().stopDiscovering();
+        })
+    }
+    .width('100%')
+    .backgroundColor(Color.Transparent)
+    .borderRadius({ topLeft: 16, topRight: 16 })
   }
 
   build() {
@@ -298,7 +467,22 @@ export struct TranslationPage {
                 animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeBtn = 0; });
               }
             })
-            .onClick(() => this.onContinuityTransfer())
+            .bindSheet(
+              $$this.showDeviceDialog,
+              this.DeviceSelectionDialog(),
+              {
+                detents: [SheetSize.FIT_CONTENT, SheetSize.MEDIUM, SheetSize.LARGE],
+                dragBar: true,
+                backgroundColor: Color.Transparent,
+                blurStyle: BlurStyle.BACKGROUND_THIN,
+                enableOutsideInteractive: true,
+                onDisappear: () => {
+                  this.showDeviceDialog = false;
+                  ContinuityService.getInstance().stopDiscovering();
+                }
+              }
+            )
+            .onClick(() => this.startDeviceDiscovery())
           }
           .width('100%')
           .padding(4)

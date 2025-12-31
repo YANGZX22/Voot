@@ -1035,11 +1035,17 @@ struct Index {
       if (this.currentPolicyUpdateType === PolicySheetType.Privacy) {
         await OnboardingStorage.acceptPrivacyPolicy(context);
         
-        // 如果还有用户协议需要更新，继续显示
+        // 如果还有用户协议需要更新，需要先关闭再重新打开 sheet
         if (this.pendingPolicyUpdate.needsTermsUpdate) {
-          this.currentPolicyUpdateType = PolicySheetType.Terms;
-          this.policyUpdateWebController = new webview.WebviewController();
-          // 保持 sheet 打开，切换内容
+          // 先关闭当前 sheet
+          this.isPolicyUpdateSheetOpen = false;
+          
+          // 延迟后切换到用户协议并重新打开
+          setTimeout(() => {
+            this.currentPolicyUpdateType = PolicySheetType.Terms;
+            this.policyUpdateWebController = new webview.WebviewController();
+            this.isPolicyUpdateSheetOpen = true;
+          }, 300);
           return;
         }
       } else if (this.currentPolicyUpdateType === PolicySheetType.Terms) {
@@ -1796,7 +1802,11 @@ struct Index {
                 this.originalDemoText = this.trimRealtimeBuffer(value);
               },
               onTranslatedTextChange: (value: string) => this.updateTranslationField(value),
-              onContinuityTransfer: () => this.startContinuityTransfer(),
+              onContinuityTransfer: (device?: DeviceInfo) => {
+                if (device) {
+                  this.selectDevice(device);
+                }
+              },
               onOpenHistory: () => {
                 router.pushUrl({ url: 'pages/HistoryTabPage' });
               }
@@ -2068,21 +2078,6 @@ struct Index {
 
       return HitTestMode.Transparent;
     })
-    .bindSheet(
-      $$this.showDeviceDialog,
-      this.DeviceSelectionDialog(),
-      {
-        detents: [SheetSize.FIT_CONTENT, SheetSize.MEDIUM, SheetSize.LARGE],
-        dragBar: true,
-        backgroundColor: Color.Transparent,
-        blurStyle: BlurStyle.BACKGROUND_THIN,
-        enableOutsideInteractive: true,
-        onDisappear: () => {
-          this.showDeviceDialog = false;
-          ContinuityService.getInstance().stopDiscovering();
-        }
-      }
-    )
     .bindSheet(
       $$this.isPolicyUpdateSheetOpen,
       PolicySheetContent(
