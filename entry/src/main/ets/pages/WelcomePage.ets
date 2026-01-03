@@ -5,9 +5,14 @@
 import router from '@ohos.router';
 import http from '@ohos.net.http';
 import promptAction from '@ohos.promptAction';
+import util from '@ohos.util';
 import { hdsEffect } from '@kit.UIDesignKit';
 import common from '@ohos.app.ability.common';
 import { webview } from '@kit.ArkWeb';
+import PhoneNumberAuthHelper from 'numberauth_standard';
+import { TokenResultListener, AuthUIControlClickListener, AuthUiConfig } from 'numberauth_standard';
+import app from '@system.app';
+import bundleManager from '@ohos.bundle.bundleManager';
 import { PolicySheetType, PolicySheetContent, getPolicySheetConfig, PolicySheetConfig } from '../components/PolicySheet';
 import { OnboardingStorage } from '../storage/OnboardingStorage';
 import { ApiConfigStorage, ApiConfigSnapshot, createDefaultMultiKeySlots } from '../storage/ApiConfigStorage';
@@ -89,7 +94,9 @@ const PROVIDERS: ProviderInfo[] = [
 enum WelcomeStep {
   Intro = 0,        // 介绍页（第一页）
   Features = 1,     // 功能介绍页（第二页）
-  ApiIntro = 2,     // API介绍页（第三页）
+  ApiDriven = 2,    // API驱动介绍页（第三页）
+  NumberAuth = 3,   // 号码认证页（第四页）
+  ApiIntro = 4,     // API介绍页（第五页）
 }
 
 // 功能特性项（带 span 用于布局）
@@ -160,6 +167,7 @@ const WELCOME_FEATURES: Array<WelcomeFeature> = [
 @Entry
 @Component
 struct WelcomePage {
+  @StorageLink('isNumberVerified') isVerified: boolean = false;
   @State currentStep: WelcomeStep = WelcomeStep.Intro;
   @State isPolicySheetOpen: boolean = false;
   @State currentPolicyType: PolicySheetType = PolicySheetType.Terms;
@@ -169,6 +177,7 @@ struct WelcomePage {
   @State buttonScale: number = 1.0;
   @State isButtonActive: boolean = false;
   @State pageIndicatorIndex: number = 0;
+  @State isSkipAllowed: boolean = false;
 
   // Setup Sheet State
   @State isSetupSheetOpen: boolean = false;
@@ -188,6 +197,9 @@ struct WelcomePage {
   @State gradientAngle: number = 0;
   private breathingTimer: number = -1;
   
+  // SDK Key from config file
+  private authSdkKey: string = '';
+  
   private swiperController: SwiperController = new SwiperController();
 
   // Feature Dialog Controller
@@ -201,6 +213,81 @@ struct WelcomePage {
   private policyController: webview.WebviewController = new webview.WebviewController();
   private policyDialogController: CustomDialogController | null = null;
   private disclaimerDialogController: CustomDialogController | null = null;
+
+  aboutToAppear() {
+    try {
+      // Load SDK config
+      this.loadAuthSdkConfig();
+      
+      // Check for initial target step from EntryAbility
+      const initialStep = AppStorage.get<number>('initialTargetStep');
+      if (initialStep !== undefined) {
+        this.currentStep = initialStep;
+        AppStorage.setOrCreate('initialTargetStep', undefined); // Clear it
+      }
+
+      const params = router.getParams() as Record<string, number>;
+      if (params && params['targetStep'] !== undefined) {
+        this.currentStep = params['targetStep'];
+      }
+
+      // 如果跳转到后续步骤，默认认为前序协议已同意，避免被 disableSwipe 卡住
+      if (this.currentStep > WelcomeStep.Intro) {
+        this.hasAcceptedTerms = true;
+        this.hasAcceptedPrivacy = true;
+      }
+      if (this.currentStep > WelcomeStep.Features) {
+        this.hasAcceptedDisclaimer = true;
+      }
+      
+      this.checkIpLocation();
+    } catch (e) {
+      console.error('Failed to get params:', e);
+    }
+  }
+  
+  private loadAuthSdkConfig() {
+    try {
+      const context = getContext(this) as common.UIAbilityContext;
+      const rawFile = context.resourceManager.getRawFileContentSync('auth_sdk_config.json');
+      const textDecoder = util.TextDecoder.create('utf-8');
+      const jsonString = textDecoder.decodeToString(rawFile);
+      const config: Record<string, string> = JSON.parse(jsonString);
+      if (config['sdkKey']) {
+        this.authSdkKey = config['sdkKey'];
+        console.info('Loaded SDK key from config');
+      }
+    } catch (e) {
+      console.error('Failed to load auth SDK config:', e);
+    }
+  }
+
+  private async checkIpLocation() {
+    try {
+      const httpRequest = http.createHttp();
+      const response = await httpRequest.request('http://ip-api.com/json/?fields=countryCode', {
+        method: http.RequestMethod.GET,
+        connectTimeout: 5000,
+        readTimeout: 5000
+      });
+
+      if (response.responseCode === 200) {
+        const result = JSON.parse(response.result as string) as Record<string, Object>;
+        if (result['countryCode'] !== 'CN') {
+          this.isSkipAllowed = true;
+        }
+      }
+      httpRequest.destroy();
+    } catch (e) {
+      console.error('IP check failed:', e);
+    }
+  }
+
+  onPageShow() {
+    if (this.currentStep === WelcomeStep.NumberAuth && this.isVerified) {
+      this.swiperController.showNext();
+    }
+  }
 
   // 验证配置
   private validateConfig(): void {
@@ -342,7 +429,7 @@ struct WelcomePage {
       subtitleFontSize: 20,
       subtitleFontColor: '#FFFFFF',
       subtitleBackgroundColor: '#3c1464',
-      subtitleHeight: 20,
+      subtitleHeight: 10,
       glossary: 'HarmonyOS = 鸿蒙',
       themeMode: 2,  // 默认跟随系统
       vadSensitivityIndex: 1,
@@ -417,21 +504,37 @@ struct WelcomePage {
   // 启动顺序呼吸动画
   private startSequentialBreathing() {
     this.stopSequentialBreathing();
+    
+    // Ensure all scales are 1.0 to start
+    this.breathingScales = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0];
+    
+    this.startBreathingLoop();
+  }
+
+  private startBreathingLoop() {
     let index = 0;
-    this.breathingTimer = setInterval(() => {
-      // Pulse current card
+    
+    const breathe = () => {
+      const currentIndex = index; // 捕获当前索引
+      
+      // Enlarge
       animateTo({ duration: 600, curve: Curve.EaseInOut }, () => {
-        this.breathingScales[index] = 1.05;
+        this.breathingScales[currentIndex] = 1.05;
       });
       
+      // Shrink back
       setTimeout(() => {
         animateTo({ duration: 600, curve: Curve.EaseInOut }, () => {
-          this.breathingScales[index] = 1.0;
+          this.breathingScales[currentIndex] = 1.0;
         });
       }, 600);
 
       index = (index + 1) % this.breathingScales.length;
-    }, 1200);
+    };
+    
+    // Start immediately
+    breathe();
+    this.breathingTimer = setInterval(breathe, 1200);
   }
 
   // 停止呼吸动画
@@ -503,6 +606,13 @@ struct WelcomePage {
         return '开启体验';
       case WelcomeStep.Features:
         return '下一步';
+      case WelcomeStep.ApiDriven:
+        return '下一步';
+      case WelcomeStep.NumberAuth:
+        if (!this.isVerified && this.isSkipAllowed) {
+          return '暂时跳过';
+        }
+        return '下一步';
       case WelcomeStep.ApiIntro:
         return '开始配置';
       default:
@@ -524,7 +634,17 @@ struct WelcomePage {
         }
         break;
       case WelcomeStep.Features:
+        this.swiperController.showNext();
+        break;
+      case WelcomeStep.ApiDriven:
         this.showDisclaimerDialog();
+        break;
+      case WelcomeStep.NumberAuth:
+        if (this.isVerified || this.isSkipAllowed) {
+          this.swiperController.showNext();
+        } else {
+          promptAction.showToast({ message: '请先完成验证' });
+        }
         break;
     }
   }
@@ -598,7 +718,6 @@ struct WelcomePage {
         .objectFit(ImageFit.Contain)
         .borderRadius(70)
         .margin({ bottom: 40 })
-        .shadow({ radius: 40, color: '#66000000', offsetY: 10 })
         .transition(TransitionEffect.OPACITY.animation({ duration: 600 }).combine(TransitionEffect.translate({ y: 20 })))
 
       Text('Voot')
@@ -657,18 +776,19 @@ struct WelcomePage {
         .fontSize(32)
         .fontWeight(FontWeight.Bold)
         .fontColor(Color.White)
-        .margin({ top: 48, bottom: 8 })
+        .margin({ top: 128, bottom: 8 })
         .alignSelf(ItemAlign.Start)
         .padding({ left: 24 })
 
       Text(subtitle)
         .fontSize(16)
         .fontColor('#AAFFFFFF')
-        .margin({ bottom: 32 })
         .alignSelf(ItemAlign.Start)
-        .padding({ left: 24 })
+        .padding({ left: 24, right: 24 })
+        .maxLines(3)
     }
     .width('100%')
+    .justifyContent(FlexAlign.Start)
   }
 
   // 功能介绍页内容
@@ -677,173 +797,340 @@ struct WelcomePage {
     Column() {
       this.PageHeader('核心功能', '点击按钮，探索 Voot 的强大能力')
 
-      // Feature Cards Grid
       Column() {
-        // ... existing grid code ...
-        // Row 1: xx xx x (span 2, 2, 1)
-        Row({ space: 12 }) {
-          ForEach(WELCOME_FEATURES.slice(0, 3), (feature: WelcomeFeature, index: number) => {
-            this.FeatureCard(feature, index);
-          })
-        }
-        .width('100%')
-        .margin({ bottom: 12 })
+        // Feature Cards Grid
+        Column() {
+          // ... existing grid code ...
+          // Row 1: xx xx x (span 2, 2, 1)
+          Row({ space: 12 }) {
+            ForEach(WELCOME_FEATURES.slice(0, 3), (feature: WelcomeFeature, index: number) => {
+              this.FeatureCard(feature, index);
+            })
+          }
+          .width('100%')
+          .margin({ bottom: 12 })
 
-        // Row 2: x xx xx (span 1, 2, 2)
-        Row({ space: 12 }) {
-          ForEach(WELCOME_FEATURES.slice(3, 6), (feature: WelcomeFeature, index: number) => {
-            this.FeatureCard(feature, index + 3);
-          })
-        }
-        .width('100%')
-        .margin({ bottom: 12 })
+          // Row 2: x xx xx (span 1, 2, 2)
+          Row({ space: 12 }) {
+            ForEach(WELCOME_FEATURES.slice(3, 6), (feature: WelcomeFeature, index: number) => {
+              this.FeatureCard(feature, index + 3);
+            })
+          }
+          .width('100%')
+          .margin({ bottom: 12 })
 
-        // Row 3: xx x x (隔空手势、润色、扫描)
-        Row({ space: 12 }) {
-          ForEach(WELCOME_FEATURES.slice(6, 9), (feature: WelcomeFeature, index: number) => {
-            this.FeatureCard(feature, index + 6);
-          })
+          // Row 3: xx x x (隔空手势、润色、扫描)
+          Row({ space: 12 }) {
+            ForEach(WELCOME_FEATURES.slice(6, 9), (feature: WelcomeFeature, index: number) => {
+              this.FeatureCard(feature, index + 6);
+            })
+          }
+          .width('100%')
         }
-        .width('100%')
-      }
-      .visualEffect(new hdsEffect.HdsEffectBuilder()
-        .pointLight({
-          illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
+        .visualEffect(new hdsEffect.HdsEffectBuilder()
+          .pointLight({
+            illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
+          })
+          .buildEffect())
+        .width('90%')
+        .constraintSize({ maxWidth: 360 })
+        .padding(16)
+        .backgroundColor('#66190032')
+        .borderColor('#cc794a9b')
+        .borderRadius(18)
+        .onAppear(() => {
+          this.startSequentialBreathing();
         })
-        .buildEffect())
-      .width('90%')
-      .constraintSize({ maxWidth: 360 })
-      .padding(16)
-      .backgroundColor('#8d3c1464')
-      .borderRadius(18)
-      .onAppear(() => {
-        this.startSequentialBreathing();
-      })
-      .onDisAppear(() => {
-        this.stopSequentialBreathing();
-      })
+        .onDisAppear(() => {
+          this.stopSequentialBreathing();
+        })
+      }
+      .width('100%')
+      .layoutWeight(1)
+      .justifyContent(FlexAlign.Center)
+      .alignItems(HorizontalAlign.Center)
     }
     .width('100%')
     .height('100%')
-    .justifyContent(FlexAlign.Center)
+    .justifyContent(FlexAlign.Start)
+  }
+
+  // API 驱动介绍页内容
+  @Builder
+  ApiDrivenContent() {
+    Column() {
+      this.PageHeader('自有 API 驱动', '连接您信任的大语言模型')
+
+      Column() {
+        // Icon
+        Image($r('app.media.api'))
+          .width(120)
+          .height(120)
+          .fillColor(Color.White)
+          .objectFit(ImageFit.Contain)
+          .margin({ bottom: 50 })
+
+        // Description
+        Text('连接你信任的大模型与密钥，无需依赖特定服务商，自由选择。\n\n隐私安全，由您掌握在手中。')
+          .fontSize(16)
+          .fontColor('#DDFFFFFF')
+          .textAlign(TextAlign.Center)
+          .lineHeight(28)
+          .padding({ left: 32, right: 32 })
+      }
+      .width('100%')
+      .layoutWeight(1)
+      .justifyContent(FlexAlign.Center)
+      .alignItems(HorizontalAlign.Center)
+    }
+    .width('100%')
+    .height('100%')
+    .justifyContent(FlexAlign.Start)
+  }
+
+  // 号码认证页内容
+  @Builder
+  NumberAuthContent() {
+    Column() {
+      this.PageHeader('手机号码认证', '以便我们对您的真实身份进行验证')
+
+      Column() {
+        Column({ space: 16 }) {
+          // Option 1: One-click Login
+          Button() {
+            Row() {
+              Image($r('app.media.mobiledata'))
+                .width(40)
+                .height(40)
+                .objectFit(ImageFit.Contain)
+                .fillColor('#3c1464')
+                .margin({ right: 16 })
+              
+              Column() {
+                Text('一键验证')
+                  .fontSize(18)
+                  .fontWeight(FontWeight.Bold)
+                  .fontColor('#3c1464')
+                  .margin({ bottom: 4 })
+                Text('快速验证本机号码')
+                  .fontSize(14)
+                  .fontColor('#663c1464')
+              }
+              .alignItems(HorizontalAlign.Start)
+              .layoutWeight(1)
+
+              Image($r('app.media.click'))
+                .width(24)
+                .height(24)
+                .fillColor('#3c1464')
+            }
+            .width('100%')
+            .padding(20)
+          }
+          .type(ButtonType.Normal)
+          .backgroundColor(Color.White)
+          .borderRadius(24)
+          .height(88)
+          .onClick(() => {
+             this.createLoginAuth()
+          })
+
+          // Option 2: SMS Code Verify
+          Button() {
+            Row() {
+              Image($r('app.media.message'))
+                .width(40)
+                .height(40)
+                .objectFit(ImageFit.Contain)
+                .fillColor(Color.White)
+                .margin({ right: 16 })
+              
+              Column() {
+                Text('验证码验证')
+                  .fontSize(18)
+                  .fontWeight(FontWeight.Bold)
+                  .fontColor(Color.White)
+                  .margin({ bottom: 4 })
+                Text('接收短信验证码验证')
+                  .fontSize(14)
+                  .fontColor('#AAFFFFFF')
+              }
+              .alignItems(HorizontalAlign.Start)
+              .layoutWeight(1)
+
+              Image($r('app.media.click'))
+                .width(24)
+                .height(24)
+                .fillColor(Color.White)
+            }
+            .width('100%')
+            .padding(20)
+          }
+          .type(ButtonType.Normal)
+          .backgroundColor('#33FFFFFF')
+          .borderRadius(24)
+          .height(88)
+          .onClick(() => {
+            this.turnPage()
+          })
+        }
+        .width('90%')
+        .constraintSize({ maxWidth: 360 })
+      }
+      .width('100%')
+      .layoutWeight(1)
+      .justifyContent(FlexAlign.Center)
+      .alignItems(HorizontalAlign.Center)
+
+      Column() {
+        SymbolGlyph($r('sys.symbol.exclamationmark_shield_fill'))
+          .fontSize(16)
+          .fontColor([$r('sys.color.font_on_secondary')])
+          .margin({ bottom: 8 })
+
+        Text('手机号码是履行部分国家或地区法律法规关于网络实名制要求的必要信息，如果您不验证手机号码，我们可能无法为您提供生成式人工智能技术服务。')
+          .fontSize(12)
+          .fontColor($r('sys.color.font_on_secondary'))
+          .textAlign(TextAlign.Center)
+      }
+      .width('100%')
+      .alignItems(HorizontalAlign.Center)
+      .padding({ left: 32, right: 32, bottom: 32 })
+    }
+    .width('100%')
+    .height('100%')
+    .justifyContent(FlexAlign.Start)
   }
 
   // API 介绍页内容
   @Builder
   ApiIntroContent() {
     Column() {
-      this.PageHeader('配置 API', '连接顶尖 AI 翻译引擎')
+      this.PageHeader('配置 API', '连接顶尖 AI 模型引擎')
 
-      Column({ space: 16 }) {
-        // Option 1: I have a key
-        Button() {
-          Row() {
-            Image($r('app.media.key')) // Placeholder icon
-              .width(40)
-              .height(40)
-              .objectFit(ImageFit.Contain)
-              .fillColor('#3c1464')
-              .margin({ right: 16 })
-            
-            Column() {
-              Text('我有 API Key')
-                .fontSize(18)
-                .fontWeight(FontWeight.Bold)
-                .fontColor('#3c1464')
-                .margin({ bottom: 4 })
-              Text('直接填入密钥开始使用')
-                .fontSize(14)
-                .fontColor('#663c1464')
-            }
-            .bindSheet(
-              $$this.isSetupSheetOpen,
-              this.SetupSheetContent(),
-              {
-                detents: [SheetSize.MEDIUM, SheetSize.LARGE],
-                dragBar: true,
-                backgroundColor: '#F2F2F2',
-                blurStyle: BlurStyle.Thick,
-                enableOutsideInteractive: false,
-                onAppear: () => {console.log("BindSheet1 onAppear.")},
-                onDisappear: () => {console.log("BindSheet1 onDisappear.")}
+      Column() {
+        Column({ space: 16 }) {
+          // Option 1: I have a key
+          Button() {
+            Row() {
+              Image($r('app.media.key')) // Placeholder icon
+                .width(40)
+                .height(40)
+                .objectFit(ImageFit.Contain)
+                .fillColor('#3c1464')
+                .margin({ right: 16 })
+              
+              Column() {
+                Text('我有 API 密钥')
+                  .fontSize(18)
+                  .fontWeight(FontWeight.Bold)
+                  .fontColor('#3c1464')
+                  .margin({ bottom: 4 })
+                Text('直接填入密钥开始使用')
+                  .fontSize(14)
+                  .fontColor('#663c1464')
               }
-            )
-            .alignItems(HorizontalAlign.Start)
-            .layoutWeight(1)
+              .bindSheet(
+                $$this.isSetupSheetOpen,
+                this.SetupSheetContent(),
+                {
+                  detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+                  dragBar: true,
+                  backgroundColor: '#F2F2F2',
+                  blurStyle: BlurStyle.Thick,
+                  enableOutsideInteractive: false,
+                  onAppear: () => {console.log("BindSheet1 onAppear.")},
+                  onDisappear: () => {console.log("BindSheet1 onDisappear.")}
+                }
+              )
+              .alignItems(HorizontalAlign.Start)
+              .layoutWeight(1)
 
-            Image($r('app.media.click'))
-              .width(24)
-              .height(24)
-              .fillColor('#3c1464')
-          }
-          .width('100%')
-          .padding(20)
-        }
-        .type(ButtonType.Normal)
-        .backgroundColor(Color.White)
-        .borderRadius(24)
-        .onClick(() => {
-          this.isSetupSheetOpen = true;
-          this.validateConfig(); // Initial validation
-        })
-
-        // Option 2: No key
-        Button() {
-          Row() {
-            Image($r('app.media.key_slash')) // Placeholder icon
-              .width(40)
-              .height(40)
-              .objectFit(ImageFit.Contain)
-              .fillColor(Color.White)
-              .margin({ right: 16 })
-            
-            Column() {
-              Text('我还没有 API Key')
-                .fontSize(18)
-                .fontWeight(FontWeight.Bold)
-                .fontColor(Color.White)
-                .margin({ bottom: 4 })
-              Text('了解原理与获取方式')
-                .fontSize(14)
-                .fontColor('#AAFFFFFF')
+              Image($r('app.media.click'))
+                .width(24)
+                .height(24)
+                .fillColor('#3c1464')
             }
-            .alignItems(HorizontalAlign.Start)
-            .layoutWeight(1)
-            .bindSheet(
-              $$this.isKeyGuideSheetOpen,
-              this.KeyGuideSheetContent(),
-              {
-                detents: [SheetSize.MEDIUM, SheetSize.LARGE],
-                dragBar: true,
-                backgroundColor: '#F2F2F2',
-                blurStyle: BlurStyle.Thick,
-                enableOutsideInteractive: false,
-                onAppear: () => {console.log("BindSheet2 onAppear.")},
-                onDisappear: () => {console.log("BindSheet2 onDisappear.")}
-              }
-            )
-
-            Image($r('app.media.click'))
-              .width(24)
-              .height(24)
-              .fillColor(Color.White)
+            .width('100%')
+            .padding(20)
           }
-          .width('100%')
-          .padding(20)
+          .type(ButtonType.Normal)
+          .backgroundColor(Color.White)
+          .borderRadius(24)
+          .height(88)
+          .onClick(() => {
+            this.isSetupSheetOpen = true;
+            this.validateConfig(); // Initial validation
+          })
+
+          // Option 2: No key
+          Button() {
+            Row() {
+              Image($r('app.media.key_slash')) // Placeholder icon
+                .width(40)
+                .height(40)
+                .objectFit(ImageFit.Contain)
+                .fillColor(Color.White)
+                .margin({ right: 16 })
+              
+              Column() {
+                Text('我还没有 API 密钥')
+                  .fontSize(18)
+                  .fontWeight(FontWeight.Bold)
+                  .fontColor(Color.White)
+                  .margin({ bottom: 4 })
+                Text('了解原理与获取方式')
+                  .fontSize(14)
+                  .fontColor($r('sys.color.font_on_secondary'))
+              }
+              .alignItems(HorizontalAlign.Start)
+              .layoutWeight(1)
+              .bindSheet(
+                $$this.isKeyGuideSheetOpen,
+                this.KeyGuideSheetContent(),
+                {
+                  detents: [SheetSize.MEDIUM, SheetSize.LARGE],
+                  dragBar: true,
+                  backgroundColor: '#F2F2F2',
+                  blurStyle: BlurStyle.Thick,
+                  enableOutsideInteractive: false,
+                  onAppear: () => {console.log("BindSheet2 onAppear.")},
+                  onDisappear: () => {console.log("BindSheet2 onDisappear.")}
+                }
+              )
+
+              Image($r('app.media.click'))
+                .width(24)
+                .height(24)
+                .fillColor(Color.White)
+            }
+            .width('100%')
+            .padding(20)
+          }
+          .type(ButtonType.Normal)
+          .backgroundColor('#33FFFFFF')
+          .borderRadius(24)
+          .height(88)
+          .onClick(() => {
+            this.isKeyGuideSheetOpen = true;
+          })
         }
-        .type(ButtonType.Normal)
-        .backgroundColor('#33FFFFFF')
-        .borderRadius(24)
-        .onClick(() => {
-          this.isKeyGuideSheetOpen = true;
-        })
+        .width('90%')
+        .constraintSize({ maxWidth: 360 })
       }
-      .width('90%')
-      .constraintSize({ maxWidth: 360 })
+      .width('100%')
+      .layoutWeight(1)
+      .justifyContent(FlexAlign.Center)
+      .alignItems(HorizontalAlign.Center)
+
+      // 占位区域，与第三页底部提示信息高度一致
+      Column()
+        .width('100%')
+        .height(100)
     }
     .width('100%')
     .height('100%')
-    .justifyContent(FlexAlign.Center)
+    .justifyContent(FlexAlign.Start)
   }
 
   @Builder
@@ -1204,7 +1491,147 @@ struct WelcomePage {
     })
   }
 
+  private helper: PhoneNumberAuthHelper | undefined;
 
+  public async turnPage() {
+    console.info('Turn page clicked');
+    router.pushUrl({
+      url: 'pages/VerifyPage',
+    }).catch((err: Error) => {
+      console.log("====" + err.message)
+    })
+  }
+
+  public createLoginAuth() {
+    class TokenListener implements TokenResultListener {
+      private page: WelcomePage
+
+      constructor(page: WelcomePage) {
+        this.page = page;
+      }
+
+      onSuccess(msg: string): void {
+        console.log("auth:onSuccess:" + msg)
+        const result: object = JSON.parse(msg)
+        const code = result['_code'] + ''
+        const token = result['_token'] + ''
+        if (code == "600000") {
+          this.page.quitLoginPage()
+          promptAction.showToast({ message: '验证成功' });
+          AppStorage.setOrCreate('isNumberVerified', true);
+          OnboardingStorage.setNumberVerified(getContext(this.page) as common.UIAbilityContext, true);
+          this.page.swiperController.showNext();
+        }
+      }
+
+      onFailure(ret: string): void {
+        console.log("auth:onFailure:" + ret)
+        this.page.updateAuth()
+        try {
+          const result: Record<string, string> = JSON.parse(ret) as Record<string, string>
+          const code: string = result['_code']
+          // 700000: 用户取消登录/点击返回，不提示错误
+          if (code !== '700000') {
+            const msg: string = result['_msg'] || '验证失败'
+            promptAction.showToast({ message: msg });
+          }
+        } catch (e) {
+          promptAction.showToast({ message: '验证失败' });
+        }
+      }
+
+    }
+    let listener = new TokenListener(this)
+    this.helper = PhoneNumberAuthHelper.getInstance(getContext(this), listener)
+    let uiConfig: AuthUiConfig = new AuthUiConfig();
+    
+    // 号码栏样式
+    uiConfig.numberMargin = { top: 220 }
+    uiConfig.numberFontColor = '#FFFFFF'
+    uiConfig.numberFontSize = 24
+
+    // 登录按钮样式
+    uiConfig.loginBtnText = "本机号码一键验证"
+    uiConfig.loginBtnWidth = '80%'
+    uiConfig.loginBtnHeight = 50
+    uiConfig.loginBtnBackGroundColor = $r('sys.color.comp_background_primary')
+    uiConfig.loginBtnDisableBackGroundColor = $r('sys.color.comp_background_tertiary')
+    uiConfig.loginBtnFontColor = '#3c1464'
+    uiConfig.loginBtnFontSize = 18
+    uiConfig.loginBtnBorder = 25 // Number!
+    uiConfig.loginBtnMargin = { top: 320 }
+    uiConfig.loginBtnAlignRuleOption = {
+      middle: { anchor: '__container__', align: HorizontalAlign.Center },
+      top: { anchor: '__container__', align: VerticalAlign.Top },
+    }
+
+    // 弹窗
+    uiConfig.needShowPrivacyAlert = false
+
+    // 协议栏样式
+    uiConfig.privacySpanBeforeFontColor = $r('sys.color.font_on_primary')
+    uiConfig.privacySpanBeforeText = "阿里云提供认证服务，验证即代表同意"
+    uiConfig.privacySpanEndText = '。验证仅本次有效，手机号码不会提供给应用。'
+    uiConfig.privacyFontColor = $r('sys.color.font_emphasize')
+    uiConfig.privacySpanEndFontColor = $r('sys.color.font_on_primary')
+    uiConfig.privacyCbTipText = '请阅读并勾选协议'
+    
+    // Checkbox 布局
+    uiConfig.privacyCbWidth = 20
+    uiConfig.privacyCbHeight = 20
+    uiConfig.privacyCbSelectColor = $r('sys.color.confirm')
+    uiConfig.privacyCbMargin = { left: 30, bottom: 66 }
+    uiConfig.privacyCbAlignRuleOption = {
+      left: { anchor: '__container__', align: HorizontalAlign.Start },
+      bottom: { anchor: '__container__', align: VerticalAlign.Bottom }
+    }
+
+    // 协议文本布局
+    uiConfig.privacyMargin = { left: 60, right: 24, bottom: 40 }
+    uiConfig.privacyAlignRuleOption = {
+      left: { anchor: '__container__', align: HorizontalAlign.Start },
+      bottom: { anchor: '__container__', align: VerticalAlign.Bottom }
+    }
+
+    uiConfig.loginPageComponent = wrapBuilder(clauseComponent)
+    this.helper?.setAuthConfig(uiConfig)
+
+    class UIListener implements AuthUIControlClickListener {
+      onClick(code: string, jsonString: string): void {
+        console.log("===" + code + "   " + jsonString);
+      }
+    }
+    let clicklistener = new UIListener()
+    this.helper.setUIClickListener(clicklistener)
+    this.helper.checkEnvAvailable(1)
+    
+    // Use SDK key from config file
+    if (this.authSdkKey) {
+      this.helper.setAuthSDKInfo(this.authSdkKey)
+    } else {
+      console.error('Auth SDK key not loaded from config')
+    }
+    
+    this.helper.getLoginToken(5000)
+    
+    bundleManager.getBundleInfoForSelf(bundleManager.BundleFlag.GET_BUNDLE_INFO_WITH_SIGNATURE_INFO).then((bundleInfo) => {
+      const packageName = bundleInfo.name
+      console.log("numberauth:pagname:" + packageName)
+      const sign = bundleInfo.signatureInfo.fingerprint
+      console.log("numberauth:sign:" + sign)
+      const appIdentifier = bundleInfo.signatureInfo.appIdentifier
+      console.log("numberauth:appid:" + appIdentifier)
+    })
+  }
+
+  private quitLoginPage() {
+    this.helper?.quitLoginPage()
+    this.helper?.setAuthListener(undefined)
+  }
+
+  private updateAuth() {
+    this.helper?.setAuthListener(undefined)
+  }
 
   build() {
     Stack() {
@@ -1239,15 +1666,28 @@ struct WelcomePage {
         Swiper(this.swiperController) {
           this.IntroContent()
           this.FeaturesContent()
+          this.ApiDrivenContent()
+          this.NumberAuthContent()
           this.ApiIntroContent()
         }
+        .index(this.currentStep)
         .layoutWeight(1)
         .width('100%')
         .loop(false)
         .disableSwipe(
-          (!this.hasAcceptedTerms || !this.hasAcceptedPrivacy) || 
-          (this.currentStep === WelcomeStep.Features && !this.hasAcceptedDisclaimer)
+          (this.currentStep === WelcomeStep.Intro && (!this.hasAcceptedTerms || !this.hasAcceptedPrivacy))
         )
+        .onAnimationStart((index: number, targetIndex: number) => {
+          if (targetIndex > index) {
+            if (index === WelcomeStep.ApiDriven && !this.hasAcceptedDisclaimer) {
+              this.swiperController.changeIndex(index, true);
+              promptAction.showToast({ message: '请先点击下一步按钮' });
+            } else if (index === WelcomeStep.NumberAuth && !this.isVerified && !this.isSkipAllowed) {
+              this.swiperController.changeIndex(index, true);
+              promptAction.showToast({ message: '请先完成验证' });
+            }
+          }
+        })
         .indicator(
           Indicator.dot()
             .itemWidth(8)
@@ -1266,6 +1706,11 @@ struct WelcomePage {
             this.startSequentialBreathing();
           } else {
             this.stopSequentialBreathing();
+          }
+          
+          // 在第三页（ApiDriven）时提前进行IP检测
+          if (index === WelcomeStep.ApiDriven) {
+            this.checkIpLocation();
           }
         })
 
@@ -1307,14 +1752,26 @@ struct WelcomePage {
             if (this.currentStep !== WelcomeStep.ApiIntro) {
               Button(this.getButtonText())
                 .type(ButtonType.Capsule)
-                .backgroundColor(Color.White)
-                .fontColor('#3c1464')
+                .backgroundColor(
+                  (this.currentStep === WelcomeStep.NumberAuth && !this.isVerified && !this.isSkipAllowed) 
+                  ? '#CCCCCC' 
+                  : Color.White
+                )
+                .fontColor(
+                  (this.currentStep === WelcomeStep.NumberAuth && !this.isVerified && !this.isSkipAllowed) 
+                  ? '#666666' 
+                  : '#3c1464'
+                )
                 .layoutWeight(1)
                 .height(56)
                 .fontSize(18)
                 .fontWeight(FontWeight.Bold)
                 .scale({ x: this.buttonScale, y: this.buttonScale })
-                .shadow({ radius: 20, color: '#443c1464', offsetY: 8 })
+                .shadow({ 
+                  radius: 20, 
+                  color: (this.currentStep === WelcomeStep.NumberAuth && !this.isVerified && !this.isSkipAllowed) ? '#00000000' : '#443c1464', 
+                  offsetY: 8 
+                })
                 .visualEffect(new hdsEffect.HdsEffectBuilder()
                   .pointLight({
                     sourceType: this.isButtonActive
@@ -1470,7 +1927,7 @@ struct DisclaimerDialog {
         .fontColor(Color.Black)
         .margin({ bottom: 16 })
 
-      Text('请确认您了解什么是〖API〗和〖密钥〗，您也可以稍后进入下一页了解。Voot 是一款依赖大模型运行的语言处理工具，不提供任何公共语言处理服务或内置密钥。\n\n您需要使用自己的 API 密钥（包括但不限于 豆包、OpenAI、DeepL 等）来驱动功能。\n\n请确保您遵守相关大模型服务商的使用条款以及当地允许的法律法规。')
+      Text('请确认您了解什么是〖API〗和〖密钥〗，您也可以稍后在验证手机号码后了解。Voot 是一款依赖大模型运行的语言处理工具，不提供任何公共语言处理服务或内置密钥。\n\n您需要使用自己的 API 密钥（包括但不限于 豆包、OpenAI、DeepL 等）来驱动功能。\n\n请确保您遵守相关大模型服务商的使用条款以及当地的法律法规。')
         .fontSize(16)
         .fontColor(Color.Gray)
         .textAlign(TextAlign.Center)
@@ -1505,4 +1962,44 @@ struct DisclaimerDialog {
     .borderRadius(24)
     .shadow({ radius: 32, color: '#44000000', offsetY: 8 })
   }
+}
+
+@Builder
+export function clauseComponent(): void {
+  // Background Layer
+  Stack() {
+    Image($r('app.media.app_background_pic_voot_purple'))
+      .width('100%')
+      .height('100%')
+      .objectFit(ImageFit.Cover)
+      .blur(20)
+
+    Rect()
+      .width('100%')
+      .height('100%')
+      .fill(Color.Transparent)
+      .linearGradient({
+        angle: 180,
+        colors: [['#AA000000', 0.0], ['#663c1464', 1.0]]
+      })
+  }
+  .width('100%')
+  .height('100%')
+  .alignRules({
+    top: { anchor: '__container__', align: VerticalAlign.Top },
+    left: { anchor: '__container__', align: HorizontalAlign.Start },
+    bottom: { anchor: '__container__', align: VerticalAlign.Bottom },
+    right: { anchor: '__container__', align: HorizontalAlign.End }
+  })
+
+  // Logo Layer
+  Image($r('app.media.person_crop'))
+    .fillColor(Color.White)
+    .width('80vp')
+    .height('80vp')
+    .margin({top:120})
+    .alignRules({
+      middle: { anchor: '__container__', align: HorizontalAlign.Center },
+      top: { anchor: '__container__', align: VerticalAlign.Top },
+    })
 }

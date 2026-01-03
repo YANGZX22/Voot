@@ -4,6 +4,7 @@ import http from '@ohos.net.http';
 import promptAction from '@ohos.promptAction';
 import { ColorMetrics } from '@kit.ArkUI';
 import { THEMES } from '../model/Theme';
+import window from '@ohos.window';
 
 const TITLE_BAR_HEIGHT_MINI: number = 84;
 
@@ -236,6 +237,13 @@ export struct ApiConfigPage {
   @Prop isLightEffectBright: boolean = true;
   @Prop isDarkMode: boolean = true;
   @StorageLink('themeColorIndex') themeColorIndex: number = 0;
+
+  // API Config Page Settings
+  @StorageLink('apiConfigRequireScreenLock') apiConfigRequireScreenLock: boolean = true;
+  @StorageLink('apiConfigPrivacyMode') apiConfigPrivacyMode: boolean = true;
+
+  // 记录进入页面前的窗口状态，用于退出时恢复
+  private previousPrivacyMode: boolean = false;
 
   // Callbacks (Initialized to empty functions)
   onBack: () => void = () => {};
@@ -625,6 +633,52 @@ export struct ApiConfigPage {
     }
     .width('100%')
     .padding({ left: 24, right: 24, top: 24, bottom: 32 })
+  }
+
+  // 获取当前窗口实例
+  private async getMainWindow(): Promise<window.Window | null> {
+    try {
+      return await window.getLastWindow(getContext(this));
+    } catch (err) {
+      console.error('ApiConfigPage: Failed to get window', err);
+      return null;
+    }
+  }
+
+  // 页面出现时应用设置
+  async aboutToAppear(): Promise<void> {
+    const mainWindow = await this.getMainWindow();
+    if (!mainWindow) return;
+
+    try {
+      // 保存当前窗口状态
+      const props = mainWindow.getWindowProperties();
+      this.previousPrivacyMode = props.isPrivacyMode;
+
+      // 根据设置应用隐私模式
+      if (this.apiConfigPrivacyMode) {
+        await mainWindow.setWindowPrivacyMode(true);
+        console.info('ApiConfigPage: Privacy mode enabled');
+      }
+    } catch (err) {
+      console.error('ApiConfigPage: Failed to apply window settings', err);
+    }
+  }
+
+  // 页面消失时恢复设置
+  async aboutToDisappear(): Promise<void> {
+    const mainWindow = await this.getMainWindow();
+    if (!mainWindow) return;
+
+    try {
+      // 恢复之前的隐私模式状态
+      if (this.apiConfigPrivacyMode && !this.previousPrivacyMode) {
+        await mainWindow.setWindowPrivacyMode(false);
+        console.info('ApiConfigPage: Privacy mode restored to off');
+      }
+    } catch (err) {
+      console.error('ApiConfigPage: Failed to restore window settings', err);
+    }
   }
 
   build() {
@@ -1023,7 +1077,6 @@ export struct ApiConfigPage {
     .width('100%')
     .padding(12)
     .borderRadius(12)
-    .backgroundColor(THEMES[this.themeColorIndex].tertiaryColor);
   }
 
   @Builder
@@ -1053,7 +1106,6 @@ export struct ApiConfigPage {
     .width('100%')
     .padding(12)
     .borderRadius(12)
-    .backgroundColor(THEMES[this.themeColorIndex].tertiaryColor);
   }
 
   @Builder
@@ -1083,7 +1135,6 @@ export struct ApiConfigPage {
     .width('100%')
     .padding(12)
     .borderRadius(12)
-    .backgroundColor(THEMES[this.themeColorIndex].tertiaryColor);
   }
 
   @Builder
@@ -1124,13 +1175,12 @@ export struct ApiConfigPage {
     .width('100%')
     .padding(12)
     .borderRadius(12)
-    .backgroundColor(THEMES[this.themeColorIndex].tertiaryColor);
   }
 
   @Builder
   RenderPolishPromptConfig() {
     Column() {
-      Image($r('app.media.Prompt'))
+      Image($r('app.media.Polish'))
         .width(48)
         .height(48)
         .margin({ bottom: 8 })
@@ -1161,7 +1211,6 @@ export struct ApiConfigPage {
     .width('100%')
     .padding(12)
     .borderRadius(12)
-    .backgroundColor(THEMES[this.themeColorIndex].tertiaryColor);
   }
 
   @Builder
@@ -1190,7 +1239,6 @@ export struct ApiConfigPage {
     .width('100%')
     .padding(12)
     .borderRadius(12)
-    .backgroundColor(THEMES[this.themeColorIndex].tertiaryColor);
   }
 }
 
@@ -1204,14 +1252,14 @@ function PromptContent(props: ApiConfigPageProps) {
       .height(48)
       .margin({ bottom: 8 })
       .fillColor(Color.White)
-    Text('提示词 (Prompt)')
+    Text('翻译提示词 (Prompt)')
       .fontColor(Color.White)
       .fontSize(20)
       .fontWeight(FontWeight.Bold)
       .margin({ bottom: 12 });
 
     Column() {
-      Text('请确保 Prompt (提示词) 包含 {0} 与 [abc]。{0} 代表目标语言，[abc] 代表原始文本。')
+      Text('请确保提示词 (Prompt) 包含 {0} 与 [abc]。{0} 代表目标语言，[abc] 代表原始文本。')
         .fontColor($r('sys.color.font_on_secondary'))
         .fontSize(14)
     }
@@ -1219,10 +1267,9 @@ function PromptContent(props: ApiConfigPageProps) {
     .padding(12)
     .borderRadius(12)
     .margin({ bottom: 16 })
-    .backgroundColor(THEMES[props.themeColorIndex].tertiaryColor);
 
     Column() {
-      Text('Prompt Text')
+      Text('翻译 Prompt 文本')
         .fontColor(Color.White)
         .fontSize(16)
         .backgroundColor(Color.Transparent)
@@ -1240,7 +1287,6 @@ function PromptContent(props: ApiConfigPageProps) {
     .width('100%')
     .padding(12)
     .borderRadius(16)
-    .backgroundColor(THEMES[props.themeColorIndex].tertiaryColor);
 
     Blank().height(24);
   }

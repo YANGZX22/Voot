@@ -24,6 +24,18 @@
         "name": "ohos.permission.DISTRIBUTED_DATASYNC",
         "reason": "$string:distributed_reason",
         "usedScene": { "when": "inuse" }
+      },
+      {
+        "name": "ohos.permission.GET_NETWORK_INFO",
+        "usedScene": { "when": "inuse" }
+      },
+      {
+        "name": "ohos.permission.SET_NETWORK_INFO",
+        "usedScene": { "when": "inuse" }
+      },
+      {
+        "name": "ohos.permission.PRIVACY_WINDOW",
+        "usedScene": { "when": "inuse" }
       }
     ],
     "name": "entry",
@@ -78,6 +90,12 @@
             "resource": "$profile:shortcuts_config"
           }
         ]
+      }
+    ],
+    "metadata": [
+      {
+        "name": "client_id",
+        "value": "6917592755278639593"
       }
     ],
     "extensionAbilities": [

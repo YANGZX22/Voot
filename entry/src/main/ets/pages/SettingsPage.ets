@@ -4,12 +4,15 @@ import { webview } from '@kit.ArkWeb';
 import common from '@ohos.app.ability.common';
 import bundleManager from '@ohos.bundle.bundleManager';
 import { PolicySheetType, PolicySheetContent, getPolicySheetConfig } from '../components/PolicySheet';
+import { OnboardingStorage } from '../storage/OnboardingStorage';
 import promptAction from '@ohos.promptAction';
 import router from '@ohos.router';
 import { THEMES, Theme } from '../model/Theme';
+import { AuthUtil } from '@pura/harmony-utils';
+import userIAM_userAuth from '@ohos.userIAM.userAuth';
 
 const TITLE_BAR_HEIGHT_MINI: number = 94;
-const SETTINGS_SECTION_COUNT: number = 6;
+const SETTINGS_SECTION_COUNT: number = 8;
 type ToggleKey = 'subtitles' | 'liveWindow';
 
 @CustomDialog
@@ -408,11 +411,61 @@ struct GestureActionRow {
   }
 }
 
+@CustomDialog
+struct ExitVerificationDialog {
+  controller: CustomDialogController
+  onConfirm: () => void = () => {}
+
+  build() {
+    Column() {
+      Text('退出验证')
+        .fontSize(20)
+        .fontWeight(FontWeight.Medium)
+        .fontColor(Color.Black)
+        .margin({ bottom: 12 })
+      
+      Text('确定要退出验证吗？退出后将无法使用部分功能，直到重新验证。')
+        .fontSize(16)
+        .fontColor('#666666')
+        .textAlign(TextAlign.Center)
+        .margin({ bottom: 24 })
+        .lineHeight(24)
+
+      Row() {
+        Button('取消')
+          .type(ButtonType.Capsule)
+          .backgroundColor('#F5F5F5')
+          .fontColor('#666666')
+          .layoutWeight(1)
+          .margin({ right: 12 })
+          .onClick(() => {
+            this.controller.close()
+          })
+
+        Button('退出')
+          .type(ButtonType.Capsule)
+          .backgroundColor('#FF0000')
+          .fontColor(Color.White)
+          .layoutWeight(1)
+          .onClick(() => {
+            this.controller.close()
+            this.onConfirm()
+          })
+      }
+      .width('100%')
+    }
+    .width(300)
+    .padding(24)
+    .backgroundColor(Color.White)
+    .borderRadius(24)
+  }
+}
+
 @Component
 export struct SettingsPage {
   // Props
   @Link isRealtimeReadingEnabled: boolean;
-  @Prop isPipSubtitleEnabled: boolean = false; // PiP 字幕开关状态
+  @Prop @Watch('onPipEnabledChange') isPipSubtitleEnabled: boolean = false; // PiP 字幕开关状态
   @Prop isPipAvailable: boolean = true; // PiP 是否可用
   @Link subtitleFontSize: number;
   @Link subtitleFontColor: string;
@@ -422,17 +475,41 @@ export struct SettingsPage {
   @Link themeMode: number;  // 0 = 浅色, 1 = 深色, 2 = 跟随系统
   @Prop isDarkMode: boolean = true;  // 计算后的暗色模式状态（用于光效）
 
+  // 本地动画状态变量
+  @State showSubtitleStyle: boolean = false;
+  @State showGestureActions: boolean = false;
+
   // Theme Color
   @StorageLink('themeColorIndex') @Watch('onThemeColorChange') themeColorIndex: number = 0;
+  @StorageLink('isNumberVerified') isVerified: boolean = false;
 
   onThemeColorChange() {
     this.settingsBtnBgColor = THEMES[this.themeColorIndex].primaryColor;
   }
 
+  onPipEnabledChange() {
+    animateTo({ duration: 300, curve: Curve.FastOutSlowIn }, () => {
+      this.showSubtitleStyle = this.isPipSubtitleEnabled;
+    });
+  }
+
   // Air Gestures Settings
-  @StorageLink('airGesturesEnabled') airGesturesEnabled: boolean = false;
+  @StorageLink('airGesturesEnabled') @Watch('onAirGesturesChange') airGesturesEnabled: boolean = false;
+
+  onAirGesturesChange() {
+    animateTo({ duration: 300, curve: Curve.FastOutSlowIn }, () => {
+      this.showGestureActions = this.airGesturesEnabled;
+    });
+  }
   @StorageLink('airGestureUpAction') airGestureUpAction: string = 'record';
   @StorageLink('airGestureDownAction') airGestureDownAction: string = 'translate';
+
+  // API Config Page Settings
+  @StorageLink('apiConfigRequireScreenLock') apiConfigRequireScreenLock: boolean = true;
+  @StorageLink('apiConfigPrivacyMode') apiConfigPrivacyMode: boolean = true;
+
+  // 屏幕锁定选项可用状态
+  @State isScreenLockAvailable: boolean = true;
 
   // Callbacks
   onTogglePipSubtitle: (isOn: boolean) => void = () => {}; // PiP 字幕切换回调
@@ -457,6 +534,23 @@ export struct SettingsPage {
     alignment: DialogAlignment.Center,
   })
 
+  exitDialogController: CustomDialogController = new CustomDialogController({
+    builder: ExitVerificationDialog({
+      onConfirm: () => {
+        AppStorage.setOrCreate('isNumberVerified', false);
+        OnboardingStorage.setNumberVerified(getContext(this) as common.UIAbilityContext, false);
+        router.pushUrl({
+          url: 'pages/WelcomePage',
+          params: { targetStep: 3 }
+        });
+      }
+    }),
+    autoCancel: true,
+    alignment: DialogAlignment.Center,
+    customStyle: true,
+    backgroundColor: 'transparent'
+  })
+
   @State appVersion: string = '';
   @State pageOpacity: number = 0;
   @State pageOffsetY: number = 18;
@@ -473,6 +567,13 @@ export struct SettingsPage {
     this.backgroundAngle = 150;
     this.sectionOpacities = new Array(SETTINGS_SECTION_COUNT).fill(0);
     this.sectionOffsets = new Array(SETTINGS_SECTION_COUNT).fill(16);
+
+    // 检测屏幕锁定选项是否可用
+    this.checkScreenLockAvailability();
+
+    // 初始化展开状态（无动画）
+    this.showSubtitleStyle = this.isPipSubtitleEnabled;
+    this.showGestureActions = this.airGesturesEnabled;
 
     setTimeout(() => {
       animateTo({ duration: 320, curve: Curve.FastOutSlowIn }, () => {
@@ -509,9 +610,11 @@ export struct SettingsPage {
   @State isSettingsBtnActive: boolean = false;
 
   // Section expand states
+  @State isVerifiedSectionOpen: boolean = false;
   @State isSubtitleSectionOpen: boolean = true;
   @State isTranslateSectionOpen: boolean = true;
   @State isGestureSectionOpen: boolean = false;
+  @State isApiConfigSectionOpen: boolean = false;
   @State isAppearanceSectionOpen: boolean = false;
   @State isInfoSectionOpen: boolean = false;
   @State isFaqSectionOpen: boolean = false;
@@ -576,13 +679,24 @@ export struct SettingsPage {
         })
     }
 
-    SettingsItem({
-      title: '字幕样式',
-      hasArrow: true,
-      onClickItem: () => {
-        this.dialogController.open()
+    if (this.showSubtitleStyle) {
+      Column() {
+        SettingsItem({
+          title: '字幕样式',
+          hasArrow: true,
+          onClickItem: () => {
+            this.dialogController.open()
+          }
+        })
       }
-    })
+      .width('100%')
+      .clip(true)
+      .transition(
+        TransitionEffect.OPACITY.combine(
+          TransitionEffect.translate({ y: -10 })
+        ).animation({ duration: 300, curve: Curve.FastOutSlowIn })
+      )
+    }
   }
 
   @Builder
@@ -610,6 +724,56 @@ export struct SettingsPage {
         .selectedColor(THEMES[this.themeColorIndex].primaryColor)
         .onChange((isOn: boolean) => {
           this.airGesturesEnabled = isOn;
+        })
+    }
+  }
+
+  // 检测屏幕锁定选项是否可用
+  private checkScreenLockAvailability(): void {
+    try {
+      const faceStatus = AuthUtil.getAvailableStatus(userIAM_userAuth.UserAuthType.FACE, userIAM_userAuth.AuthTrustLevel.ATL1);
+      const fingerStatus = AuthUtil.getAvailableStatus(userIAM_userAuth.UserAuthType.FINGERPRINT, userIAM_userAuth.AuthTrustLevel.ATL2);
+      const pinStatus = AuthUtil.getAvailableStatus(userIAM_userAuth.UserAuthType.PIN, userIAM_userAuth.AuthTrustLevel.ATL2);
+      
+      // 如果任一屏幕锁定方式可用，则认为屏幕锁定可用
+      this.isScreenLockAvailable = faceStatus.status || fingerStatus.status || pinStatus.status;
+      
+      // 如果屏幕锁定不可用，自动关闭该设置
+      if (!this.isScreenLockAvailable && this.apiConfigRequireScreenLock) {
+        this.apiConfigRequireScreenLock = false;
+      }
+    } catch (err) {
+      console.error('SettingsPage: Failed to check screen lock availability', err);
+      this.isScreenLockAvailable = false;
+    }
+  }
+
+  @Builder
+  ApiConfigItems() {
+    SettingsItem({
+      title: '屏幕锁定选项',
+      subtitle: this.isScreenLockAvailable ? '进入配置 API 页面前需验证屏幕锁定选项' : '您似乎没有屏幕锁定选项'
+    }) {
+      Toggle({ type: ToggleType.Switch, isOn: this.apiConfigRequireScreenLock })
+        .selectedColor(THEMES[this.themeColorIndex].primaryColor)
+        .enabled(this.isScreenLockAvailable)
+        .opacity(this.isScreenLockAvailable ? 1.0 : 0.5)
+        .onChange((isOn: boolean) => {
+          if (!this.isScreenLockAvailable && isOn) {
+            promptAction.showToast({ message: '请先在系统设置中配置屏幕锁定选项（PIN、指纹或人脸识别）' });
+            return;
+          }
+          this.apiConfigRequireScreenLock = isOn;
+        })
+    }
+    SettingsItem({
+      title: '设为隐私页面',
+      subtitle: '进入配置 API 页面后禁止截屏和录屏'
+    }) {
+      Toggle({ type: ToggleType.Switch, isOn: this.apiConfigPrivacyMode })
+        .selectedColor(THEMES[this.themeColorIndex].primaryColor)
+        .onChange((isOn: boolean) => {
+          this.apiConfigPrivacyMode = isOn;
         })
     }
   }
@@ -675,6 +839,41 @@ export struct SettingsPage {
           Column() {
             Blank().height(TITLE_BAR_HEIGHT_MINI);
 
+            // Verified Section
+            Column() {
+              SettingsGroup({
+                title: this.isVerified ? '已验证' : '未验证手机号码',
+                icon: this.isVerified ? $r('sys.symbol.checkmark_circle') : $r('sys.symbol.exclamationmark_circle'),
+                isOpen: $isVerifiedSectionOpen,
+                isDarkMode: this.isDarkMode
+              }) {
+                if (this.isVerified) {
+                  SettingsItem({
+                    title: '退出验证',
+                    subtitle: '退出后将无法使用部分功能，需重新验证手机号码',
+                    hasArrow: true,
+                    onClickItem: () => {
+                      this.exitDialogController.open();
+                    }
+                  })
+                } else {
+                  SettingsItem({
+                    title: '去验证',
+                    subtitle: '如果您处于中国大陆地区，请验证手机号码来满足政府部门监管要求',
+                    hasArrow: true,
+                    onClickItem: () => {
+                      router.pushUrl({
+                        url: 'pages/WelcomePage',
+                        params: { targetStep: 3 }
+                      });
+                    }
+                  })
+                }
+              }
+            }
+            .opacity(this.sectionOpacities[0])
+            .offset({ y: this.sectionOffsets[0] })
+
             // Subtitle Section
             Column() {
               SettingsGroup({
@@ -686,8 +885,8 @@ export struct SettingsPage {
                 this.PipToggleItem()
               }
             }
-            .opacity(this.sectionOpacities[0])
-            .offset({ y: this.sectionOffsets[0] })
+            .opacity(this.sectionOpacities[1])
+            .offset({ y: this.sectionOffsets[1] })
 
             // Translate Section
             Column() {
@@ -700,8 +899,8 @@ export struct SettingsPage {
                 this.RealtimeReadingItem()
               }
             }
-            .opacity(this.sectionOpacities[1])
-            .offset({ y: this.sectionOffsets[1] })
+            .opacity(this.sectionOpacities[2])
+            .offset({ y: this.sectionOffsets[2] })
 
             // Gesture Section
             Column() {
@@ -713,7 +912,7 @@ export struct SettingsPage {
               }) {
                 this.AirGestureToggleItem()
 
-                if (this.airGesturesEnabled) {
+                if (this.showGestureActions) {
                   Column() {
                     GestureActionRow({
                       title: '向上挥手',
@@ -728,12 +927,33 @@ export struct SettingsPage {
                       isDarkMode: this.isDarkMode
                     })
                   }
+                  .width('100%')
                   .padding({ left: 12, right: 12 })
+                  .clip(true)
+                  .transition(
+                    TransitionEffect.OPACITY.combine(
+                      TransitionEffect.translate({ y: -10 })
+                    ).animation({ duration: 300, curve: Curve.FastOutSlowIn })
+                  )
                 }
               }
             }
-            .opacity(this.sectionOpacities[2])
-            .offset({ y: this.sectionOffsets[2] })
+            .opacity(this.sectionOpacities[3])
+            .offset({ y: this.sectionOffsets[3] })
+
+            // API Config Page Section
+            Column() {
+              SettingsGroup({
+                title: '安全选项',
+                icon: $r('sys.symbol.safe_box'),
+                isOpen: $isApiConfigSectionOpen,
+                isDarkMode: this.isDarkMode
+              }) {
+                this.ApiConfigItems()
+              }
+            }
+            .opacity(this.sectionOpacities[4])
+            .offset({ y: this.sectionOffsets[4] })
 
             // Appearance Section
             Column() {
@@ -746,8 +966,8 @@ export struct SettingsPage {
                 this.AppearanceItems()
               }
             }
-            .opacity(this.sectionOpacities[3])
-            .offset({ y: this.sectionOffsets[3] })
+            .opacity(this.sectionOpacities[5])
+            .offset({ y: this.sectionOffsets[5] })
 
             // Info Section
             Column() {
@@ -774,8 +994,8 @@ export struct SettingsPage {
                 })
               }
             }
-            .opacity(this.sectionOpacities[4])
-            .offset({ y: this.sectionOffsets[4] })
+            .opacity(this.sectionOpacities[6])
+            .offset({ y: this.sectionOffsets[6] })
 
             // FAQ Section
             Column() {
@@ -786,12 +1006,12 @@ export struct SettingsPage {
                 isDarkMode: this.isDarkMode
               }) {
                 SettingsItem({
-                  title: 'Voot 持有面向用户的集中式服务器吗？',
-                  subtitle: '没有。Voot 是一款纯客户端应用，所有数据处理均在本地或直接与您配置的第三方 API 通信，我们不持有任何用户数据服务器。'
+                  title: '为什么 Voot 备案了服务器？',
+                  subtitle: '应部分国家或地区的监管要求，联网类应用可能需要进行服务器备案。但 Voot 不部署面向用户的集中式数据服务器；备案仅用于满足合规或者上架要求。应用的数据处理仍在本地完成，或仅在您发起请求时与您配置的第三方 API 直接通信。'
                 })
                 SettingsItem({
                   title: '在 Voot 保存的密钥怎么保证安全？',
-                  subtitle: '您的 API 密钥仅存储在您设备的本地安全存储区中，绝不会上传到我们的服务器，我们也不持有服务器。应用仅在向服务商发起请求时使用密钥。'
+                  subtitle: '您的 API 密钥仅存储在您设备的本地安全存储区中，绝不会上传到我们的服务器。应用仅在向服务商发起请求时使用密钥。'
                 })
                 SettingsItem({
                   title: '我们如何接受政府组织对 AI 的监管？',
@@ -799,8 +1019,8 @@ export struct SettingsPage {
                 })
               }
             }
-            .opacity(this.sectionOpacities[5])
-            .offset({ y: this.sectionOffsets[5] })
+            .opacity(this.sectionOpacities[7])
+            .offset({ y: this.sectionOffsets[7] })
 
             Blank().height(70)
           }

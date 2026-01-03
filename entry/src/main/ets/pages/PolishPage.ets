@@ -148,7 +148,9 @@ export struct PolishPage {
     this.shareBtnTextColor = THEMES[this.themeColorIndex].primaryColor;
     try {
       const displayClass = display.getDefaultDisplaySync();
-      this.isLandscape = displayClass.width > displayClass.height;
+      // 宽度大于高度，或宽度超过600vp（折叠屏展开/平板竖屏）
+      const widthVp = px2vp(displayClass.width);
+      this.isLandscape = displayClass.width > displayClass.height || widthVp >= 600;
     } catch (exception) {
       console.error('Failed to obtain the default display object. Code: ' + JSON.stringify(exception));
     }
@@ -769,7 +771,7 @@ export struct PolishPage {
     }
     .width(this.isLandscape ? undefined : '100%')
     .height(this.isLandscape ? '100%' : undefined)
-    .padding(12)
+    .padding(this.isLandscape ? 12 : { top: 12, bottom: 12 })
     .backgroundColor(Color.Transparent)
   }
 
@@ -812,7 +814,8 @@ export struct PolishPage {
         .onAreaChange((oldArea: Area, newArea: Area) => {
           const width = newArea.width as number;
           const height = newArea.height as number;
-          this.isLandscape = width > height;
+          // 宽度大于高度，或宽度超过600vp（折叠屏展开/平板竖屏）
+          this.isLandscape = width > height || width >= 600;
         })
       }
       .mode(NavigationMode.Stack)

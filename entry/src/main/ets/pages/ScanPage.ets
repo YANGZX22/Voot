@@ -142,26 +142,37 @@ export struct ScanPage {
   @State shareBtnTextColor: ResourceColor = THEMES[this.themeColorIndex].primaryColor;
 
   // 文档扫描配置
-  private docScanConfig: DocumentScannerConfig = new DocumentScannerConfig();
+  private docScanConfig: DocumentScannerConfig | null = null;
+  @State isScannerAvailable: boolean = true;
 
   aboutToAppear() {
     this.scanBtnBgColor = THEMES[this.themeColorIndex].secondaryColor;
     this.translateBtnBgColor = THEMES[this.themeColorIndex].secondaryColor;
     this.shareBtnTextColor = THEMES[this.themeColorIndex].primaryColor;
 
-    // 配置文档扫描器
-    this.docScanConfig.supportType = [DocType.DOC];
-    this.docScanConfig.isGallerySupported = true;
-    this.docScanConfig.editTabs = [];
-    this.docScanConfig.maxShotCount = 5;
-    this.docScanConfig.defaultFilterId = FilterId.ORIGINAL;
-    this.docScanConfig.defaultShootingMode = ShootingMode.MANUAL;
-    this.docScanConfig.isShareable = false;
-    this.docScanConfig.originalUris = [];
+    // 安全初始化文档扫描器配置
+    try {
+      this.docScanConfig = new DocumentScannerConfig();
+      // 配置文档扫描器
+      this.docScanConfig.supportType = [DocType.DOC];
+      this.docScanConfig.isGallerySupported = true;
+      this.docScanConfig.editTabs = [];
+      this.docScanConfig.maxShotCount = 5;
+      this.docScanConfig.defaultFilterId = FilterId.ORIGINAL;
+      this.docScanConfig.defaultShootingMode = ShootingMode.MANUAL;
+      this.docScanConfig.isShareable = false;
+      this.docScanConfig.originalUris = [];
+      this.isScannerAvailable = true;
+    } catch (err) {
+      console.error('ScanPage: DocumentScannerConfig not available on this device', err);
+      this.isScannerAvailable = false;
+    }
 
     try {
       const displayClass = display.getDefaultDisplaySync();
-      this.isLandscape = displayClass.width > displayClass.height;
+      // 宽度大于高度，或宽度超过600vp（折叠屏展开/平板竖屏）
+      const widthVp = px2vp(displayClass.width);
+      this.isLandscape = displayClass.width > displayClass.height || widthVp >= 600;
     } catch (exception) {
       console.error('Failed to obtain the default display object. Code: ' + JSON.stringify(exception));
     }
@@ -175,6 +186,10 @@ export struct ScanPage {
 
   // 开始扫描
   startScan() {
+    if (!this.isScannerAvailable || !this.docScanConfig) {
+      promptAction.showToast({ message: '文档扫描功能在模拟器设备上不可用' });
+      return;
+    }
     this.isScanning = true;
     this.currentStep = 1;
     this.scannedImageUris = [];
@@ -713,14 +728,44 @@ export struct ScanPage {
   @Builder
   ScannerView() {
     Column() {
-      DocumentScanner({
-        scannerConfig: this.docScanConfig,
-        onResult: (code: number, saveType: SaveOption, uris: string[]) => {
-          this.handleScanResult(code, saveType, uris);
+      if (this.isScannerAvailable && this.docScanConfig) {
+        DocumentScanner({
+          scannerConfig: this.docScanConfig,
+          onResult: (code: number, saveType: SaveOption, uris: string[]) => {
+            this.handleScanResult(code, saveType, uris);
+          }
+        })
+          .width('100%')
+          .height('100%')
+      } else {
+        Column() {
+          SymbolGlyph($r('sys.symbol.exclamationmark_triangle'))
+            .fontSize(48)
+            .fontColor([Color.White])
+            .margin({ bottom: 16 })
+          Text('文档扫描功能不可用')
+            .fontSize(18)
+            .fontColor(Color.White)
+            .fontWeight(FontWeight.Medium)
+            .margin({ bottom: 8 })
+          Text('模拟器设备不支持文档扫描功能')
+            .fontSize(14)
+            .fontColor($r('sys.color.font_on_secondary'))
+            .textAlign(TextAlign.Center)
+            .margin({ bottom: 24 })
+          Button('返回')
+            .type(ButtonType.Capsule)
+            .backgroundColor(THEMES[this.themeColorIndex].primaryColor)
+            .onClick(() => {
+              this.isScanning = false;
+              this.currentStep = 0;
+            })
         }
-      })
         .width('100%')
         .height('100%')
+        .justifyContent(FlexAlign.Center)
+        .alignItems(HorizontalAlign.Center)
+      }
     }
     .width('100%')
     .height('100%')
@@ -1036,7 +1081,8 @@ export struct ScanPage {
     .onAreaChange((oldArea: Area, newArea: Area) => {
       const width = newArea.width as number;
       const height = newArea.height as number;
-      this.isLandscape = width > height;
+      // 宽度大于高度，或宽度超过600vp（折叠屏展开/平板竖屏）
+      this.isLandscape = width > height || width >= 600;
     })
   }
 

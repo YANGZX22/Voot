@@ -6,7 +6,8 @@
   "author": "Yang Zixiao",
   "license": "",
   "dependencies": {
-    "sherpa_onnx": "1.12.14",
+    "sherpa_onnx": "^1.12.14",
+    "numberauth_standard": "file:libs/auth_number_product-v2.0.21-log-online-standard-release.har"
   }
 }
 

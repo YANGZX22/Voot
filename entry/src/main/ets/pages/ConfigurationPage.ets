@@ -209,6 +209,7 @@ struct ConfigCard {
   @Prop content: string = '';
   btnId: number = 0;
   isSymbol: boolean = false;
+  @Prop showLockIcon: boolean = true; // 显示锁定图标（人脸）还是箭头
   icon?: Resource;
   @Prop isLightEffectBright: boolean = true;
   @Prop isDarkMode: boolean = true;
@@ -258,11 +259,19 @@ struct ConfigCard {
         Blank()
 
         if (this.isSymbol) {
-           SymbolGlyph($r('sys.symbol.face'))
-             .fontSize(28)
-             .fontColor([this.textColor])
-             .fontWeight(FontWeight.Normal)
-             .alignSelf(ItemAlign.Start)
+          if (this.showLockIcon) {
+            SymbolGlyph($r('sys.symbol.face'))
+              .fontSize(28)
+              .fontColor([this.textColor])
+              .fontWeight(FontWeight.Bold)
+              .alignSelf(ItemAlign.Start)
+          } else {
+            SymbolGlyph($r('sys.symbol.arrow_right'))
+              .fontSize(28)
+              .fontColor([this.textColor])
+              .fontWeight(FontWeight.Bold)
+              .alignSelf(ItemAlign.Start)
+          }
         } else {
           Text(this.content)
             .fontSize(20)
@@ -380,6 +389,9 @@ export struct ConfigurationPage {
   @Prop isLightEffectBright: boolean = true;
   @Prop isDarkMode: boolean = true;
   @StorageLink('themeColorIndex') @Watch('onThemeColorChange') themeColorIndex: number = 0;
+
+  // API Config Page Settings
+  @StorageLink('apiConfigRequireScreenLock') apiConfigRequireScreenLock: boolean = true;
 
   // Callbacks
   onCycleApi: () => void = () => {};
@@ -631,6 +643,12 @@ export struct ConfigurationPage {
   }
 
   handleConfigApi(): void {
+    // 如果不需要屏幕锁定验证，直接打开API配置页面
+    if (!this.apiConfigRequireScreenLock) {
+      this.onOpenApiSettings();
+      return;
+    }
+
     let facestatus = AuthUtil.getAvailableStatus(userIAM_userAuth.UserAuthType.FACE, userIAM_userAuth.AuthTrustLevel.ATL1)
     let fingerstatus = AuthUtil.getAvailableStatus(userIAM_userAuth.UserAuthType.FINGERPRINT, userIAM_userAuth.AuthTrustLevel.ATL2)
     let pinstatus = AuthUtil.getAvailableStatus(userIAM_userAuth.UserAuthType.PIN, userIAM_userAuth.AuthTrustLevel.ATL2)
@@ -896,11 +914,12 @@ export struct ConfigurationPage {
                 isDarkMode: this.isDarkMode,
                 callback: () => this.handleConfigApi(),
                 isSymbol: true,
+                showLockIcon: this.apiConfigRequireScreenLock,
                 activeBtn: $activeBtn,
                 onInfoClick: () => {
                   AlertDialog.show({
                     title: '配置 API 说明',
-                    message: '使用您的屏幕锁定信息保护您的密钥与配置。',
+                    message: '编辑、添加 API 和提示词。',
                     confirm: {
                       value: '我知道了',
                       fontColor: THEMES[this.themeColorIndex].primaryColor,
@@ -1009,7 +1028,7 @@ export struct ConfigurationPage {
                 isDarkMode: this.isDarkMode,
                 callback: () => this.openOptionSheet(
                   '历史上下文',
-                  '用于翻译功能。更多上下文有助于模型理解语境，但会消耗更多 Token',
+                  '更多上下文有助于模型理解语境，但会消耗更多 Token',
                   this.contextsOptions.map(v => v + ' 轮'),
                   this.selectedContextsIndex,
                   'contexts'

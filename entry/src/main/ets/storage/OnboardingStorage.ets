@@ -34,6 +34,7 @@ export class OnboardingStorage {
   private static readonly PREF_FILE: string = 'voot_onboarding';
   private static readonly KEY_COMPLETED: string = 'welcome_completed';
   private static readonly KEY_SETUP_COMPLETED: string = 'setup_completed';
+  private static readonly KEY_NUMBER_VERIFIED: string = 'number_verified';
   private static readonly KEY_ACCEPTED_PRIVACY_VERSION: string = 'accepted_privacy_version';
   private static readonly KEY_ACCEPTED_TERMS_VERSION: string = 'accepted_terms_version';
   private static prefs?: preferences.Preferences;
@@ -76,6 +77,27 @@ export class OnboardingStorage {
     const prefs = await OnboardingStorage.getPrefs(ctx);
     const completed: boolean = (await prefs.get(OnboardingStorage.KEY_SETUP_COMPLETED, false)) as boolean;
     return completed;
+  }
+
+  /**
+   * 检查号码是否已验证
+   * @param ctx UI Ability Context
+   * @returns true 表示已验证
+   */
+  static async isNumberVerified(ctx: common.UIAbilityContext): Promise<boolean> {
+    const prefs = await OnboardingStorage.getPrefs(ctx);
+    return (await prefs.get(OnboardingStorage.KEY_NUMBER_VERIFIED, false)) as boolean;
+  }
+
+  /**
+   * 设置号码验证状态
+   * @param ctx UI Ability Context
+   * @param verified 是否已验证
+   */
+  static async setNumberVerified(ctx: common.UIAbilityContext, verified: boolean): Promise<void> {
+    const prefs = await OnboardingStorage.getPrefs(ctx);
+    await prefs.put(OnboardingStorage.KEY_NUMBER_VERIFIED, verified);
+    await prefs.flush();
   }
 
   /**

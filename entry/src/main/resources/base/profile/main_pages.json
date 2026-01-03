@@ -3,6 +3,7 @@
     "pages/WelcomePage",
     "pages/Index",
     "pages/SessionDetailPage",
-    "pages/HistoryTabPage"
+    "pages/HistoryTabPage",
+    "pages/VerifyPage"
   ]
 }

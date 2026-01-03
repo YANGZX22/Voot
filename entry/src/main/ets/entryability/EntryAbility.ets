@@ -255,8 +255,16 @@ export default class EntryAbility extends UIAbility {
   private async loadInitialPage(windowStage: window.WindowStage): Promise<void> {
     try {
       const isFirstLaunch = await OnboardingStorage.isFirstLaunch(this.context);
-      const targetPage = isFirstLaunch ? 'pages/WelcomePage' : 'pages/Index';
-      console.info('[EntryAbility] loadInitialPage: isFirstLaunch=' + isFirstLaunch + ', targetPage=' + targetPage);
+      
+      // 只有首次启动才进入 WelcomePage
+      // 非首次启动直接进入 Index，由 Index 内部检测 IP 和验证状态并弹窗处理
+      let targetPage = 'pages/Index';
+
+      if (isFirstLaunch) {
+        targetPage = 'pages/WelcomePage';
+      }
+
+      console.info(`[EntryAbility] loadInitialPage: isFirstLaunch=${isFirstLaunch}, target=${targetPage}`);
 
       windowStage.loadContent(targetPage, (err, data) => {
         if (err && err.code !== 0) {

@@ -120,7 +120,7 @@ const DEFAULT_CONFIG: ApiConfigSnapshot = {
   subtitleFontSize: 18,
   subtitleFontColor: '#FFFFFF',
   subtitleBackgroundColor: '#80000000',
-  subtitleHeight: 20,
+  subtitleHeight: 10,
   glossary: 'HarmonyOS = 鸿蒙',
   themeMode: 2,  // 默认跟随系统
   vadSensitivityIndex: 1,
