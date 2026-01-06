@@ -77,6 +77,10 @@
     {
       "name": "shortcut_scan",
       "value": "扫描"
+    },
+    {
+      "name": "camera_reason",
+      "value": "Voot 使用相机权限进行文档拍摄。"
     }
   ]
 }

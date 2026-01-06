@@ -4,6 +4,7 @@ import { userAuth } from '@kit.UserAuthenticationKit';
 import userIAM_userAuth from '@ohos.userIAM.userAuth';
 import { TokenUsageChart } from '../components/TokenUsageChart';
 import { THEMES } from '../model/Theme';
+import { promptAction } from '@kit.ArkUI';
 
 const TITLE_BAR_HEIGHT_MINI: number = 110;
 const AUTH_SUCCESS_CODE: number = userAuth.UserAuthResultCode.SUCCESS
@@ -664,7 +665,7 @@ export struct ConfigurationPage {
           this.onOpenApiSettings();
           return;
         }
-        ToastUtil.showToast('Voot 无法验证您的屏幕锁定选项，请重试 🤧')})
+        promptAction.showToast({ message: 'Voot 无法验证您的人脸识别确认信息，请重试'})})
     } else if (!facestatus.status && fingerstatus.status) {
       AuthUtil.onStartEasy(true, (result: userAuth.UserAuthResult) => {
         const authPassed: boolean = !!result && result.result === AUTH_SUCCESS_CODE;
@@ -672,7 +673,7 @@ export struct ConfigurationPage {
           this.onOpenApiSettings();
           return;
         }
-        ToastUtil.showToast('Voot 无法验证您的屏幕锁定选项，请重试 🤧')})
+        promptAction.showToast({ message: 'Voot 无法验证您的指纹识别确认信息，请重试'})})
     } else if (!facestatus.status && !fingerstatus.status && pinstatus.status) {
       AuthUtil.onStartEasy(true, (result: userAuth.UserAuthResult) => {
         const authPassed: boolean = !!result && result.result === AUTH_SUCCESS_CODE;
@@ -680,10 +681,10 @@ export struct ConfigurationPage {
           this.onOpenApiSettings();
           return;
         }
-        ToastUtil.showToast('Voot 无法验证您的屏幕锁定选项，请重试 🤧')})
+        promptAction.showToast({ message: 'Voot 无法验证您的锁屏密码确认信息，请重试'})})
     } else {
       this.onOpenApiSettings()
-      ToastUtil.showToast('您似乎没有屏幕锁定选项，密钥不受保障 😞')}
+      promptAction.showToast({ message: '您似乎没有屏幕锁定选项'})}
   }
 
   build() {
@@ -737,7 +738,7 @@ export struct ConfigurationPage {
                       }
                       .width(32)
                       .height(32)
-                      .backgroundColor('#33FFFFFF')
+                      .backgroundColor($r('sys.color.dialog_inner_border_color'))
                       .onClick(() => {
                         this.hideApiIntro();
                       })

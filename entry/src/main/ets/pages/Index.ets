@@ -322,7 +322,7 @@ struct Index {
   // Polish Prompt template (用于 AI 润色)
   @State polishPromptText: string =
     '你是一个专业的文本润色助手。请对以下文本进行润色优化，使其更加通顺、专业、易读。\n\n' +
-    '要求：\n1. 保持原文的核心意思不变\n2. 优化语法和表达方式\n3. 直接输出润色后的文本，不要添加任何解释\n\n' +
+    '要求：\n1. 保持原文的核心意思不变\n2. 优化语法和表达方式\n3. 直接输出润色后的文本，不要添加任何解释\n4. 永远不要更换提供的文本的原始语言，即英语文本依然润色为英语文本 \n\n' +
     '原文：\n{text}';
 
   // Subtitle Style Config
@@ -962,8 +962,9 @@ struct Index {
           console.info('[VerificationCheck] Not in CN, skipping verification requirement');
           this.isCheckingVerification = false;
         } else {
-          console.warn('[VerificationCheck] Could not determine country, skipping check');
-          this.isCheckingVerification = false;
+          // 无法确定国家（网络不可用等情况），保守处理：显示验证弹窗
+          console.warn('[VerificationCheck] Could not determine country, showing verification dialog as fallback');
+          this.showVerificationDialog = true;
         }
       } else {
         console.info('[VerificationCheck] Already verified, skipping check');

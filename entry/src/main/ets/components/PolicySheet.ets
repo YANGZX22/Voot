@@ -6,6 +6,7 @@ import { THEMES } from '../model/Theme';
 export interface PolicyHighlight {
   title: string;
   description: string | url.URL;
+  link?: string;
 }
 
 export interface PolicySheetConfig {
@@ -61,6 +62,16 @@ export function getPolicySheetConfig(type: PolicySheetType, versionName: string 
           {
             title: '联系我们',
             description: 'mailto:voot@mail.yangzixiao.com'
+          },
+          {
+            title: '加入交流群',
+            description: '686419732',
+            link: 'https://qm.qq.com/q/m6LR9rxYiI'
+          },
+          {
+            title: '备案',
+            description: '川ICP备xxxxxxxxx号-xA',
+            link: 'https://beian.miit.gov.cn'
           }
         ]
       };
@@ -127,11 +138,12 @@ export function PolicySheetContent(
                   .lineHeight(20)
                   .onClick(() => {
                     const desc = resolveHighlightText(item.description);
-                    if (context && (desc.startsWith('http') || desc.startsWith('mailto'))) {
+                    const link = item.link || desc;
+                    if (context && (link.startsWith('http') || link.startsWith('mailto'))) {
                       context.startAbility({
                         action: 'ohos.want.action.viewData',
                         entities: ['entity.system.browsable'],
-                        uri: desc
+                        uri: link
                       });
                     }
                   })

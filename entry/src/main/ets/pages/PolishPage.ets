@@ -114,7 +114,7 @@ export struct PolishPage {
   @Prop doubaoApiUrl: string = 'https://ark.cn-beijing.volces.com/api/v3/chat/completions';
   @Prop doubaoApiKey: string = '';
   @Prop doubaoModel: string = 'doubao-pro-32k';
-  @Prop polishPromptText: string = '你是一个专业的文本润色助手。请对以下文本进行润色优化，使其更加通顺、专业、易读。\n\n要求：\n1. 保持原文的核心意思不变\n2. 优化语法和表达方式\n3. 直接输出润色后的文本，不要添加任何解释\n\n原文：\n{text}';
+  @Prop polishPromptText: string = '你是一个专业的文本润色助手。请对以下文本进行润色优化，使其更加通顺、专业、易读。\n\n要求：\n1. 保持原文的核心意思不变\n2. 优化语法和表达方式\n3. 直接输出润色后的文本，不要添加任何解释3. 直接输出润色后的文本，不要添加任何解释\n4. 永远不要更换提供的文本的原始语言，即英语文本依然润色为英语文本 \n\n原文：\n{text}';
 
   @State inputText: string = '';
   @State isPolishing: boolean = false;
@@ -717,10 +717,10 @@ export struct PolishPage {
         .buildEffect())
       .onTouch((event: TouchEvent) => {
         if (event.type === TouchType.Down) {
-          this.activeBtn = 1;
+          animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeBtn = 1; });
           this.pressButton(1);
         } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
-          this.activeBtn = 0;
+          animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeBtn = 0; });
           this.releaseButton(1);
         }
       })
@@ -758,10 +758,10 @@ export struct PolishPage {
         .buildEffect())
       .onTouch((event: TouchEvent) => {
         if (event.type === TouchType.Down) {
-          this.activeBtn = 2;
+          animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeBtn = 2; });
           this.pressButton(2);
         } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
-          this.activeBtn = 0;
+          animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeBtn = 0; });
           this.releaseButton(2);
         }
       })

@@ -178,6 +178,10 @@ struct WelcomePage {
   @State isButtonActive: boolean = false;
   @State pageIndicatorIndex: number = 0;
   @State isSkipAllowed: boolean = false;
+  @State detectedCountryCode: string = '';
+  @State showOpenAIWarningPopup: boolean = false;
+  @State showDeepLWarningPopup: boolean = false;
+  @State isNavigating: boolean = false; // 防止快速连续点击导致跳过验证
 
   // Setup Sheet State
   @State isSetupSheetOpen: boolean = false;
@@ -273,13 +277,29 @@ struct WelcomePage {
 
       if (response.responseCode === 200) {
         const result = JSON.parse(response.result as string) as Record<string, Object>;
-        if (result['countryCode'] !== 'CN') {
+        const countryCode = result['countryCode'] as string;
+        this.detectedCountryCode = countryCode || '';
+        if (countryCode !== 'CN') {
           this.isSkipAllowed = true;
         }
       }
       httpRequest.destroy();
     } catch (e) {
       console.error('IP check failed:', e);
+    }
+  }
+
+  // 根据国家代码获取地区名称
+  private getRegionName(): string {
+    switch (this.detectedCountryCode) {
+      case 'CN':
+        return '中国大陆';
+      case 'HK':
+        return '中国香港特别行政区';
+      case 'MO':
+        return '中国澳门特别行政区';
+      default:
+        return '该地区';
     }
   }
 
@@ -405,7 +425,7 @@ struct WelcomePage {
       promptText: 'Act as an elite simultaneous interpreter who only hears imperfect microphone pickups. ' +
       'You receive roughly five-second snippets of speech, so rely on the snippet enclosed in [abc] and reasonably infer missing words while staying faithful to the speaker. ' +
       'Translate that snippet into {0} in a single fluent line, preserving intent and tone even when the audio is noisy. No matter how, you must output the translation directly.',
-      polishPromptText: '你是一个专业的文本润色助手。请对以下文本进行润色优化，使其更加通顺、专业、易读。\n\n要求：\n1. 保持原文的核心意思不变\n2. 优化语法和表达方式\n3. 直接输出润色后的文本，不要添加任何解释\n\n原文：\n{text}',
+      polishPromptText: '你是一个专业的文本润色助手。请对以下文本进行润色优化，使其更加通顺、专业、易读。\n\n要求：\n1. 保持原文的核心意思不变\n2. 优化语法和表达方式\n3. 直接输出润色后的文本，不要添加任何解释3. 直接输出润色后的文本，不要添加任何解释\n4. 永远不要更换提供的文本的原始语言，即英语文本依然润色为英语文本 \n\n原文：\n{text}',
       openAiKeySlots: createDefaultMultiKeySlots('https://api.openai.com/v1/chat/completions', '', 'gpt-4o-mini'),
       deepLKeySlots: createDefaultMultiKeySlots('https://api-free.deepl.com/v2/translate', '', ''),
       ollamaKeySlots: createDefaultMultiKeySlots('http://localhost:11434/api/chat', '', ''),
@@ -622,6 +642,11 @@ struct WelcomePage {
 
   // 处理主按钮点击
   private handleMainButtonClick(): void {
+    // 防止快速连续点击
+    if (this.isNavigating) {
+      return;
+    }
+    
     switch (this.currentStep) {
       case WelcomeStep.Intro:
         if (!this.hasAcceptedTerms) {
@@ -630,10 +655,12 @@ struct WelcomePage {
           this.openPolicySheet(PolicySheetType.Privacy);
         } else {
           // 协议已确认，进入功能介绍页
+          this.isNavigating = true;
           this.swiperController.showNext();
         }
         break;
       case WelcomeStep.Features:
+        this.isNavigating = true;
         this.swiperController.showNext();
         break;
       case WelcomeStep.ApiDriven:
@@ -641,6 +668,7 @@ struct WelcomePage {
         break;
       case WelcomeStep.NumberAuth:
         if (this.isVerified || this.isSkipAllowed) {
+          this.isNavigating = true;
           this.swiperController.showNext();
         } else {
           promptAction.showToast({ message: '请先完成验证' });
@@ -653,6 +681,8 @@ struct WelcomePage {
     this.disclaimerDialogController = new CustomDialogController({
       builder: DisclaimerDialog({
         action: () => {
+          if (this.isNavigating) return;
+          this.isNavigating = true;
           this.hasAcceptedDisclaimer = true;
           this.swiperController.showNext();
         }
@@ -1148,11 +1178,70 @@ struct WelcomePage {
         Column({ space: 24 }) {
           // Provider Selection
           Column({ space: 12 }) {
-            Text('选择服务商')
-              .fontSize(14)
-              .fontColor('#666666')
-              .fontWeight(FontWeight.Medium)
-              .alignSelf(ItemAlign.Start)
+            Row({ space: 6 }) {
+              Text('选择服务商')
+                .fontSize(14)
+                .fontColor('#666666')
+                .fontWeight(FontWeight.Medium)
+              
+              // 当在CN、HK或MO地区且选择OpenAI时显示警告图标
+              if ((this.detectedCountryCode === 'CN' || this.detectedCountryCode === 'HK' || this.detectedCountryCode === 'MO') && 
+                  this.selectedProvider === ApiProvider.OpenAI) {
+                SymbolGlyph($r('sys.symbol.info_circle_fill'))
+                  .fontSize(16)
+                  .fontColor([$r('sys.color.warning')])
+                  .onClick(() => {
+                    this.showOpenAIWarningPopup = true;
+                  })
+                  .bindPopup(this.showOpenAIWarningPopup, {
+                    message: `OpenAI 在${this.getRegionName()}似乎不提供服务。请确认您能够访问该服务，并仔细阅读和遵守服务提供商的使用条款。`,
+                    placementOnTop: false,
+                    showInSubWindow: false,
+                    primaryButton: {
+                      value: '知道了',
+                      action: () => {
+                        this.showOpenAIWarningPopup = false;
+                      }
+                    },
+                    onStateChange: (e) => {
+                      if (!e.isVisible) {
+                        this.showOpenAIWarningPopup = false;
+                      }
+                    },
+                    backgroundBlurStyle: BlurStyle.BACKGROUND_REGULAR,
+                    transition: TransitionEffect.OPACITY.animation({ duration: 300, curve: Curve.FastOutSlowIn })
+                  })
+              }
+              
+              // 当在CN地区且选择DeepL时显示网络警告图标
+              if (this.detectedCountryCode === 'CN' && this.selectedProvider === ApiProvider.DeepL) {
+                SymbolGlyph($r('sys.symbol.info_circle_fill'))
+                  .fontSize(16)
+                  .fontColor([$r('sys.color.warning')])
+                  .onClick(() => {
+                    this.showDeepLWarningPopup = true;
+                  })
+                  .bindPopup(this.showDeepLWarningPopup, {
+                    message: `DeepL 服务在${this.getRegionName()}可能存在网络访问限制。请确认您能够正常连接该服务。`,
+                    placementOnTop: false,
+                    showInSubWindow: false,
+                    primaryButton: {
+                      value: '知道了',
+                      action: () => {
+                        this.showDeepLWarningPopup = false;
+                      }
+                    },
+                    onStateChange: (e) => {
+                      if (!e.isVisible) {
+                        this.showDeepLWarningPopup = false;
+                      }
+                    },
+                    backgroundBlurStyle: BlurStyle.BACKGROUND_REGULAR,
+                    transition: TransitionEffect.OPACITY.animation({ duration: 300, curve: Curve.FastOutSlowIn })
+                  })
+              }
+            }
+            .alignSelf(ItemAlign.Start)
 
             Grid() {
               ForEach(PROVIDERS, (provider: ProviderInfo) => {
@@ -1675,19 +1764,13 @@ struct WelcomePage {
         .width('100%')
         .loop(false)
         .disableSwipe(
-          (this.currentStep === WelcomeStep.Intro && (!this.hasAcceptedTerms || !this.hasAcceptedPrivacy))
+          // 第一页：未同意协议时禁止滑动
+          (this.currentStep === WelcomeStep.Intro && (!this.hasAcceptedTerms || !this.hasAcceptedPrivacy)) ||
+          // 第三页：未确认免责声明时禁止向后滑动
+          (this.currentStep === WelcomeStep.ApiDriven && !this.hasAcceptedDisclaimer) ||
+          // 第四页：未完成验证且不允许跳过时禁止向后滑动
+          (this.currentStep === WelcomeStep.NumberAuth && !this.isVerified && !this.isSkipAllowed)
         )
-        .onAnimationStart((index: number, targetIndex: number) => {
-          if (targetIndex > index) {
-            if (index === WelcomeStep.ApiDriven && !this.hasAcceptedDisclaimer) {
-              this.swiperController.changeIndex(index, true);
-              promptAction.showToast({ message: '请先点击下一步按钮' });
-            } else if (index === WelcomeStep.NumberAuth && !this.isVerified && !this.isSkipAllowed) {
-              this.swiperController.changeIndex(index, true);
-              promptAction.showToast({ message: '请先完成验证' });
-            }
-          }
-        })
         .indicator(
           Indicator.dot()
             .itemWidth(8)
@@ -1698,6 +1781,9 @@ struct WelcomePage {
             .selectedColor(Color.White)
         )
         .onChange((index: number) => {
+          // 重置导航状态，允许下一次点击
+          this.isNavigating = false;
+          
           animateTo({ duration: 300, curve: Curve.EaseInOut }, () => {
             this.currentStep = index;
           });
@@ -1743,6 +1829,8 @@ struct WelcomePage {
                   else if (event.type === TouchType.Up || event.type === TouchType.Cancel) this.releaseBackButton();
                 })
                 .onClick(() => {
+                  if (this.isNavigating) return;
+                  this.isNavigating = true;
                   this.swiperController.showPrevious();
                 })
                 .transition(TransitionEffect.OPACITY.animation({ duration: 300 })

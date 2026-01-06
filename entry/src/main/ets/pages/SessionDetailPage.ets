@@ -96,7 +96,7 @@ interface DoubaoChatResponse {
 
 const DEFAULT_CONFIG: ApiConfigSnapshot = {
   promptText: 'You are a helpful assistant.',
-  polishPromptText: '你是一个专业的文本润色助手。请对以下文本进行润色优化，使其更加通顺、专业、易读。\n\n要求：\n1. 保持原文的核心意思不变\n2. 优化语法和表达方式\n3. 直接输出润色后的文本，不要添加任何解释\n\n原文：\n{text}',
+  polishPromptText: '你是一个专业的文本润色助手。请对以下文本进行润色优化，使其更加通顺、专业、易读。\n\n要求：\n1. 保持原文的核心意思不变\n2. 优化语法和表达方式\n3. 直接输出润色后的文本，不要添加任何解释3. 直接输出润色后的文本，不要添加任何解释\n4. 永远不要更换提供的文本的原始语言，即英语文本依然润色为英语文本 \n\n原文：\n{text}',
   openAiKeySlots: createDefaultMultiKeySlots('https://api.openai.com', '', 'gpt-3.5-turbo'),
   deepLKeySlots: createDefaultMultiKeySlots('https://api-free.deepl.com/v2/translate', '', ''),
   ollamaKeySlots: createDefaultMultiKeySlots('http://localhost:11434', '', ''),
