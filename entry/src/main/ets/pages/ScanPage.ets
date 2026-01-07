@@ -98,8 +98,11 @@ interface DeepLResponse {
 
 @Component
 export struct ScanPage {
+  @Prop @Watch('onVisibleChange') isVisible: boolean = false;
   @Prop isLightEffectBright: boolean = true;
   @Prop isDarkMode: boolean = true;
+  @Prop isLeftHand: boolean = false;
+  @Prop isRightHand: boolean = false;
   @StorageLink('themeColorIndex') @Watch('onThemeColorChange') themeColorIndex: number = 0;
 
   // API 配置 - 从父组件传递
@@ -124,10 +127,12 @@ export struct ScanPage {
   @State isRecognizing: boolean = false;
   @State isTranslating: boolean = false;
   @State activeBtn: number = 0;
+  // 握持弹窗临时关闭状态
+  @State isHandPopupDismissed: boolean = false;
   @State currentStep: number = 0; // 0: 初始, 1: 扫描中, 2: 识别结果, 3: 翻译结果
   @State isLandscape: boolean = false;
   @State previewImageUri: string = '';
-
+  
   // 按钮状态
   @State scanBtnScale: number = 1.0;
   @State scanBtnBgColor: ResourceColor = THEMES[this.themeColorIndex].secondaryColor;
@@ -184,6 +189,13 @@ export struct ScanPage {
     this.shareBtnTextColor = THEMES[this.themeColorIndex].primaryColor;
   }
 
+  onVisibleChange() {
+    // 切换页面时重置握持弹窗临时关闭状态
+    if (this.isVisible) {
+      this.isHandPopupDismissed = false;
+    }
+  }
+  
   // 开始扫描
   startScan() {
     if (!this.isScannerAvailable || !this.docScanConfig) {
@@ -1426,6 +1438,191 @@ export struct ScanPage {
           },
           avoidLayoutSafeArea: true
         })
+      }
+
+      // 侧边悬浮按钮 - 无扫描结果时只显示开始扫描
+      if ((this.isLeftHand || this.isRightHand) && this.recognizedText.length === 0 && !this.isHandPopupDismissed) {
+        Column({ space: 16 }) {
+          // 开始扫描按钮
+          Button({ type: ButtonType.Circle }) {
+            SymbolGlyph($r('sys.symbol.camera'))
+              .fontSize(24)
+              .fontColor((this.activeBtn === 1 || this.activeBtn === 11) ? [THEMES[this.themeColorIndex].primaryColor] : [this.scanBtnTextColor])
+          }
+          .width(48)
+          .height(48)
+          .backgroundColor((this.activeBtn === 1 || this.activeBtn === 11) ? Color.White : this.scanBtnBgColor)
+          .shadow({ radius: 8, color: 'rgba(0,0,0,0.2)', offsetY: 4 })
+          .stateStyles({
+            pressed: {
+              .scale({ x: 0.95, y: 0.95 })
+            },
+            normal: {
+              .scale({ x: 1.0, y: 1.0 })
+            }
+          })
+          .onClick(() => {
+            this.startScan();
+          })
+          .onTouch((event: TouchEvent) => {
+            if (event.type === TouchType.Down) {
+              animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeBtn = 11; });
+            } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+              animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeBtn = 0; });
+            }
+          })
+        }
+        .width(64)
+        .padding(8)
+        .backgroundColor($r('sys.color.comp_background_secondary'))
+        .backdropBlur(20)
+        .borderRadius(40)
+        .position({ x: this.isLeftHand ? 0 : '100%', y: '30%' })
+        .markAnchor({ x: this.isLeftHand ? 0 : '100%', y: 0 })
+        .translate({ x: this.isLeftHand ? 16 : -16 })
+        .alignItems(HorizontalAlign.Center)
+        .transition(
+          TransitionEffect.move(this.isLeftHand ? TransitionEdge.START : TransitionEdge.END)
+            .animation({ duration: 300, curve: Curve.EaseOut })
+        )
+        .gesture(
+          PanGesture({ direction: PanDirection.Horizontal, distance: 5 })
+            .onActionEnd((event: GestureEvent) => {
+              // 左手时左滑关闭，右手时右滑关闭
+              if ((this.isLeftHand && event.offsetX < -20) ||
+                  (this.isRightHand && event.offsetX > 20)) {
+                animateTo({ duration: 300, curve: Curve.EaseOut }, () => {
+                  this.isHandPopupDismissed = true;
+                });
+              }
+            })
+        )
+      }
+
+      // 侧边悬浮按钮 - 有扫描结果时显示三个按钮
+      if ((this.isLeftHand || this.isRightHand) && this.recognizedText.length > 0 && !this.isHandPopupDismissed) {
+        Column({ space: 16 }) {
+           // 重新扫描按钮
+          Button({ type: ButtonType.Circle }) {
+             SymbolGlyph($r('sys.symbol.camera'))
+              .fontSize(24)
+              .fontColor((this.activeBtn === 1 || this.activeBtn === 11) ? [THEMES[this.themeColorIndex].primaryColor] : [this.scanBtnTextColor])
+          }
+          .width(48)
+          .height(48)
+          .backgroundColor((this.activeBtn === 1 || this.activeBtn === 11) ? Color.White : this.scanBtnBgColor)
+          .shadow({ radius: 8, color: 'rgba(0,0,0,0.2)', offsetY: 4 })
+          .stateStyles({
+            pressed: {
+              .scale({ x: 0.95, y: 0.95 })
+            },
+            normal: {
+              .scale({ x: 1.0, y: 1.0 })
+            }
+          })
+          .onClick(() => {
+            this.startScan();
+          })
+          .onTouch((event: TouchEvent) => {
+            if (event.type === TouchType.Down) {
+              animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeBtn = 11; });
+            } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+              animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeBtn = 0; });
+            }
+          })
+
+          // 翻译按钮
+          Button({ type: ButtonType.Circle }) {
+            if (this.isTranslating) {
+                LoadingProgress()
+                .width(24)
+                .height(24)
+                .color((this.activeBtn === 2 || this.activeBtn === 12) ? THEMES[this.themeColorIndex].primaryColor : this.translateBtnTextColor)
+            } else {
+                SymbolGlyph($r('sys.symbol.translate'))
+                  .fontSize(24)
+                  .fontColor((this.activeBtn === 2 || this.activeBtn === 12) ? [THEMES[this.themeColorIndex].primaryColor] : [this.translateBtnTextColor])
+            }
+          }
+          .width(48)
+          .height(48)
+          .backgroundColor((this.activeBtn === 2 || this.activeBtn === 12) ? Color.White : this.translateBtnBgColor)
+          .shadow({ radius: 8, color: 'rgba(0,0,0,0.2)', offsetY: 4 })
+          .stateStyles({
+            pressed: {
+              .scale({ x: 0.95, y: 0.95 })
+            },
+            normal: {
+              .scale({ x: 1.0, y: 1.0 })
+            }
+          })
+          .enabled(!this.isTranslating)
+          .opacity(!this.isTranslating ? 1.0 : 0.5)
+          .onClick(() => {
+            this.translateText();
+          })
+          .onTouch((event: TouchEvent) => {
+            if (event.type === TouchType.Down) {
+              animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeBtn = 12; });
+            } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+              animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeBtn = 0; });
+            }
+          })
+
+          // 分享按钮
+          Button({ type: ButtonType.Circle }) {
+            SymbolGlyph($r('sys.symbol.share'))
+              .fontSize(24)
+              .fontColor((this.activeBtn === 3 || this.activeBtn === 13) ? [THEMES[this.themeColorIndex].primaryColor] : [this.shareBtnTextColor])
+          }
+          .width(48)
+          .height(48)
+          .backgroundColor((this.activeBtn === 3 || this.activeBtn === 13) ? Color.White : this.shareBtnBgColor)
+          .shadow({ radius: 8, color: 'rgba(0,0,0,0.2)', offsetY: 4 })
+          .stateStyles({
+            pressed: {
+              .scale({ x: 0.95, y: 0.95 })
+            },
+            normal: {
+              .scale({ x: 1.0, y: 1.0 })
+            }
+          })
+          .onClick(() => {
+            this.shareResult();
+          })
+          .onTouch((event: TouchEvent) => {
+            if (event.type === TouchType.Down) {
+              animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeBtn = 13; });
+            } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+              animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeBtn = 0; });
+            }
+          })
+        }
+        .width(64)
+        .padding(8)
+        .backgroundColor($r('sys.color.comp_background_secondary'))
+        .backdropBlur(20)
+        .borderRadius(40)
+        .position({ x: this.isLeftHand ? 0 : '100%', y: '30%' })
+        .markAnchor({ x: this.isLeftHand ? 0 : '100%', y: 0 })
+        .translate({ x: this.isLeftHand ? 16 : -16 })
+        .alignItems(HorizontalAlign.Center)
+        .transition(
+          TransitionEffect.move(this.isLeftHand ? TransitionEdge.START : TransitionEdge.END)
+            .animation({ duration: 300, curve: Curve.EaseOut })
+        )
+        .gesture(
+          PanGesture({ direction: PanDirection.Horizontal, distance: 5 })
+            .onActionEnd((event: GestureEvent) => {
+              // 左手时左滑关闭，右手时右滑关闭
+              if ((this.isLeftHand && event.offsetX < -20) ||
+                  (this.isRightHand && event.offsetX > 20)) {
+                animateTo({ duration: 300, curve: Curve.EaseOut }, () => {
+                  this.isHandPopupDismissed = true;
+                });
+              }
+            })
+        )
       }
       
       this.ImagePreviewOverlay()

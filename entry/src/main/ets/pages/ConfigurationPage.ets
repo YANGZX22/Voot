@@ -5,6 +5,7 @@ import userIAM_userAuth from '@ohos.userIAM.userAuth';
 import { TokenUsageChart } from '../components/TokenUsageChart';
 import { THEMES } from '../model/Theme';
 import { promptAction } from '@kit.ArkUI';
+import { BusinessError } from '@kit.BasicServicesKit';
 
 const TITLE_BAR_HEIGHT_MINI: number = 110;
 const AUTH_SUCCESS_CODE: number = userAuth.UserAuthResultCode.SUCCESS
@@ -389,6 +390,8 @@ export struct ConfigurationPage {
   @Prop @Watch('onVisibleChange') isVisible: boolean = false;
   @Prop isLightEffectBright: boolean = true;
   @Prop isDarkMode: boolean = true;
+  @Prop isLeftHand: boolean = false;
+  @Prop isRightHand: boolean = false;
   @StorageLink('themeColorIndex') @Watch('onThemeColorChange') themeColorIndex: number = 0;
 
   // API Config Page Settings
@@ -406,6 +409,9 @@ export struct ConfigurationPage {
   onSelectMinMatchLen: (index: number) => void = () => {};
 
   @State activeBtn: number = 0;
+
+  // 握持弹窗临时关闭状态
+  @State isHandPopupDismissed: boolean = false;
 
   // 底部选择器状态
   @State isOptionSheetVisible: boolean = false;
@@ -452,6 +458,7 @@ export struct ConfigurationPage {
 
   onVisibleChange() {
     if (this.isVisible) {
+      this.isHandPopupDismissed = false;
       this.resetAnimations();
       this.playAnimations();
     } else {
@@ -735,10 +742,11 @@ export struct ConfigurationPage {
                         SymbolGlyph($r('sys.symbol.arrow_up'))
                           .fontSize(16)
                           .fontColor([Color.White])
+                          .fontWeight(FontWeight.Bold)
                       }
                       .width(32)
                       .height(32)
-                      .backgroundColor($r('sys.color.dialog_inner_border_color'))
+                      .backgroundColor($r('sys.color.comp_background_secondary'))
                       .onClick(() => {
                         this.hideApiIntro();
                       })
@@ -938,7 +946,7 @@ export struct ConfigurationPage {
                 title: '原始语言',
                 content: '英语',
                 btnId: 3,
-                icon: $r('sys.symbol.mic'),
+                icon: $r('sys.symbol.mic_arrow_2_circlepath'),
                 isLightEffectBright: this.isLightEffectBright,
                 isDarkMode: this.isDarkMode,
                 callback: () => {
@@ -1056,7 +1064,7 @@ export struct ConfigurationPage {
                 title: '温度',
                 content: this.temperatureOptions[this.selectedTemperatureIndex],
                 btnId: 7,
-                icon: $r('sys.symbol.slider_horizontal_2'),
+                icon: $r('sys.symbol.color_temperature_1'),
                 isLightEffectBright: this.isLightEffectBright,
                 isDarkMode: this.isDarkMode,
                 callback: () => this.openOptionSheet(
@@ -1246,11 +1254,165 @@ export struct ConfigurationPage {
       },
       avoidLayoutSafeArea: true
     })
+
+      // 握持快捷按钮
+      if ((this.isLeftHand || this.isRightHand) && !this.isHandPopupDismissed) {
+        Column() {
+          List({ space: 16 }) {
+            // 1. Select API
+            ListItem() {
+              Column() {
+                this.QuickActionButton($r('sys.symbol.more'), 1, () => this.onCycleApi())
+              }
+              .margin({ top: 16 })
+            }
+            // 2. Config API
+            ListItem() {
+              this.QuickActionButton($r('sys.symbol.gearshape'), 2, () => this.handleConfigApi())
+            }
+            // 3. Original Language
+            ListItem() {
+              this.QuickActionButton($r('sys.symbol.mic_arrow_2_circlepath'), 3, () => {
+                // ToastUtil.showToast('当前仅支持英语作为原始语言');
+              })
+            }
+            // 4. Target Language
+            ListItem() {
+              this.QuickActionButton($r('sys.symbol.translate_e2c'), 4, () => this.onCycleLanguage())
+            }
+            // 5. Interval
+            ListItem() {
+              this.QuickActionButton($r('sys.symbol.clock'), 5, () => this.openOptionSheet(
+                  '翻译间隔',
+                  '设置两次翻译请求之间的最小时间间隔',
+                  this.intervalOptions.map(v => v + ' 秒'),
+                  this.selectedIntervalIndex,
+                  'interval'
+                ))
+            }
+            // 6. Contexts
+            ListItem() {
+              this.QuickActionButton($r('sys.symbol.paperclip'), 6, () => this.openOptionSheet(
+                  '历史上下文',
+                  '更多上下文有助于模型理解语境，但会消耗更多 Token',
+                  this.contextsOptions.map(v => v + ' 轮'),
+                  this.selectedContextsIndex,
+                  'contexts'
+                ))
+            }
+            // 7. Temperature
+            ListItem() {
+              this.QuickActionButton($r('sys.symbol.color_temperature_1'), 7, () => this.openOptionSheet(
+                  '模型温度',
+                  '较低更确定，较高更随机',
+                  this.temperatureOptions,
+                  this.selectedTemperatureIndex,
+                  'temperature'
+                ))
+            }
+            // 8. Max Tokens
+            ListItem() {
+              this.QuickActionButton($r('sys.symbol.puzzle_fill'), 8, () => this.openOptionSheet(
+                  '最大 Token',
+                  '单次回复的最大长度',
+                  this.maxTokensOptions.map(v => v),
+                  this.selectedMaxTokensIndex,
+                  'maxTokens'
+                ))
+            }
+            // 9. VAD Sensitivity
+            ListItem() {
+              this.QuickActionButton($r('sys.symbol.magnetic_sensor'), 9, () => this.openOptionSheet(
+                  'VAD 灵敏度',
+                  '较高更敏感但可能误报噪音',
+                  this.vadSensitivityOptions,
+                  this.selectedVadSensitivityIndex,
+                  'vad'
+                ))
+            }
+            // 10. Min Match Length
+            ListItem() {
+              Column() {
+                this.QuickActionButton($r('sys.symbol.text_alignleft'), 10, () => this.openOptionSheet(
+                  '最小匹配长度',
+                  '智能拼接文本时的最小重叠字符数',
+                  this.minMatchLenOptions.map(v => v + ' 字符'),
+                  this.selectedMinMatchLenIndex,
+                  'minMatch'
+                ))
+              }
+              .margin({ bottom: 16 })
+            }
+          }
+          .width('100%')
+          .scrollBar(BarState.Off)
+          .alignListItem(ListItemAlign.Center)
+          .borderRadius(32)
+          .clip(true)
+        }
+        .width(64)
+        .constraintSize({ maxHeight: '50%' })
+        .backgroundColor($r('sys.color.comp_background_secondary'))
+        .backdropBlur(20)
+        .borderRadius(32)
+        .position({ x: this.isLeftHand ? 0 : '100%', y: '30%' })
+        .markAnchor({ x: this.isLeftHand ? 0 : '100%', y: 0 })
+        .translate({ x: this.isLeftHand ? 16 : -16 })
+        .alignItems(HorizontalAlign.Center)
+        .clip(true)
+        .transition(
+          TransitionEffect.move(this.isLeftHand ? TransitionEdge.START : TransitionEdge.END)
+            .animation({ duration: 300, curve: Curve.EaseOut })
+        )
+        .gesture(
+          PanGesture({ direction: PanDirection.Horizontal, distance: 5 })
+            .onActionEnd((event: GestureEvent) => {
+              // 左手时左滑关闭，右手时右滑关闭
+              if ((this.isLeftHand && event.offsetX < -20) ||
+                  (this.isRightHand && event.offsetX > 20)) {
+                animateTo({ duration: 300, curve: Curve.EaseOut }, () => {
+                  this.isHandPopupDismissed = true;
+                });
+              }
+            })
+        )
+      }
     }
     .width('100%')
     .height('100%')
   }
   
+  @Builder
+  QuickActionButton(icon: Resource, btnId: number, callback: () => void) {
+    Button({ type: ButtonType.Circle }) {
+      SymbolGlyph(icon)
+        .fontSize(24)
+        .fontColor(this.activeBtn === btnId ? [THEMES[this.themeColorIndex].primaryColor] : [Color.White])
+    }
+    .width(48)
+    .height(48)
+    .backgroundColor(this.activeBtn === btnId ? Color.White : THEMES[this.themeColorIndex].secondaryColor)
+    .shadow({ radius: 8, color: 'rgba(0,0,0,0.2)', offsetY: 4 })
+    .stateStyles({
+      pressed: {
+        .scale({ x: 0.95, y: 0.95 })
+      },
+      normal: {
+        .scale({ x: 1.0, y: 1.0 })
+      }
+    })
+    .onClick(() => {
+      callback();
+    })
+    .onTouch((event: TouchEvent) => {
+      if (event.type === TouchType.Down) {
+        animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeBtn = btnId; });
+      } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+        animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeBtn = 0; });
+      }
+    })
+  }
+
   @Builder
   OptionSheetBuilder() {
     OptionSelectorSheet({

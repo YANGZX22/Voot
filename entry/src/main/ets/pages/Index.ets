@@ -45,6 +45,7 @@ import { THEMES } from '../model/Theme';
 import { OnboardingStorage, PolicyUpdateResult } from '../storage/OnboardingStorage';
 import { webview } from '@kit.ArkWeb';
 import { PolicySheetType, PolicySheetContent, getPolicySheetConfig } from '../components/PolicySheet';
+import { motion } from '@kit.MultimodalAwarenessKit';
 
 // 扩展流转状态（包含翻译状态和当前Tab）
 interface ContinuityStateExtended extends ContinuityState {
@@ -207,6 +208,7 @@ const WELCOME_FEATURES: Array<WelcomeFeature> = [
 
 // Persistence
 PersistentStorage.persistProp('airGesturesEnabled', false);
+PersistentStorage.persistProp('poseDetectionEnabled', false);
 PersistentStorage.persistProp('airGestureUpAction', 'record');
 PersistentStorage.persistProp('airGestureDownAction', 'translate');
 PersistentStorage.persistProp('themeColorIndex', 0);
@@ -401,6 +403,111 @@ struct Index {
   @State isPipActive: boolean = false;
   private pipSubtitleManager: PipSubtitleManager = PipSubtitleManager.getInstance();
   private isPipInitialized: boolean = false;
+
+  // 握持检测状态 - 集中管理
+  @StorageLink('poseDetectionEnabled') @Watch('onPoseDetectionEnabledChange') poseDetectionEnabled: boolean = false;
+  @State isPoseDetectionSupported: boolean = false;  // 默认false，检测成功后设为true
+  @State isLeftHand: boolean = false;
+  @State isRightHand: boolean = false;
+  private currentHandStatus: motion.HoldingHandStatus = motion.HoldingHandStatus.UNKNOWN_STATUS;
+  private isHandStatusSubscribed: boolean = false;
+
+  onPoseDetectionEnabledChange() {
+    if (this.poseDetectionEnabled) {
+      this.subscribeToHandStatus();
+    } else {
+      this.unsubscribeFromHandStatus();
+      this.resetHandStatus();
+    }
+  }
+
+  private subscribeToHandStatus() {
+    if (this.isHandStatusSubscribed) return;
+    try {
+      motion.on('holdingHandChanged', (data: motion.HoldingHandStatus) => {
+        if (this.currentHandStatus === data) return;
+        this.currentHandStatus = data;
+
+        if (this.isLeftHand || this.isRightHand) {
+          animateTo({ duration: 300, curve: Curve.EaseOut }, () => {
+            this.isLeftHand = false;
+            this.isRightHand = false;
+          });
+
+          if (data === motion.HoldingHandStatus.LEFT_HAND_HELD || data === motion.HoldingHandStatus.RIGHT_HAND_HELD) {
+            setTimeout(() => {
+              if (data === motion.HoldingHandStatus.LEFT_HAND_HELD) {
+                animateTo({ duration: 300, curve: Curve.EaseOut }, () => {
+                  this.isLeftHand = true;
+                });
+              } else if (data === motion.HoldingHandStatus.RIGHT_HAND_HELD) {
+                animateTo({ duration: 300, curve: Curve.EaseOut }, () => {
+                  this.isRightHand = true;
+                });
+              }
+            }, 300);
+          }
+        } else {
+          if (data === motion.HoldingHandStatus.LEFT_HAND_HELD) {
+            animateTo({ duration: 300, curve: Curve.EaseOut }, () => {
+              this.isLeftHand = true;
+            });
+          } else if (data === motion.HoldingHandStatus.RIGHT_HAND_HELD) {
+            animateTo({ duration: 300, curve: Curve.EaseOut }, () => {
+              this.isRightHand = true;
+            });
+          }
+        }
+      });
+      this.isHandStatusSubscribed = true;
+    } catch (err) {
+      let error = err as BusinessError;
+      if (error.code === 801) {
+        // 设备不支持，自动关闭
+        this.isPoseDetectionSupported = false;
+        this.poseDetectionEnabled = false;
+      } else {
+        console.error(`Failed to on holdingHandChanged. Code: ${error.code}, Message: ${error.message}`);
+      }
+    }
+  }
+
+  private unsubscribeFromHandStatus() {
+    if (!this.isHandStatusSubscribed) return;
+    try {
+      motion.off('holdingHandChanged');
+      this.isHandStatusSubscribed = false;
+    } catch (err) {
+      let error = err as BusinessError;
+      console.error(`Failed to off holdingHandChanged. Code: ${error.code}, Message: ${error.message}`);
+    }
+  }
+
+  // 早期检测设备是否支持握持检测
+  private checkPoseDetectionSupport() {
+    try {
+      // 尝试订阅来检测是否支持
+      motion.on('holdingHandChanged', () => {});
+      // 如果没有抛出异常，说明支持
+      this.isPoseDetectionSupported = true;
+      // 立即取消这个临时订阅
+      motion.off('holdingHandChanged');
+    } catch (err) {
+      let error = err as BusinessError;
+      if (error.code === 801) {
+        this.isPoseDetectionSupported = false;
+        this.poseDetectionEnabled = false;
+      }
+    }
+  }
+
+  private resetHandStatus() {
+    animateTo({ duration: 300, curve: Curve.EaseOut }, () => {
+      this.isLeftHand = false;
+      this.isRightHand = false;
+    });
+    this.currentHandStatus = motion.HoldingHandStatus.UNKNOWN_STATUS;
+  }
 
   // Widget trigger states
   @StorageProp('widgetPipToggle') @Watch('onWidgetPipToggle') widgetPipToggle: number = 0;
@@ -979,6 +1086,9 @@ struct Index {
   }
 
   async aboutToAppear(): Promise<void> {
+    // 尽早检测设备是否支持握持检测
+    this.checkPoseDetectionSupport();
+
     // 检查验证状态和 IP
     this.checkVerificationAndIp();
 
@@ -1062,6 +1172,11 @@ struct Index {
 
     // Listen for widget button triggers
     // Widget triggers are handled via @StorageProp with @Watch in state declarations
+
+    // 初始化握持检测
+    if (this.poseDetectionEnabled) {
+      this.subscribeToHandStatus();
+    }
   }
 
   private async initSherpaAsr(): Promise<void> {
@@ -1855,6 +1970,8 @@ struct Index {
             } else {
               ConfigurationPage({
                 isVisible: this.currentTab === 0,
+                isLeftHand: this.isLeftHand,
+                isRightHand: this.isRightHand,
                 apiOptions: this.apiOptions,
                 selectedApiIndex: this.selectedApiIndex,
                 languageOptions: this.languageOptions,
@@ -1933,6 +2050,9 @@ struct Index {
         TabContent() {
           Column() {
             TranslationPage({
+              isVisible: this.currentTab === 1,
+              isLeftHand: this.isLeftHand,
+              isRightHand: this.isRightHand,
               isListening: this.isListening,
               isAsrReady: this.isAsrReady,
               originalDemoText: this.originalDemoText,
@@ -1981,6 +2101,9 @@ struct Index {
         TabContent() {
           Column() {
             PolishPage({
+              isVisible: this.currentTab === 2,
+              isLeftHand: this.isLeftHand,
+              isRightHand: this.isRightHand,
               isLightEffectBright: this.isLightEffectBright,
               isDarkMode: this.isDarkMode,
               selectedApiIndex: this.selectedApiIndex,
@@ -2011,6 +2134,9 @@ struct Index {
         TabContent() {
           Column() {
             ScanPage({
+              isVisible: this.currentTab === 3,
+              isLeftHand: this.isLeftHand,
+              isRightHand: this.isRightHand,
               isLightEffectBright: this.isLightEffectBright,
               isDarkMode: this.isDarkMode,
               selectedApiIndex: this.selectedApiIndex,
@@ -2045,6 +2171,10 @@ struct Index {
         TabContent() {
           Column() {
             SettingsPage({
+              isVisible: this.currentTab === 4,
+              isLeftHand: this.isLeftHand,
+              isRightHand: this.isRightHand,
+              isPoseDetectionSupported: this.isPoseDetectionSupported,
               isRealtimeReadingEnabled: $isRealtimeReadingEnabled,
               isPipSubtitleEnabled: this.isPipSubtitleEnabled,
               isPipAvailable: this.pipSubtitleManager.isPipEnabled(),

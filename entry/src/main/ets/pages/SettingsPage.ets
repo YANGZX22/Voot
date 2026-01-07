@@ -10,6 +10,7 @@ import router from '@ohos.router';
 import { THEMES, Theme } from '../model/Theme';
 import { AuthUtil } from '@pura/harmony-utils';
 import userIAM_userAuth from '@ohos.userIAM.userAuth';
+import { BusinessError } from '@kit.BasicServicesKit';
 
 const TITLE_BAR_HEIGHT_MINI: number = 94;
 const SETTINGS_SECTION_COUNT: number = 8;
@@ -464,6 +465,10 @@ struct ExitVerificationDialog {
 @Component
 export struct SettingsPage {
   // Props
+  @Prop @Watch('onVisibleChange') isVisible: boolean = false;
+  @Prop isLeftHand: boolean = false;
+  @Prop isRightHand: boolean = false;
+  @Prop isPoseDetectionSupported: boolean = true;
   @Link isRealtimeReadingEnabled: boolean;
   @Prop @Watch('onPipEnabledChange') isPipSubtitleEnabled: boolean = false; // PiP 字幕开关状态
   @Prop isPipAvailable: boolean = true; // PiP 是否可用
@@ -475,6 +480,15 @@ export struct SettingsPage {
   @Link themeMode: number;  // 0 = 浅色, 1 = 深色, 2 = 跟随系统
   @Prop isDarkMode: boolean = true;  // 计算后的暗色模式状态（用于光效）
 
+  // 握持弹窗临时关闭状态
+  @State isHandPopupDismissed: boolean = false;
+
+  // 智感握姿提示 Popup
+  @State showPoseDetectionTip: boolean = false;
+
+  // 隔空手势提示 Popup
+  @State showAirGestureTip: boolean = false;
+
   // 本地动画状态变量
   @State showSubtitleStyle: boolean = false;
   @State showGestureActions: boolean = false;
@@ -485,6 +499,13 @@ export struct SettingsPage {
 
   onThemeColorChange() {
     this.settingsBtnBgColor = THEMES[this.themeColorIndex].primaryColor;
+  }
+
+  onVisibleChange() {
+    // 切换页面时重置握持弹窗临时关闭状态
+    if (this.isVisible) {
+      this.isHandPopupDismissed = false;
+    }
   }
 
   onPipEnabledChange() {
@@ -503,6 +524,7 @@ export struct SettingsPage {
   }
   @StorageLink('airGestureUpAction') airGestureUpAction: string = 'record';
   @StorageLink('airGestureDownAction') airGestureDownAction: string = 'translate';
+  @StorageLink('poseDetectionEnabled') poseDetectionEnabled: boolean = false;
 
   // API Config Page Settings
   @StorageLink('apiConfigRequireScreenLock') apiConfigRequireScreenLock: boolean = true;
@@ -717,14 +739,69 @@ export struct SettingsPage {
   @Builder
   AirGestureToggleItem() {
     SettingsItem({
-      title: '启用隔空手势',
-      subtitle: '上下滑动控制录音/字幕/传译'
+      title: '隔空手势',
+      subtitle: '上下挥手控制录音/字幕/传译'
     }) {
-      Toggle({ type: ToggleType.Switch, isOn: this.airGesturesEnabled })
-        .selectedColor(THEMES[this.themeColorIndex].primaryColor)
-        .onChange((isOn: boolean) => {
-          this.airGesturesEnabled = isOn;
-        })
+      Row({ space: 8 }) {
+        SymbolGlyph($r('sys.symbol.info_circle'))
+          .fontSize(18)
+          .fontColor([THEMES[this.themeColorIndex].primaryColor])
+          .bindPopup(this.showAirGestureTip, {
+            message: '需要先在系统设置中“系统-快捷启动和手势-隔空滑动屏幕”开启该功能',
+            placementOnTop: true,
+            showInSubWindow: false,
+            onStateChange: (e) => {
+              if (!e.isVisible) {
+                this.showAirGestureTip = false;
+              }
+            }
+          })
+          .onClick(() => {
+            this.showAirGestureTip = !this.showAirGestureTip;
+          })
+
+        Toggle({ type: ToggleType.Switch, isOn: this.airGesturesEnabled })
+          .selectedColor(THEMES[this.themeColorIndex].primaryColor)
+          .onChange((isOn: boolean) => {
+            this.airGesturesEnabled = isOn;
+          })
+      }
+    }
+  }
+
+  @Builder
+  PoseDetectionToggleItem() {
+    SettingsItem({
+      title: '智感握姿',
+      subtitle: this.isPoseDetectionSupported ? '根据左右手握机姿势弹出快捷按钮' : '您的设备不支持智感握姿功能'
+    }) {
+      Row({ space: 8 }) {
+        SymbolGlyph($r('sys.symbol.info_circle'))
+          .fontSize(18)
+          .fontColor([THEMES[this.themeColorIndex].primaryColor])
+          .bindPopup(this.showPoseDetectionTip, {
+            message: '如有遮挡内容，可向屏幕边缘滑动暂时关闭',
+            placementOnTop: true,
+            showInSubWindow: false,
+            onStateChange: (e) => {
+              if (!e.isVisible) {
+                this.showPoseDetectionTip = false;
+              }
+            }
+          })
+          .onClick(() => {
+            this.showPoseDetectionTip = !this.showPoseDetectionTip;
+          })
+
+        Toggle({ type: ToggleType.Switch, isOn: this.poseDetectionEnabled })
+          .selectedColor(THEMES[this.themeColorIndex].primaryColor)
+          .enabled(this.isPoseDetectionSupported)
+          .opacity(this.isPoseDetectionSupported ? 1.0 : 0.5)
+          .onChange((isOn: boolean) => {
+            if (!this.isPoseDetectionSupported) return;
+            this.poseDetectionEnabled = isOn;
+          })
+      }
     }
   }
 
@@ -905,7 +982,7 @@ export struct SettingsPage {
             // Gesture Section
             Column() {
               SettingsGroup({
-                title: '隔空手势',
+                title: '手势',
                 icon: $r('sys.symbol.hand_raised_hexagon'),
                 isOpen: $isGestureSectionOpen,
                 isDarkMode: this.isDarkMode
@@ -936,6 +1013,8 @@ export struct SettingsPage {
                     ).animation({ duration: 300, curve: Curve.FastOutSlowIn })
                   )
                 }
+
+                this.PoseDetectionToggleItem()
               }
             }
             .opacity(this.sectionOpacities[3])
@@ -944,7 +1023,7 @@ export struct SettingsPage {
             // API Config Page Section
             Column() {
               SettingsGroup({
-                title: '安全选项',
+                title: '安全',
                 icon: $r('sys.symbol.safe_box'),
                 isOpen: $isApiConfigSectionOpen,
                 isDarkMode: this.isDarkMode
@@ -959,7 +1038,7 @@ export struct SettingsPage {
             Column() {
               SettingsGroup({
                 title: '外观',
-                icon: $r('sys.symbol.skin_tone'),
+                icon: $r('sys.symbol.brush'),
                 isOpen: $isAppearanceSectionOpen,
                 isDarkMode: this.isDarkMode
               }) {
@@ -1088,6 +1167,79 @@ export struct SettingsPage {
         blurStyle: BlurStyle.BACKGROUND_THIN,
         enableOutsideInteractive: true,
       })
+
+      // 握持快捷按钮
+      if ((this.isLeftHand || this.isRightHand) && !this.isHandPopupDismissed) {
+        Column({ space: 16 }) {
+          Button({ type: ButtonType.Circle }) {
+            SymbolGlyph($r('sys.symbol.AI_subtitles'))
+              .fontSize(24)
+              .fontColor(this.isPipSubtitleEnabled ? [THEMES[this.themeColorIndex].primaryColor] : [Color.White])
+          }
+          .width(48)
+          .height(48)
+          .backgroundColor(this.isPipSubtitleEnabled ? Color.White : THEMES[this.themeColorIndex].secondaryColor)
+          .shadow({ radius: 8, color: 'rgba(0,0,0,0.2)', offsetY: 4 })
+          .stateStyles({
+            pressed: {
+              .scale({ x: 0.95, y: 0.95 })
+            },
+            normal: {
+              .scale({ x: 1.0, y: 1.0 })
+            }
+          })
+          .onClick(() => {
+            this.onTogglePipSubtitle(!this.isPipSubtitleEnabled);
+          })
+
+          Button({ type: ButtonType.Circle }) {
+            SymbolGlyph($r('sys.symbol.voice_convert_text'))
+              .fontSize(24)
+              .fontColor(this.isRealtimeReadingEnabled ? [THEMES[this.themeColorIndex].primaryColor] : [Color.White])
+          }
+          .width(48)
+          .height(48)
+          .backgroundColor(this.isRealtimeReadingEnabled ? Color.White : THEMES[this.themeColorIndex].secondaryColor)
+          .shadow({ radius: 8, color: 'rgba(0,0,0,0.2)', offsetY: 4 })
+          .stateStyles({
+            pressed: {
+              .scale({ x: 0.95, y: 0.95 })
+            },
+            normal: {
+              .scale({ x: 1.0, y: 1.0 })
+            }
+          })
+          .onClick(() => {
+            this.isRealtimeReadingEnabled = !this.isRealtimeReadingEnabled;
+            this.onToggleRealtimeReading();
+          })
+        }
+        .width(64)
+        .padding(8)
+        .backgroundColor($r('sys.color.comp_background_secondary'))
+        .backdropBlur(20)
+        .borderRadius(40)
+        .position({ x: this.isLeftHand ? 0 : '100%', y: '30%' })
+        .markAnchor({ x: this.isLeftHand ? 0 : '100%', y: 0 })
+        .translate({ x: this.isLeftHand ? 16 : -16 })
+        .alignItems(HorizontalAlign.Center)
+        .transition(
+          TransitionEffect.move(this.isLeftHand ? TransitionEdge.START : TransitionEdge.END)
+            .animation({ duration: 300, curve: Curve.EaseOut })
+        )
+        .gesture(
+          PanGesture({ direction: PanDirection.Horizontal, distance: 5 })
+            .onActionEnd((event: GestureEvent) => {
+              // 左手时左滑关闭，右手时右滑关闭
+              if ((this.isLeftHand && event.offsetX < -20) ||
+                  (this.isRightHand && event.offsetX > 20)) {
+                animateTo({ duration: 300, curve: Curve.EaseOut }, () => {
+                  this.isHandPopupDismissed = true;
+                });
+              }
+            })
+        )
+      }
     }
     .width('100%')
     .height('100%')

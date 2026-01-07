@@ -100,8 +100,11 @@ interface LlmConfig {
 
 @Component
 export struct PolishPage {
+  @Prop @Watch('onVisibleChange') isVisible: boolean = false;
   @Prop isLightEffectBright: boolean = true;
   @Prop isDarkMode: boolean = true;
+  @Prop isLeftHand: boolean = false;
+  @Prop isRightHand: boolean = false;
   @StorageLink('themeColorIndex') @Watch('onThemeColorChange') themeColorIndex: number = 0;
 
   // API 配置 - 从父组件传递
@@ -121,9 +124,12 @@ export struct PolishPage {
   @State polishSegments: PolishSegment[] = [];
   @State hasResult: boolean = false;
   @State activeBtn: number = 0;
+  // 握持弹窗临时关闭状态
+  @State isHandPopupDismissed: boolean = false;
   @State polishedFullText: string = ''; // 完整的润色文本
   @State highlightSpans: HighlightSpan[] = []; // 高亮片段数组
   @State isLandscape: boolean = false;
+
 
   // 同步滚动相关
   private originalScroller: Scroller = new Scroller();
@@ -143,9 +149,17 @@ export struct PolishPage {
     this.shareBtnTextColor = THEMES[this.themeColorIndex].primaryColor;
   }
 
+  onVisibleChange() {
+    // 切换页面时重置握持弹窗临时关闭状态
+    if (this.isVisible) {
+      this.isHandPopupDismissed = false;
+    }
+  }
+
   aboutToAppear() {
     this.polishBtnBgColor = THEMES[this.themeColorIndex].secondaryColor;
     this.shareBtnTextColor = THEMES[this.themeColorIndex].primaryColor;
+
     try {
       const displayClass = display.getDefaultDisplaySync();
       // 宽度大于高度，或宽度超过600vp（折叠屏展开/平板竖屏）
@@ -776,7 +790,7 @@ export struct PolishPage {
   }
 
   build() {
-    Stack() {
+    Stack({ alignContent: Alignment.TopStart }) {
       HdsNavigation() {
         Column() {
           Blank().height(TITLE_BAR_HEIGHT_MINI)
@@ -865,6 +879,104 @@ export struct PolishPage {
         },
         avoidLayoutSafeArea: true
       })
+
+      if ((this.isLeftHand || this.isRightHand) && !this.isHandPopupDismissed) {
+        Column({ space: 16 }) {
+           // 润色按钮
+          Button({ type: ButtonType.Circle }) {
+            if (this.isPolishing) {
+               LoadingProgress()
+                .width(24)
+                .height(24)
+                .color((this.activeBtn === 1 || this.activeBtn === 11) ? THEMES[this.themeColorIndex].primaryColor : this.polishBtnTextColor)
+            } else {
+              SymbolGlyph($r('sys.symbol.wand_and_stars'))
+                .fontSize(24)
+                .fontColor((this.activeBtn === 1 || this.activeBtn === 11) ? [THEMES[this.themeColorIndex].primaryColor] : [this.polishBtnTextColor])
+            }
+          }
+          .width(48)
+          .height(48)
+          .backgroundColor((this.activeBtn === 1 || this.activeBtn === 11) ? Color.White : this.polishBtnBgColor)
+          .shadow({ radius: 8, color: 'rgba(0,0,0,0.2)', offsetY: 4 })
+          .stateStyles({
+            pressed: {
+              .scale({ x: 0.95, y: 0.95 })
+            },
+            normal: {
+              .scale({ x: 1.0, y: 1.0 })
+            }
+          })
+          .enabled(!this.isPolishing && this.inputText.trim().length > 0)
+          .opacity((!this.isPolishing && this.inputText.trim().length > 0) ? 1.0 : 0.5)
+          .onClick(() => {
+            this.polishText();
+          })
+          .onTouch((event: TouchEvent) => {
+            if (event.type === TouchType.Down) {
+              animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeBtn = 11; });
+            } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+              animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeBtn = 0; });
+            }
+          })
+
+          // 分享按钮
+          Button({ type: ButtonType.Circle }) {
+            SymbolGlyph($r('sys.symbol.share'))
+              .fontSize(24)
+              .fontColor((this.activeBtn === 2 || this.activeBtn === 12) ? [THEMES[this.themeColorIndex].primaryColor] : [this.shareBtnTextColor])
+          }
+          .width(48)
+          .height(48)
+          .backgroundColor((this.activeBtn === 2 || this.activeBtn === 12) ? Color.White : this.shareBtnBgColor)
+          .shadow({ radius: 8, color: 'rgba(0,0,0,0.2)', offsetY: 4 })
+          .stateStyles({
+            pressed: {
+              .scale({ x: 0.95, y: 0.95 })
+            },
+            normal: {
+              .scale({ x: 1.0, y: 1.0 })
+            }
+          })
+          .enabled(this.hasResult)
+          .opacity(this.hasResult ? 1.0 : 0.5)
+          .onClick(() => {
+            this.shareResult();
+          })
+          .onTouch((event: TouchEvent) => {
+            if (event.type === TouchType.Down) {
+              animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeBtn = 12; });
+            } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+              animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeBtn = 0; });
+            }
+          })
+        }
+        .width(64)
+        .padding(8)
+        .backgroundColor($r('sys.color.comp_background_secondary'))
+        .backdropBlur(20)
+        .borderRadius(40)
+        .position({ x: this.isLeftHand ? 0 : '100%', y: '30%' })
+        .markAnchor({ x: this.isLeftHand ? 0 : '100%', y: 0 })
+        .translate({ x: this.isLeftHand ? 16 : -16 })
+        .alignItems(HorizontalAlign.Center)
+        .transition(
+          TransitionEffect.move(this.isLeftHand ? TransitionEdge.START : TransitionEdge.END)
+            .animation({ duration: 300, curve: Curve.EaseOut })
+        )
+        .gesture(
+          PanGesture({ direction: PanDirection.Horizontal, distance: 5 })
+            .onActionEnd((event: GestureEvent) => {
+              // 左手时左滑关闭，右手时右滑关闭
+              if ((this.isLeftHand && event.offsetX < -20) ||
+                  (this.isRightHand && event.offsetX > 20)) {
+                animateTo({ duration: 300, curve: Curve.EaseOut }, () => {
+                  this.isHandPopupDismissed = true;
+                });
+              }
+            })
+        )
+      }
     }
     .width('100%')
     .height('100%')

@@ -145,8 +145,8 @@ const WELCOME_FEATURES: Array<WelcomeFeature> = [
     span: 2
   },
   {
-    title: '隔空手势',
-    description: '通过手势控制翻译、字幕与传译，无需触摸屏幕。',
+    title: '手势',
+    description: '手势控制和左右手智感握姿。',
     icon: $r('app.media.airgesture'),
     span: 2
   },
@@ -849,7 +849,7 @@ struct WelcomePage {
           .width('100%')
           .margin({ bottom: 12 })
 
-          // Row 3: xx x x (隔空手势、润色、扫描)
+          // Row 3: xx x x (手势、润色、扫描)
           Row({ space: 12 }) {
             ForEach(WELCOME_FEATURES.slice(6, 9), (feature: WelcomeFeature, index: number) => {
               this.FeatureCard(feature, index + 6);
@@ -1537,7 +1537,7 @@ struct WelcomePage {
           .width(32)
           .height(32)
           .objectFit(ImageFit.Contain)
-          .fillColor((this.activeFeatureCard === index || feature.title === '隐私守护' || feature.title === '隔空手势') ? '#3c1464' : Color.White)
+          .fillColor((this.activeFeatureCard === index || feature.title === '隐私守护' || feature.title === '手势') ? '#3c1464' : Color.White)
       }
       .width('100%')
       .height('100%')
@@ -1545,7 +1545,7 @@ struct WelcomePage {
       .alignItems(HorizontalAlign.Center)
     }
     .type(ButtonType.Normal)
-    .backgroundColor((this.activeFeatureCard === index || feature.title === '隐私守护' || feature.title === '隔空手势') ? Color.White : "#b33c1464")
+    .backgroundColor((this.activeFeatureCard === index || feature.title === '隐私守护' || feature.title === '手势') ? Color.White : "#b33c1464")
     .layoutWeight(feature.span)
     .aspectRatio(feature.span)
     .borderRadius(999)
@@ -1561,7 +1561,7 @@ struct WelcomePage {
     })
     .visualEffect(new hdsEffect.HdsEffectBuilder()
       .pointLight({
-        sourceType: (this.activeFeatureCard === index || feature.title === '隐私守护' || feature.title === '隔空手势')
+        sourceType: (this.activeFeatureCard === index || feature.title === '隐私守护' || feature.title === '手势')
           ? hdsEffect.PointLightSourceType.SOFT
           : hdsEffect.PointLightSourceType.NONE,
         illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT

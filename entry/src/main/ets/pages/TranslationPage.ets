@@ -24,6 +24,7 @@ const TITLE_BAR_HEIGHT_MINI: number = 94;
 @Component
 export struct TranslationPage {
   // Props
+  @Prop @Watch('onVisibleChange') isVisible: boolean = false;
   @Prop @Watch('onIsListeningChange') isListening: boolean = false;
   @Prop isAsrReady: boolean = false;
   @Prop originalDemoText: string = "";
@@ -34,6 +35,8 @@ export struct TranslationPage {
   @Prop hasContinuityContent: boolean = false;
   @Prop isLightEffectBright: boolean = true;
   @Prop isDarkMode: boolean = true;
+  @Prop isLeftHand: boolean = false;
+  @Prop isRightHand: boolean = false;
   @StorageLink('themeColorIndex') @Watch('onThemeColorChange') themeColorIndex: number = 0;
 
   // Callbacks
@@ -47,6 +50,9 @@ export struct TranslationPage {
   // State for Lighting Effect
   // 0 = None, 1 = Mic Button, 2 = Translate Button
   @State activeBtn: number = 0;
+
+  // 握持弹窗临时关闭状态
+  @State isHandPopupDismissed: boolean = false;
 
   @State button1Scale: number = 1.0;
   @State button2Scale: number = 1.0;
@@ -97,6 +103,13 @@ export struct TranslationPage {
     this.btn2TextColor = Color.White;
     this.btn3BgColor = Color.White;
     this.btn3TextColor = THEMES[this.themeColorIndex].primaryColor;
+  }
+
+  onVisibleChange() {
+    // 切换页面时重置握持弹窗临时关闭状态
+    if (this.isVisible) {
+      this.isHandPopupDismissed = false;
+    }
   }
 
   onIsListeningChange() {
@@ -279,7 +292,8 @@ export struct TranslationPage {
 
   build() {
     HdsNavigation() {
-      Scroll() {
+      Stack({ alignContent: Alignment.TopStart }) {
+        Scroll() {
         Column() {
           Blank().height(TITLE_BAR_HEIGHT_MINI);
 
@@ -511,21 +525,6 @@ export struct TranslationPage {
                     animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeBtn = 0; });
                   }
                 })
-                .bindSheet(
-                  $$this.showDeviceDialog,
-                  this.DeviceSelectionDialog(),
-                  {
-                    detents: [SheetSize.FIT_CONTENT, SheetSize.MEDIUM, SheetSize.LARGE],
-                    dragBar: true,
-                    backgroundColor: Color.Transparent,
-                    blurStyle: BlurStyle.BACKGROUND_THIN,
-                    enableOutsideInteractive: true,
-                    onDisappear: () => {
-                      this.showDeviceDialog = false;
-                      ContinuityService.getInstance().stopDiscovering();
-                    }
-                  }
-                )
                 .onClick(() => this.startDeviceDiscovery())
               }
               .height('100%')
@@ -592,7 +591,7 @@ export struct TranslationPage {
 
               Button() {
                 Row() {
-                  SymbolGlyph($r('sys.symbol.arrow_2_circlepath'))
+                  SymbolGlyph($r('sys.symbol.dot_radiowaves_left_and_right_badge_person_filled'))
                     .fontSize(18)
                     .fontColor([this.btn3TextColor])
                     .margin({ right: 8 })
@@ -621,21 +620,6 @@ export struct TranslationPage {
                   animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeBtn = 0; });
                 }
               })
-              .bindSheet(
-                $$this.showDeviceDialog,
-                this.DeviceSelectionDialog(),
-                {
-                  detents: [SheetSize.FIT_CONTENT, SheetSize.MEDIUM, SheetSize.LARGE],
-                  dragBar: true,
-                  backgroundColor: Color.Transparent,
-                  blurStyle: BlurStyle.BACKGROUND_THIN,
-                  enableOutsideInteractive: true,
-                  onDisappear: () => {
-                    this.showDeviceDialog = false;
-                    ContinuityService.getInstance().stopDiscovering();
-                  }
-                }
-              )
               .onClick(() => this.startDeviceDiscovery())
             }
             .width('100%')
@@ -664,8 +648,146 @@ export struct TranslationPage {
       .scrollable(ScrollDirection.None)
       .scrollBar(BarState.Off)
       .edgeEffect(EdgeEffect.Spring)
+
+      if ((this.isLeftHand || this.isRightHand) && !this.isHandPopupDismissed) {
+        Column({ space: 16 }) {
+          Button({ type: ButtonType.Circle }) {
+            SymbolGlyph(this.isListening ? $r('sys.symbol.square') : $r('sys.symbol.mic'))
+              .fontSize(24)
+              .fontColor((this.isListening || this.activeBtn === 1 || this.activeBtn === 11) ? [THEMES[this.themeColorIndex].primaryColor] : [Color.White])
+          }
+          .width(48)
+          .height(48)
+          .backgroundColor((this.isListening || this.activeBtn === 1 || this.activeBtn === 11) ? Color.White : THEMES[this.themeColorIndex].secondaryColor)
+          .shadow({ radius: 8, color: 'rgba(0,0,0,0.2)', offsetY: 4 })
+          .stateStyles({
+            pressed: {
+              .scale({ x: 0.95, y: 0.95 })
+            },
+            normal: {
+              .scale({ x: 1.0, y: 1.0 })
+            }
+          })
+          .onClick(() => {
+            this.onToggleCaptioning();
+          })
+          .onTouch((event: TouchEvent) => {
+            if (event.type === TouchType.Down) {
+              animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeBtn = 11; });
+            } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+              animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeBtn = 0; });
+            }
+          })
+
+          Button({ type: ButtonType.Circle }) {
+            if (this.isTranslating) {
+              LoadingProgress()
+                .width(24)
+                .height(24)
+                .color((this.activeBtn === 2 || this.activeBtn === 12) ? THEMES[this.themeColorIndex].primaryColor : Color.White)
+            } else {
+              SymbolGlyph($r('sys.symbol.translate'))
+                .fontSize(24)
+                .fontColor((this.activeBtn === 2 || this.activeBtn === 12) ? [THEMES[this.themeColorIndex].primaryColor] : [Color.White])
+            }
+          }
+          .width(48)
+          .height(48)
+          .backgroundColor((this.activeBtn === 2 || this.activeBtn === 12) ? Color.White : THEMES[this.themeColorIndex].secondaryColor)
+          .shadow({ radius: 8, color: 'rgba(0,0,0,0.2)', offsetY: 4 })
+          .enabled(!this.isTranslating)
+          .opacity(this.isTranslating ? 0.7 : 1.0)
+          .stateStyles({
+            pressed: {
+              .scale({ x: 0.95, y: 0.95 })
+            },
+            normal: {
+              .scale({ x: 1.0, y: 1.0 })
+            }
+          })
+          .onClick(() => {
+            this.onTranslateDemo();
+          })
+          .onTouch((event: TouchEvent) => {
+            if (event.type === TouchType.Down) {
+              animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeBtn = 12; });
+            } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+              animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeBtn = 0; });
+            }
+          })
+
+          Button({ type: ButtonType.Circle }) {
+            SymbolGlyph($r('sys.symbol.dot_radiowaves_left_and_right_badge_person_filled'))
+              .fontSize(24)
+              .fontColor((this.activeBtn === 3 || this.activeBtn === 13) ? [Color.White] : [THEMES[this.themeColorIndex].primaryColor])
+          }
+          .width(48)
+          .height(48)
+          .backgroundColor((this.activeBtn === 3 || this.activeBtn === 13) ? THEMES[this.themeColorIndex].primaryColor : Color.White)
+          .shadow({ radius: 8, color: 'rgba(0,0,0,0.2)', offsetY: 4 })
+          .stateStyles({
+            pressed: {
+              .scale({ x: 0.95, y: 0.95 })
+            },
+            normal: {
+              .scale({ x: 1.0, y: 1.0 })
+            }
+          })
+          .onClick(() => {
+            this.startDeviceDiscovery();
+          })
+          .onTouch((event: TouchEvent) => {
+            if (event.type === TouchType.Down) {
+              animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeBtn = 13; });
+            } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+              animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeBtn = 0; });
+            }
+          })
+        }
+        .width(64)
+        .padding(8)
+        .backgroundColor($r('sys.color.comp_background_secondary'))
+        .backdropBlur(20)
+        .borderRadius(40)
+        .position({ x: this.isLeftHand ? 0 : '100%', y: '30%' })
+        .markAnchor({ x: this.isLeftHand ? 0 : '100%', y: 0 })
+        .translate({ x: this.isLeftHand ? 16 : -16 })
+        .alignItems(HorizontalAlign.Center)
+        .transition(
+          TransitionEffect.move(this.isLeftHand ? TransitionEdge.START : TransitionEdge.END)
+            .animation({ duration: 300, curve: Curve.EaseOut })
+        )
+        .gesture(
+          PanGesture({ direction: PanDirection.Horizontal, distance: 5 })
+            .onActionEnd((event: GestureEvent) => {
+              // 左手时左滑关闭，右手时右滑关闭
+              if ((this.isLeftHand && event.offsetX < -20) ||
+                  (this.isRightHand && event.offsetX > 20)) {
+                animateTo({ duration: 300, curve: Curve.EaseOut }, () => {
+                  this.isHandPopupDismissed = true;
+                });
+              }
+            })
+        )
+      }
+      }
     }
     .mode(NavigationMode.Stack)
+    .bindSheet(
+      $$this.showDeviceDialog,
+      this.DeviceSelectionDialog(),
+      {
+        detents: [SheetSize.FIT_CONTENT, SheetSize.MEDIUM, SheetSize.LARGE],
+        dragBar: true,
+        backgroundColor: Color.Transparent,
+        blurStyle: BlurStyle.BACKGROUND_THIN,
+        enableOutsideInteractive: true,
+        onDisappear: () => {
+          this.showDeviceDialog = false;
+          ContinuityService.getInstance().stopDiscovering();
+        }
+      }
+    )
     .width('100%')
     .height('100%')
     .backgroundColor(Color.Transparent)
@@ -963,7 +1085,7 @@ struct ContinuityHelpDialog {
 
         Row({ space: 8 }) {
           Column() {
-            SymbolGlyph($r('sys.symbol.arrow_2_circlepath'))
+            SymbolGlyph($r('sys.symbol.dot_radiowaves_left_and_right_badge_person_filled'))
               .fontSize(18)
               .fontColor([Color.White])
           }
