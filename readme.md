@@ -43,62 +43,40 @@ It is designed with three core principles: **security, privacy, and simplicity**
   - No built-in or hosted model – you must configure your own API keys.
   - API keys are stored **only in the HarmonyOS sandbox**, protected by **face / biometric unlock**.
   - No third-party analytics SDKs.
-
 - 🕵️ **Privacy-first**
   - Audio is processed **locally** on-device for capture & pre-processing.
   - Recorded audio for translation is **not uploaded** and is **destroyed after processing**.
   - Only the minimal text required for translation is sent directly to the provider you configure.
-
 - 🧩 **Multi-provider support**
   - OpenAI (GPT-style chat / translation)
   - DeepL
   - Ollama (local LLM gateway)
   - 豆包 / other custom endpoints (via configurable URL & API key)
-
 - 🗣️ **Simultaneous interpretation**
   - One-tap start/stop of “live” translation.
   - Clear split between **original text** and **translated text**.
-
-- 🌐 **Flexible language configuration**
-  - Global “target language” selector.
-  - Per-API configuration (prompt, system instructions, etc.).
 - 📚 **Glossary / Terminology Support**
-  - Define custom term pairs (e.g., `HarmonyOS=鸿蒙`) to force specific translations.
+  - Define custom term pairs (e.g., `HarmonyOS = 鸿蒙`) to force specific translations.
   - Injected directly into the LLM system prompt for high adherence.
-
-- 🔄 **Device Continuation (流转)**
+- 🔄 **Device Continuation**
   - Seamlessly transfer your active translation session to another HarmonyOS device (e.g., from Phone to Tablet).
   - Keeps your current transcription and translation context intact.
-
-- 📂 **History & Favorites**
-  - Automatically saves your translation sessions locally.
-  - Review past conversations and star ⭐ important ones for quick access.
-- 🎛️ **Token Usage Analytics**
-  - Track your API usage and costs in real-time.
-  - Visual charts for daily/weekly consumption.
-  - Desktop widgets to monitor usage at a glance.
-
 - 🖼️ **Picture-in-Picture (PiP) Subtitles**
   - Floating subtitle window that works over other apps.
   - Resizable and movable overlay for seamless multitasking.
-
 - 📱 **Desktop Widgets**
   - **Control Card**: Start/stop subtitle and interpretation directly from the home screen.
   - **Token Card**: Monitor your API token usage without opening the app.
-
-- � **Air Gestures (隔空手势)**
+- 💨 **Air Gestures**
   - Control translation start/stop without touching the screen.
   - Ideal for hands-free operation during presentations or cooking.
-
-- ✨ **Text Polishing (润色)**
+- ✨ **Text Polishing**
   - Improve the quality and tone of translated text.
   - Refine rough translations into more natural and professional language.
-
-- 📷 **Scan & Translate (扫描)**
+- 📷 **Scan & Translate**
   - Scan text from physical documents or screens using the camera.
   - Instantly translate scanned text with save functionality.
-
-- �💡 **Simple UI, ArkTS only**
+- 💡 **Simple UI, ArkTS only**
   - Frontend written purely in **ArkTS**, no extra UI framework.
   - Minimalist layout: buttons, text, and light effects – optimized for real-time usage.
 
@@ -139,7 +117,7 @@ Voot/
 * HarmonyOS toolchain:
 
   * DevEco Studio with ArkTS support
-  * HarmonyOS SDK (version matching the project)
+  * HarmonyOS SDK (version matching the project, current: 6.0.1(21))
 * A HarmonyOS device or emulator
 * One or more API keys, for example:
 
@@ -179,9 +157,9 @@ Or you can use [Auto-installer](https://github.com/likuai2010/auto-installer/) o
 
 ### API Providers
 
-In the **“配置 API / Configure API”** tab:
+In the **“配置 API”** tab:
 1. Choose the current provider (e.g. OpenAI, DeepL, Ollama, 豆包).
-2. Tap **“配置 API / Configure API”**.
+2. Tap **“配置 API”**.
 3. For each provider, fill in:
 
    * **API URL** (e.g. `https://api.openai.com/v1/chat/completions`,
@@ -202,11 +180,11 @@ In the **“目标语言 / Target language”** section:
 
 In the **“术语库 / Glossary”** menu:
 
-1. Enter term pairs in the format `Original=Translation` (one per line).
+1. Enter term pairs in the format `Original = Translation` (one per line).
 2. Example:
    ```text
-   HarmonyOS=鸿蒙
-   AI=人工智能
+   HarmonyOS = 鸿蒙
+   AI = 人工智能
    ```
 3. These terms are automatically appended to the system prompt, instructing the LLM to strictly follow your terminology.
 
@@ -215,7 +193,7 @@ In the **“术语库 / Glossary”** menu:
 
 1. Launch **Voot** on your HarmonyOS device.
 
-2. **Configure API (配置)**:
+2. **Configure API**:
    * Go to the first tab **Configuration**.
    * Select an API provider (OpenAI, DeepL, etc.) and enter your API Key/URL.
    * Set your **Target Language**.
@@ -238,14 +216,9 @@ In the **“术语库 / Glossary”** menu:
    * The app will recognize the text and provide an instant translation.
    * You can save the scanned results to History.
 
-6. **Settings (设置)**:
-   * Customize UI appearance (font size, colors).
-   * Manage general preferences and view FAQ.
-
-
 ## Security & Privacy
 
-Short summary (see in-app privacy policy / `PRIVACY.html` for details):
+Short summary (see in-app privacy policy / `privacy.html` for details):
 
 * Audio:
 
@@ -277,6 +250,7 @@ Finished / planned / possible steps:
 * Air Gestures (Realized ✅)
 * Text Polishing (Realized ✅)
 * Scan & Translate (Realized ✅)
+* Pose Detection Button Dialog (Realized ✅)
 * Support for more LLM / translation APIs (e.g. Google Translate)
 * Enhanced ASR and cutoff logic
 * More supported original languages
@@ -323,7 +297,7 @@ Before submitting, please:
 
 * Badly performed LLM/Translating models on this APP by testing:
 
-  * OpenAI: gpt-5 and all thinking models series
+  * OpenAI: gpt-5 and all thinking models series (for Translating task)
   * 豆包（火山引擎）: Doubao-Seed-1.6-lite (doubao-seed-1-6-lite-251015)
 
 ## Known Issues
@@ -331,20 +305,22 @@ Before submitting, please:
 * ASR accuracy may vary based on background noise and microphone quality.
 * Some API providers may have rate limits or usage costs; monitor your usage carefully.
 * ~~When tap **传译** button in desktop widget, the app may not open interpretation correctly due to HarmonyOS restrictions.~~ [Fixed]
-* ~~Subtitle floating window may have layout issues on certain screen sizes, e.g. Pad.~~ [Fixed]
-  You can try to adjust the size of the floating window manually. An update may fix this in the future.
+* ~~Subtitle floating window may have layout issues on certain screen sizes, e.g. Pad. You can try to adjust the size of the floating window manually. An update may fix this in the future.~~ [Fixed]
 * Doubao API always gives latente responses when use Lite models. This may be due to the server side of Doubao, not the app itself. [To be confirmed]
 
 ## Acknowledgements
 
-- Inspiration: https://github.com/SakiRinn/LiveCaptions-Translator (Windows live captions translator).
+- Inspiration: **[LiveCaptions Translator](https://github.com/SakiRinn/LiveCaptions-Translator)** on Windows.
 - This project is an independent implementation and does not reuse any code from that repository.
 
 ## License
 
+> [!NOTE]
+> **We are trying to push _Voot_ to launch on Huawei AppGallery. Before that, the source code is open-sourced under GPL-3.0 license. Please comply with the license terms when using or modifying the code. If launched on AppGallery, we may change the license.**
+
 This project is licensed under the **GNU General Public License v3.0 (GPL-3.0)**.
 
-Please see the [`LICENSE`](LICENSE) file in this repository for full license text.
+Please see the **[`LICENSE`](LICENSE)** file in this repository for full license text.
 
 ## Disclaimer
 
