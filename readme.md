@@ -315,7 +315,7 @@ Before submitting, please:
 
 ## License
 
-> [!NOTE]
+> [!IMPORTANT]
 > **We are trying to push _Voot_ to launch on Huawei AppGallery. Before that, the source code is open-sourced under GPL-3.0 license. Please comply with the license terms when using or modifying the code. If launched on AppGallery, we may change the license.**
 
 This project is licensed under the **GNU General Public License v3.0 (GPL-3.0)**.
