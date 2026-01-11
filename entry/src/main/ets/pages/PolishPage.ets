@@ -283,7 +283,7 @@ export struct PolishPage {
       
       if (this.selectedApiIndex === 1) {
         // DeepL 不支持润色
-        promptAction.showToast({ message: 'DeepL不支持润色功能，请切换其他API' });
+        promptAction.showToast({ message: 'DeepL 不支持润色功能，请切换其他 API' });
         this.isPolishing = false;
         return;
       } else if (this.selectedApiIndex === 0) {
@@ -924,11 +924,11 @@ export struct PolishPage {
           Button({ type: ButtonType.Circle }) {
             SymbolGlyph($r('sys.symbol.share'))
               .fontSize(24)
-              .fontColor((this.activeBtn === 2 || this.activeBtn === 12) ? [THEMES[this.themeColorIndex].primaryColor] : [this.shareBtnTextColor])
+              .fontColor((this.activeBtn === 2 || this.activeBtn === 12) ? [Color.White] : [this.shareBtnTextColor])
           }
           .width(48)
           .height(48)
-          .backgroundColor((this.activeBtn === 2 || this.activeBtn === 12) ? Color.White : this.shareBtnBgColor)
+          .backgroundColor((this.activeBtn === 2 || this.activeBtn === 12) ? THEMES[this.themeColorIndex].primaryColor : this.shareBtnBgColor)
           .shadow({ radius: 8, color: 'rgba(0,0,0,0.2)', offsetY: 4 })
           .stateStyles({
             pressed: {
@@ -946,14 +946,17 @@ export struct PolishPage {
           .onTouch((event: TouchEvent) => {
             if (event.type === TouchType.Down) {
               animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeBtn = 12; });
+              this.pressButton(2);
             } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
               animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeBtn = 0; });
+              this.releaseButton(2);
             }
           })
         }
         .width(64)
         .padding(8)
         .backgroundColor($r('sys.color.comp_background_secondary'))
+        .border({ width: 1.5, color: THEMES[this.themeColorIndex].tertiaryColor })
         .backdropBlur(20)
         .borderRadius(40)
         .position({ x: this.isLeftHand ? 0 : '100%', y: '30%' })

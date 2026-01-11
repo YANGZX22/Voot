@@ -2,11 +2,24 @@ import { hdsEffect, HdsNavigation, HdsNavigationAttribute, HdsNavigationTitleMod
 import { MultiKeySlots, MAX_KEY_SLOTS } from '../storage/ApiConfigStorage';
 import http from '@ohos.net.http';
 import promptAction from '@ohos.promptAction';
+import router from '@ohos.router';
 import { ColorMetrics } from '@kit.ArkUI';
 import { THEMES } from '../model/Theme';
 import window from '@ohos.window';
 
 const TITLE_BAR_HEIGHT_MINI: number = 84;
+
+// Interfaces for Navigation Menu Items to satisfy ArkTS compiler
+interface NavMenuContent {
+  label: string;
+  icon: Resource;
+  isEnabled: boolean;
+  action: () => void;
+}
+
+interface NavMenuItem {
+  content: NavMenuContent;
+}
 
 export enum ApiMenuType {
   Prompt = 0,
@@ -24,33 +37,52 @@ struct KeySlotSwitcher {
   @Prop currentSlotIndex: number = 0;
   @Prop totalSlots: number = MAX_KEY_SLOTS;
   @Prop hasApiKey: boolean = false;
+  @Prop providerName: string = '';
+  @Prop aliases: string[] = []; // 使用数组接收别名
   onSwitchSlot: (index: number) => void = () => {};
   onEditSlot: () => void = () => {};
   @State isExpand: boolean = true;
   @StorageLink('themeColorIndex') themeColorIndex: number = 0;
 
+  private getSlotLabel(index: number): string {
+    if (this.currentSlotIndex === index) {
+      const alias = this.aliases[index];
+      if (alias && alias.trim().length > 0) {
+        return alias;
+      }
+      return `${this.providerName} ${index + 1}`;
+    }
+    return `${index + 1}`;
+  }
+
   build() {
     Column() {
-      // 槽位指示器（在 ActionBar 上面）
+      // 槽位指示器
       Row() {
         ForEach([0, 1, 2], (index: number) => {
-          Text((index + 1).toString())
+          Text(this.getSlotLabel(index))
             .fontSize(12)
             .fontWeight(this.currentSlotIndex === index ? FontWeight.Bold : FontWeight.Normal)
-            .fontColor(this.currentSlotIndex === index ? Color.White : Color.Gray)
-            .width(24)
-            .height(24)
+            .fontColor(this.currentSlotIndex === index ? Color.White : $r('sys.color.font_on_secondary'))
+            .constraintSize({ minWidth: 24 })
+            .padding({ left: 10, right: 10 })
+            .height(28)
             .textAlign(TextAlign.Center)
-            .borderRadius(12)
-            .backgroundColor(this.currentSlotIndex === index ? THEMES[this.themeColorIndex].primaryColor : Color.Transparent)
-            .border({ width: 1, color: this.currentSlotIndex === index ? THEMES[this.themeColorIndex].primaryColor : Color.Gray })
+            .borderRadius(14)
+            .backgroundColor(this.currentSlotIndex === index ? THEMES[this.themeColorIndex].primaryColor : $r('sys.color.comp_background_tertiary'))
+            .border({ width: 0 }) 
             .margin({ left: 4, right: 4 })
+            .shadow(this.currentSlotIndex === index ? { radius: 8, color: '#40000000', offsetY: 2 } : { radius: 0, color: Color.Transparent })
+            .scale({ x: this.currentSlotIndex === index ? 1.05 : 1.0, y: this.currentSlotIndex === index ? 1.05 : 1.0 })
+            .animation({ duration: 350, curve: Curve.FastOutSlowIn })
             .onClick(() => {
-              this.onSwitchSlot(index);
+              animateTo({ duration: 350, curve: Curve.FastOutSlowIn }, () => {
+                this.onSwitchSlot(index);
+              })
             })
         })
       }
-      .margin({ bottom: 6 })
+      .margin({ bottom: 12 })
 
       // ActionBar
       HdsActionBar({
@@ -233,6 +265,11 @@ export struct ApiConfigPage {
   @Prop doubaoApiUrl: string = "";
   @Prop doubaoApiKey: string = "";
   @Prop doubaoModel: string = "";
+  // Alias 字段（用于显示用户自定义别名）
+  @Prop openAiAlias: string = "";
+  @Prop deepLAlias: string = "";
+  @Prop ollamaAlias: string = "";
+  @Prop doubaoAlias: string = "";
   @Prop glossary: string = "";
   @Prop isLightEffectBright: boolean = true;
   @Prop isDarkMode: boolean = true;
@@ -266,6 +303,11 @@ export struct ApiConfigPage {
   onUpdateDoubaoApiUrl: (value: string) => void = () => {};
   onUpdateDoubaoApiKey: (value: string) => void = () => {};
   onUpdateDoubaoModel: (value: string) => void = () => {};
+  // Alias 更新回调
+  onUpdateOpenAiAlias: (value: string) => void = () => {};
+  onUpdateDeepLAlias: (value: string) => void = () => {};
+  onUpdateOllamaAlias: (value: string) => void = () => {};
+  onUpdateDoubaoAlias: (value: string) => void = () => {};
   onUpdateGlossary: (value: string) => void = () => {};
   // Helper for TextArea height
   getConfigTextAreaHeight: (rows: number) => number = (rows: number) => rows * 20;
@@ -276,13 +318,75 @@ export struct ApiConfigPage {
   // State for sidebar visibility
   @State isSideBarShown: boolean = false;
 
+  private getNavigationMenuItems(): NavMenuItem[] {
+    let items: NavMenuItem[] = [];
+    
+    // OpenAI 警告 (仅在 OpenAI 页面显示)
+    if (this.selectedMenu === ApiMenuType.OpenAI) {
+      let item: NavMenuItem = {
+        content: {
+          label: '服务可用性警告',
+          icon: $r('sys.symbol.exclamationmark_circle'),
+          isEnabled: true,
+          action: () => {
+            this.showOpenAIWarningPopup = true;
+          }
+        }
+      };
+      items.push(item);
+    }
+
+    // "如何填写" 帮助
+    if (this.selectedMenu === ApiMenuType.OpenAI ||
+        this.selectedMenu === ApiMenuType.DeepL ||
+        this.selectedMenu === ApiMenuType.Ollama ||
+        this.selectedMenu === ApiMenuType.Doubao) {
+      let item: NavMenuItem = {
+        content: {
+          label: '如何填写',
+          icon: $r('sys.symbol.book'),
+          isEnabled: true,
+          action: () => {
+            router.pushUrl({ url: 'pages/ApiExplanationPage' });
+          }
+        }
+      };
+      items.push(item);
+    }
+
+    // 侧边栏开关
+    let sidebarItem: NavMenuItem = {
+      content: {
+        label: this.isSideBarShown ? '关闭侧边栏' : '打开侧边栏',
+        icon: this.isSideBarShown ? $r('sys.symbol.open_sidebar') : $r('sys.symbol.close_sidebar'),
+        isEnabled: true,
+        action: () => {
+          animateTo({
+            duration: 500,
+            curve: Curve.EaseInOut
+          }, () => {
+            this.isSideBarShown = !this.isSideBarShown;
+          });
+        }
+      }
+    };
+    items.push(sidebarItem);
+
+    return items;
+  }
+
+
   // --- 半模态弹窗状态 ---
   @State isKeyEditSheetOpen: boolean = false;
   @State editingApiUrl: string = '';
   @State editingApiKey: string = '';
   @State editingModel: string = '';
+  @State editingAlias: string = '';  // 别名编辑状态
   @State isTestingConnection: boolean = false;
   @State isConfigValid: boolean = false;
+
+  // OpenAI 警告弹窗状态
+  @State showOpenAIWarningPopup: boolean = false;
 
   // 检查当前槽位是否有密钥
   private getCurrentSlotHasKey(): boolean {
@@ -302,27 +406,31 @@ export struct ApiConfigPage {
 
   // 打开编辑弹窗
   private openKeyEditSheet(): void {
-    // 根据当前选中的菜单，填充编辑字段
+    // 根据当前选中的菜单，填充编辑字段（直接从 slots 读取）
     switch (this.selectedMenu) {
       case ApiMenuType.OpenAI:
         this.editingApiUrl = this.openAiApiUrl;
         this.editingApiKey = this.openAiApiKey;
         this.editingModel = this.openAiModel;
+        this.editingAlias = this.openAiKeySlots.slots[this.openAiKeySlots.currentSlotIndex]?.alias || `OpenAI ${this.openAiKeySlots.currentSlotIndex + 1}`;
         break;
       case ApiMenuType.DeepL:
         this.editingApiUrl = this.deepLApiUrl;
         this.editingApiKey = this.deepLApiKey;
         this.editingModel = '';
+        this.editingAlias = this.deepLKeySlots.slots[this.deepLKeySlots.currentSlotIndex]?.alias || `DeepL ${this.deepLKeySlots.currentSlotIndex + 1}`;
         break;
       case ApiMenuType.Ollama:
         this.editingApiUrl = this.ollamaApiUrl;
         this.editingApiKey = '';
         this.editingModel = this.ollamaModel;
+        this.editingAlias = this.ollamaKeySlots.slots[this.ollamaKeySlots.currentSlotIndex]?.alias || `Ollama ${this.ollamaKeySlots.currentSlotIndex + 1}`;
         break;
       case ApiMenuType.Doubao:
         this.editingApiUrl = this.doubaoApiUrl;
         this.editingApiKey = this.doubaoApiKey;
         this.editingModel = this.doubaoModel;
+        this.editingAlias = this.doubaoKeySlots.slots[this.doubaoKeySlots.currentSlotIndex]?.alias || `Doubao ${this.doubaoKeySlots.currentSlotIndex + 1}`;
         break;
     }
     this.validateEditingConfig();
@@ -478,19 +586,23 @@ export struct ApiConfigPage {
         this.onUpdateOpenAiApiUrl(this.editingApiUrl);
         this.onUpdateOpenAiApiKey(this.editingApiKey);
         this.onUpdateOpenAiModel(this.editingModel);
+        this.onUpdateOpenAiAlias(this.editingAlias);
         break;
       case ApiMenuType.DeepL:
         this.onUpdateDeepLApiUrl(this.editingApiUrl);
         this.onUpdateDeepLApiKey(this.editingApiKey);
+        this.onUpdateDeepLAlias(this.editingAlias);
         break;
       case ApiMenuType.Ollama:
         this.onUpdateOllamaApiUrl(this.editingApiUrl);
         this.onUpdateOllamaModel(this.editingModel);
+        this.onUpdateOllamaAlias(this.editingAlias);
         break;
       case ApiMenuType.Doubao:
         this.onUpdateDoubaoApiUrl(this.editingApiUrl);
         this.onUpdateDoubaoApiKey(this.editingApiKey);
         this.onUpdateDoubaoModel(this.editingModel);
+        this.onUpdateDoubaoAlias(this.editingAlias);
         break;
     }
 
@@ -510,6 +622,40 @@ export struct ApiConfigPage {
       case ApiMenuType.Doubao: return 'Doubao';
       default: return '';
     }
+  }
+
+  // 获取当前槽位的别名（直接从 KeySlots 读取以确保实时更新）
+  private getCurrentSlotAlias(): string {
+    const providerName = this.getCurrentApiName();
+    let alias: string = '';
+    let slotIndex: number = 0;
+    
+    switch (this.selectedMenu) {
+      case ApiMenuType.OpenAI:
+        slotIndex = this.openAiKeySlots.currentSlotIndex;
+        alias = this.openAiKeySlots.slots[slotIndex]?.alias || '';
+        break;
+      case ApiMenuType.DeepL:
+        slotIndex = this.deepLKeySlots.currentSlotIndex;
+        alias = this.deepLKeySlots.slots[slotIndex]?.alias || '';
+        break;
+      case ApiMenuType.Ollama:
+        slotIndex = this.ollamaKeySlots.currentSlotIndex;
+        alias = this.ollamaKeySlots.slots[slotIndex]?.alias || '';
+        break;
+      case ApiMenuType.Doubao:
+        slotIndex = this.doubaoKeySlots.currentSlotIndex;
+        alias = this.doubaoKeySlots.slots[slotIndex]?.alias || '';
+        break;
+      default:
+        return '';
+    }
+    
+    // 如果有自定义别名则返回，否则返回默认格式
+    if (alias && alias.trim().length > 0) {
+      return alias;
+    }
+    return `${providerName} ${slotIndex + 1}`;
   }
 
   // 是否需要 API Key
@@ -539,7 +685,7 @@ export struct ApiConfigPage {
 
       // API URL
       Column({ space: 8 }) {
-        Text('API URL')
+        Text('API 链接')
           .fontSize(14)
           .fontColor('#666666')
           .fontWeight(FontWeight.Medium)
@@ -561,7 +707,7 @@ export struct ApiConfigPage {
       // API Key (如果需要)
       if (this.needsApiKey()) {
         Column({ space: 8 }) {
-          Text('API Key')
+          Text('API 密钥')
             .fontSize(14)
             .fontColor('#666666')
             .fontWeight(FontWeight.Medium)
@@ -585,7 +731,7 @@ export struct ApiConfigPage {
       // Model (如果需要)
       if (this.needsModel()) {
         Column({ space: 8 }) {
-          Text('Model')
+          Text('模型名称')
             .fontSize(14)
             .fontColor('#666666')
             .fontWeight(FontWeight.Medium)
@@ -602,8 +748,33 @@ export struct ApiConfigPage {
             })
         }
         .width('100%')
-        .margin({ bottom: 24 })
+        .margin({ bottom: 16 })
       }
+
+      // Alias (别名) - 所有 API 都支持
+      Column({ space: 8 }) {
+        Text('别名')
+          .fontSize(14)
+          .fontColor('#666666')
+          .fontWeight(FontWeight.Medium)
+          .alignSelf(ItemAlign.Start)
+
+        TextInput({ placeholder: '自定义显示名称（可选）', text: this.editingAlias })
+          .height(48)
+          .backgroundColor('#F5F5F5')
+          .borderRadius(12)
+          .padding({ left: 16, right: 16 })
+          .onChange((value: string) => {
+            this.editingAlias = value;
+          })
+
+        Text('别名将在配置页“选择 API”卡片中显示')
+          .fontSize(12)
+          .fontColor($r('sys.color.font_tertiary'))
+          .alignSelf(ItemAlign.Start)
+      }
+      .width('100%')
+      .margin({ bottom: 24 })
 
       // 验证并保存按钮
       Button(this.isTestingConnection ? '正在验证...' : '验证并保存')
@@ -683,10 +854,11 @@ export struct ApiConfigPage {
 
   build() {
     HdsNavigation() {
-      Column() {
-        Blank().height(TITLE_BAR_HEIGHT_MINI);
+      Stack() {
+        Column() {
+          Blank().height(TITLE_BAR_HEIGHT_MINI);
 
-        SideBarContainer(SideBarContainerType.Embed) {
+          SideBarContainer(SideBarContainerType.Embed) {
           // --- Side Panel (Menu) ---
           Stack({ alignContent: Alignment.TopStart }) {
             // Selection Indicator
@@ -705,109 +877,109 @@ export struct ApiConfigPage {
               Blank().height(24);
 
               // Menu Item 1: Prompt
-            MenuButton({
-              label: 'Prompt',
-              menuType: ApiMenuType.Prompt,
-              isSelected: this.selectedMenu === ApiMenuType.Prompt,
-              isLightEffectBright: this.isLightEffectBright,
-              isDarkMode: this.isDarkMode,
-              isSource: this.activeMenuId === ApiMenuType.Prompt,
-              isIlluminated: this.activeMenuId !== -1, // Illuminated if ANY button is touched
-              onTouchStart: () => { animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeMenuId = ApiMenuType.Prompt; }) },
-              onTouchEnd: () => { animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeMenuId = -1; }) },
-              onClickAction: () => this.onSelectMenu(ApiMenuType.Prompt)
-            });
+              MenuButton({
+                label: 'Prompt',
+                menuType: ApiMenuType.Prompt,
+                isSelected: this.selectedMenu === ApiMenuType.Prompt,
+                isLightEffectBright: this.isLightEffectBright,
+                isDarkMode: this.isDarkMode,
+                isSource: this.activeMenuId === ApiMenuType.Prompt,
+                isIlluminated: this.activeMenuId !== -1, // Illuminated if ANY button is touched
+                onTouchStart: () => { animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeMenuId = ApiMenuType.Prompt; }) },
+                onTouchEnd: () => { animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeMenuId = -1; }) },
+                onClickAction: () => this.onSelectMenu(ApiMenuType.Prompt)
+              });
 
-            // Menu Item: Polish Prompt (润色提示词)
-            MenuButton({
-              label: 'Polish',
-              menuType: ApiMenuType.PolishPrompt,
-              isSelected: this.selectedMenu === ApiMenuType.PolishPrompt,
-              isLightEffectBright: this.isLightEffectBright,
-              isDarkMode: this.isDarkMode,
-              isSource: this.activeMenuId === ApiMenuType.PolishPrompt,
-              isIlluminated: this.activeMenuId !== -1,
-              onTouchStart: () => { animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeMenuId = ApiMenuType.PolishPrompt; }) },
-              onTouchEnd: () => { animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeMenuId = -1; }) },
-              onClickAction: () => this.onSelectMenu(ApiMenuType.PolishPrompt)
-            });
+              // Menu Item: Polish Prompt (润色提示词)
+              MenuButton({
+                label: 'Polish',
+                menuType: ApiMenuType.PolishPrompt,
+                isSelected: this.selectedMenu === ApiMenuType.PolishPrompt,
+                isLightEffectBright: this.isLightEffectBright,
+                isDarkMode: this.isDarkMode,
+                isSource: this.activeMenuId === ApiMenuType.PolishPrompt,
+                isIlluminated: this.activeMenuId !== -1,
+                onTouchStart: () => { animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeMenuId = ApiMenuType.PolishPrompt; }) },
+                onTouchEnd: () => { animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeMenuId = -1; }) },
+                onClickAction: () => this.onSelectMenu(ApiMenuType.PolishPrompt)
+              });
 
-            // Menu Item 6: Glossary
-            MenuButton({
-              label: 'Glossary',
-              menuType: ApiMenuType.Glossary,
-              isSelected: this.selectedMenu === ApiMenuType.Glossary,
-              isLightEffectBright: this.isLightEffectBright,
-              isDarkMode: this.isDarkMode,
-              isSource: this.activeMenuId === ApiMenuType.Glossary,
-              isIlluminated: this.activeMenuId !== -1,
-              onTouchStart: () => { animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeMenuId = ApiMenuType.Glossary; }) },
-              onTouchEnd: () => { animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeMenuId = -1; }) },
-              onClickAction: () => this.onSelectMenu(ApiMenuType.Glossary)
-            });
+              // Menu Item 6: Glossary
+              MenuButton({
+                label: 'Glossary',
+                menuType: ApiMenuType.Glossary,
+                isSelected: this.selectedMenu === ApiMenuType.Glossary,
+                isLightEffectBright: this.isLightEffectBright,
+                isDarkMode: this.isDarkMode,
+                isSource: this.activeMenuId === ApiMenuType.Glossary,
+                isIlluminated: this.activeMenuId !== -1,
+                onTouchStart: () => { animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeMenuId = ApiMenuType.Glossary; }) },
+                onTouchEnd: () => { animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeMenuId = -1; }) },
+                onClickAction: () => this.onSelectMenu(ApiMenuType.Glossary)
+              });
 
-            // Menu Item 2: OpenAI
-            MenuButton({
-              label: 'OpenAI',
-              menuType: ApiMenuType.OpenAI,
-              isSelected: this.selectedMenu === ApiMenuType.OpenAI,
-              isLightEffectBright: this.isLightEffectBright,
-              isDarkMode: this.isDarkMode,
-              isSource: this.activeMenuId === ApiMenuType.OpenAI,
-              isIlluminated: this.activeMenuId !== -1,
-              onTouchStart: () => { animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeMenuId = ApiMenuType.OpenAI; }) },
-              onTouchEnd: () => { animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeMenuId = -1; }) },
-              onClickAction: () => this.onSelectMenu(ApiMenuType.OpenAI)
-            });
+              // Menu Item 2: OpenAI
+              MenuButton({
+                label: 'OpenAI',
+                menuType: ApiMenuType.OpenAI,
+                isSelected: this.selectedMenu === ApiMenuType.OpenAI,
+                isLightEffectBright: this.isLightEffectBright,
+                isDarkMode: this.isDarkMode,
+                isSource: this.activeMenuId === ApiMenuType.OpenAI,
+                isIlluminated: this.activeMenuId !== -1,
+                onTouchStart: () => { animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeMenuId = ApiMenuType.OpenAI; }) },
+                onTouchEnd: () => { animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeMenuId = -1; }) },
+                onClickAction: () => this.onSelectMenu(ApiMenuType.OpenAI)
+              });
 
-            // Menu Item 3: DeepL
-            MenuButton({
-              label: 'DeepL',
-              menuType: ApiMenuType.DeepL,
-              isSelected: this.selectedMenu === ApiMenuType.DeepL,
-              isLightEffectBright: this.isLightEffectBright,
-              isDarkMode: this.isDarkMode,
-              isSource: this.activeMenuId === ApiMenuType.DeepL,
-              isIlluminated: this.activeMenuId !== -1,
-              onTouchStart: () => { animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeMenuId = ApiMenuType.DeepL; }) },
-              onTouchEnd: () => { animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeMenuId = -1; }) },
-              onClickAction: () => this.onSelectMenu(ApiMenuType.DeepL)
-            });
+              // Menu Item 3: DeepL
+              MenuButton({
+                label: 'DeepL',
+                menuType: ApiMenuType.DeepL,
+                isSelected: this.selectedMenu === ApiMenuType.DeepL,
+                isLightEffectBright: this.isLightEffectBright,
+                isDarkMode: this.isDarkMode,
+                isSource: this.activeMenuId === ApiMenuType.DeepL,
+                isIlluminated: this.activeMenuId !== -1,
+                onTouchStart: () => { animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeMenuId = ApiMenuType.DeepL; }) },
+                onTouchEnd: () => { animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeMenuId = -1; }) },
+                onClickAction: () => this.onSelectMenu(ApiMenuType.DeepL)
+              });
 
-            // Menu Item 4: Ollama
-            MenuButton({
-              label: 'Ollama',
-              menuType: ApiMenuType.Ollama,
-              isSelected: this.selectedMenu === ApiMenuType.Ollama,
-              isLightEffectBright: this.isLightEffectBright,
-              isDarkMode: this.isDarkMode,
-              isSource: this.activeMenuId === ApiMenuType.Ollama,
-              isIlluminated: this.activeMenuId !== -1,
-              onTouchStart: () => { animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeMenuId = ApiMenuType.Ollama; }) },
-              onTouchEnd: () => { animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeMenuId = -1; }) },
-              onClickAction: () => this.onSelectMenu(ApiMenuType.Ollama)
-            });
+              // Menu Item 4: Ollama
+              MenuButton({
+                label: 'Ollama',
+                menuType: ApiMenuType.Ollama,
+                isSelected: this.selectedMenu === ApiMenuType.Ollama,
+                isLightEffectBright: this.isLightEffectBright,
+                isDarkMode: this.isDarkMode,
+                isSource: this.activeMenuId === ApiMenuType.Ollama,
+                isIlluminated: this.activeMenuId !== -1,
+                onTouchStart: () => { animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeMenuId = ApiMenuType.Ollama; }) },
+                onTouchEnd: () => { animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeMenuId = -1; }) },
+                onClickAction: () => this.onSelectMenu(ApiMenuType.Ollama)
+              });
 
-            // Menu Item 5: Doubao
-            MenuButton({
-              label: 'Doubao',
-              menuType: ApiMenuType.Doubao,
-              isSelected: this.selectedMenu === ApiMenuType.Doubao,
-              isLightEffectBright: this.isLightEffectBright,
-              isDarkMode: this.isDarkMode,
-              isSource: this.activeMenuId === ApiMenuType.Doubao,
-              isIlluminated: this.activeMenuId !== -1,
-              onTouchStart: () => { animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeMenuId = ApiMenuType.Doubao; }) },
-              onTouchEnd: () => { animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeMenuId = -1; }) },
-              onClickAction: () => this.onSelectMenu(ApiMenuType.Doubao)
-            });
+              // Menu Item 5: Doubao
+              MenuButton({
+                label: 'Doubao',
+                menuType: ApiMenuType.Doubao,
+                isSelected: this.selectedMenu === ApiMenuType.Doubao,
+                isLightEffectBright: this.isLightEffectBright,
+                isDarkMode: this.isDarkMode,
+                isSource: this.activeMenuId === ApiMenuType.Doubao,
+                isIlluminated: this.activeMenuId !== -1,
+                onTouchStart: () => { animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeMenuId = ApiMenuType.Doubao; }) },
+                onTouchEnd: () => { animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeMenuId = -1; }) },
+                onClickAction: () => this.onSelectMenu(ApiMenuType.Doubao)
+              });
 
-            Blank().height(16);
-          }
-          .width('100%')
-          // .padding({ left: 4, right: 4, top: 24, bottom: 24 }) // Moved padding to Stack
-          .justifyContent(FlexAlign.Start)
-          .alignItems(HorizontalAlign.Start);
+              Blank().height(16);
+            }
+            .width('100%')
+            // .padding({ left: 4, right: 4, top: 24, bottom: 24 }) // Moved padding to Stack
+            .justifyContent(FlexAlign.Start)
+            .alignItems(HorizontalAlign.Start);
           }
           .width('100%')
           .padding({ left: 4, right: 4, top: 24, bottom: 24 })
@@ -828,7 +1000,33 @@ export struct ApiConfigPage {
       .width('100%')
       .height('100%')
       .padding({ left: 0, right:0, top: 12, bottom: 0 })
-      .backgroundColor(Color.Transparent);
+      .backgroundColor(Color.Transparent)
+
+      // Popup Anchor (Invisible)
+      // Positioning estimation: Right margin (~12) + Sidebar Button (~40) + Gap (~8) + Target Button (~40)
+      if (this.selectedMenu === ApiMenuType.OpenAI) {
+        Row()
+          .width(48)
+          .height(48)
+          .position({ right: 108, top: 38 }) // Adjusted for typical toolbar layout
+          .hitTestBehavior(HitTestMode.None) // Let clicks pass through to the real button below
+          .bindPopup(this.showOpenAIWarningPopup, {
+            message: 'OpenAI 在中国大陆、中国香港特别行政区和中国澳门特别行政区似乎不提供服务。请确认您能够访问该服务，并仔细阅读和遵守服务提供商的使用条款。',
+            placementOnTop: false,
+            showInSubWindow: false,
+            onStateChange: (e) => {
+              if (!e.isVisible) {
+                this.showOpenAIWarningPopup = false;
+              }
+            },
+            messageOptions: {
+              textColor: Color.White
+            },
+            backgroundBlurStyle: BlurStyle.BACKGROUND_THIN,
+            transition: TransitionEffect.OPACITY.animation({ duration: 300, curve: Curve.FastOutSlowIn })
+          })
+      }
+    }
     }
     .mode(NavigationMode.Stack)
     .width('100%')
@@ -877,21 +1075,7 @@ export struct ApiConfigPage {
           mainTitle: '配置 API',
         },
         menu: {
-          value: [{
-            content: {
-              label: this.isSideBarShown ? '关闭侧边栏' : '打开侧边栏',
-              icon: this.isSideBarShown ? $r('sys.symbol.open_sidebar') : $r('sys.symbol.close_sidebar'),
-              isEnabled: true,
-              action: () => {
-                animateTo({
-                  duration: 500,
-                  curve: Curve.EaseInOut
-                }, () => {
-                  this.isSideBarShown = !this.isSideBarShown;
-                });
-              }
-            }
-          }]
+          value: this.getNavigationMenuItems()
         },
         backIcon: {
           label: 'Back',
@@ -934,16 +1118,16 @@ export struct ApiConfigPage {
               this.RenderPolishPromptConfig();
             } else {
               if (this.selectedMenu === ApiMenuType.OpenAI) {
-                this.RenderProviderHeader('OpenAI', $r('app.media.OpenAI'));
+                this.RenderProviderHeader('OpenAI', this.getCurrentSlotAlias(), $r('app.media.OpenAI'));
                 this.RenderOpenAiConfig();
               } else if (this.selectedMenu === ApiMenuType.DeepL) {
-                this.RenderProviderHeader('DeepL', $r('app.media.DeepL'));
+                this.RenderProviderHeader('DeepL', this.getCurrentSlotAlias(), $r('app.media.DeepL'));
                 this.RenderDeepLConfig();
               } else if (this.selectedMenu === ApiMenuType.Ollama) {
-                this.RenderProviderHeader('Ollama', $r('app.media.Ollama'));
+                this.RenderProviderHeader('Ollama', this.getCurrentSlotAlias(), $r('app.media.Ollama'));
                 this.RenderOllamaConfig();
               } else if (this.selectedMenu === ApiMenuType.Doubao) {
-                this.RenderProviderHeader('Doubao', $r('app.media.Doubao'));
+                this.RenderProviderHeader('Doubao', this.getCurrentSlotAlias(), $r('app.media.Doubao'));
                 this.RenderDoubaoConfig();
               } else if (this.selectedMenu === ApiMenuType.Glossary) {
                 this.RenderGlossaryConfig();
@@ -989,6 +1173,12 @@ export struct ApiConfigPage {
         currentSlotIndex: this.openAiKeySlots.currentSlotIndex,
         totalSlots: MAX_KEY_SLOTS,
         hasApiKey: this.openAiApiKey.length > 0,
+        providerName: 'OpenAI',
+        aliases: [
+          this.openAiKeySlots.slots[0]?.alias || '',
+          this.openAiKeySlots.slots[1]?.alias || '',
+          this.openAiKeySlots.slots[2]?.alias || ''
+        ],
         onSwitchSlot: (index: number) => this.onSwitchOpenAiSlot(index),
         onEditSlot: () => this.openKeyEditSheet()
       })
@@ -997,6 +1187,12 @@ export struct ApiConfigPage {
         currentSlotIndex: this.deepLKeySlots.currentSlotIndex,
         totalSlots: MAX_KEY_SLOTS,
         hasApiKey: this.deepLApiKey.length > 0,
+        providerName: 'DeepL',
+        aliases: [
+          this.deepLKeySlots.slots[0]?.alias || '',
+          this.deepLKeySlots.slots[1]?.alias || '',
+          this.deepLKeySlots.slots[2]?.alias || ''
+        ],
         onSwitchSlot: (index: number) => this.onSwitchDeepLSlot(index),
         onEditSlot: () => this.openKeyEditSheet()
       })
@@ -1005,6 +1201,12 @@ export struct ApiConfigPage {
         currentSlotIndex: this.ollamaKeySlots.currentSlotIndex,
         totalSlots: MAX_KEY_SLOTS,
         hasApiKey: this.ollamaApiUrl.length > 0,
+        providerName: 'Ollama',
+        aliases: [
+          this.ollamaKeySlots.slots[0]?.alias || '',
+          this.ollamaKeySlots.slots[1]?.alias || '',
+          this.ollamaKeySlots.slots[2]?.alias || ''
+        ],
         onSwitchSlot: (index: number) => this.onSwitchOllamaSlot(index),
         onEditSlot: () => this.openKeyEditSheet()
       })
@@ -1013,6 +1215,12 @@ export struct ApiConfigPage {
         currentSlotIndex: this.doubaoKeySlots.currentSlotIndex,
         totalSlots: MAX_KEY_SLOTS,
         hasApiKey: this.doubaoApiKey.length > 0,
+        providerName: 'Doubao',
+        aliases: [
+          this.doubaoKeySlots.slots[0]?.alias || '',
+          this.doubaoKeySlots.slots[1]?.alias || '',
+          this.doubaoKeySlots.slots[2]?.alias || ''
+        ],
         onSwitchSlot: (index: number) => this.onSwitchDoubaoSlot(index),
         onEditSlot: () => this.openKeyEditSheet()
       })
@@ -1020,7 +1228,7 @@ export struct ApiConfigPage {
   }
 
   @Builder
-  RenderProviderHeader(title: string, icon?: ResourceStr) {
+  RenderProviderHeader(title: string, alias: string, icon?: ResourceStr) {
     Column() {
       if (icon) {
         Image(icon)
@@ -1029,6 +1237,7 @@ export struct ApiConfigPage {
           .margin({ bottom: 8 })
           .fillColor(Color.White)
       }
+      // 只显示提供商名称
       Text(title)
         .fontColor(Color.White)
         .fontSize(20)

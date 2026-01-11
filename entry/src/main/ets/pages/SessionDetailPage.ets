@@ -97,10 +97,10 @@ interface DoubaoChatResponse {
 const DEFAULT_CONFIG: ApiConfigSnapshot = {
   promptText: 'You are a helpful assistant.',
   polishPromptText: '你是一个专业的文本润色助手。请对以下文本进行润色优化，使其更加通顺、专业、易读。\n\n要求：\n1. 保持原文的核心意思不变\n2. 优化语法和表达方式\n3. 直接输出润色后的文本，不要添加任何解释3. 直接输出润色后的文本，不要添加任何解释\n4. 永远不要更换提供的文本的原始语言，即英语文本依然润色为英语文本 \n\n原文：\n{text}',
-  openAiKeySlots: createDefaultMultiKeySlots('https://api.openai.com', '', 'gpt-3.5-turbo'),
-  deepLKeySlots: createDefaultMultiKeySlots('https://api-free.deepl.com/v2/translate', '', ''),
-  ollamaKeySlots: createDefaultMultiKeySlots('http://localhost:11434', '', ''),
-  doubaoKeySlots: createDefaultMultiKeySlots('https://ark.cn-beijing.volces.com', '', ''),
+  openAiKeySlots: createDefaultMultiKeySlots('https://api.openai.com', '', 'gpt-3.5-turbo', 'OpenAI'),
+  deepLKeySlots: createDefaultMultiKeySlots('https://api-free.deepl.com/v2/translate', '', '', 'DeepL'),
+  ollamaKeySlots: createDefaultMultiKeySlots('http://localhost:11434', '', '', 'Ollama'),
+  doubaoKeySlots: createDefaultMultiKeySlots('https://ark.cn-beijing.volces.com', '', '', 'Doubao'),
   openAiApiUrl: 'https://api.openai.com',
   openAiApiKey: '',
   openAiModel: 'gpt-3.5-turbo',
@@ -453,13 +453,13 @@ struct SessionDetailPage {
   }
 
   async generateSummary() {
-    if (!this.session || !this.session.originalText) return;
+    if (!this.session || !this.session.translatedText) return;
     this.isSummarizing = true;
 
     try {
       const context = getContext(this) as common.UIAbilityContext;
       const config = await ApiConfigStorage.loadSnapshot(context, DEFAULT_CONFIG);
-      const prompt = `请用与以下内容相同的语言进行简要总结，直接输出总结内容，不要添加任何前缀或解释，内容为：\n\n${this.session.originalText}`;
+      const prompt = `请用与以下内容相同的语言进行简要总结，永远不要改变语言（即：英语内容总结为英语，中文内容总结为中文）。直接输出总结内容，不要添加任何前缀或解释，内容为：\n\n${this.session.translatedText}`;
       
       let summary = '';
       

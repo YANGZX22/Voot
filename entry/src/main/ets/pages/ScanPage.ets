@@ -110,6 +110,8 @@ export struct ScanPage {
   @Prop openAiApiUrl: string = 'https://api.openai.com/v1/chat/completions';
   @Prop openAiApiKey: string = '';
   @Prop openAiModel: string = 'gpt-4o-mini';
+  @Prop deepLApiUrl: string = 'https://api-free.deepl.com/v2/translate';
+  @Prop deepLApiKey: string = '';
   @Prop ollamaApiUrl: string = 'http://localhost:11434/api/chat';
   @Prop ollamaModel: string = 'llama3';
   @Prop doubaoApiUrl: string = 'https://ark.cn-beijing.volces.com/api/v3/chat/completions';
@@ -334,8 +336,9 @@ export struct ScanPage {
       
       promptAction.showToast({ message: '翻译完成' });
     } catch (error) {
-      console.error('[ScanPage] Translation error: ' + JSON.stringify(error));
-      promptAction.showToast({ message: '翻译失败: ' + JSON.stringify(error) });
+      const errorMsg = (error instanceof Error) ? error.message : String(error);
+      console.error('[ScanPage] Translation error: ' + errorMsg);
+      promptAction.showToast({ message: '翻译失败: ' + errorMsg });
     } finally {
       this.isTranslating = false;
     }
@@ -398,27 +401,53 @@ export struct ScanPage {
       'Japanese': 'JA'
     };
 
+    // 检查 API Key 是否配置
+    if (!this.deepLApiKey || this.deepLApiKey.trim() === '') {
+      throw new Error('DeepL API Key 未配置，请在配置页面设置');
+    }
+
+    const apiUrl = this.deepLApiUrl || 'https://api-free.deepl.com/v2/translate';
+    const targetLang = targetLangMap[this.targetLanguage] || 'ZH';
+
+    console.info(`[ScanPage] DeepL request - URL: ${apiUrl}, targetLang: ${targetLang}`);
+
     try {
-      const response = await httpRequest.request('https://api-free.deepl.com/v2/translate', {
+      const response = await httpRequest.request(apiUrl, {
         method: http.RequestMethod.POST,
         header: {
           'Content-Type': 'application/json',
-          'Authorization': `DeepL-Auth-Key ${this.openAiApiKey}` // 使用配置的 key
+          'Authorization': `DeepL-Auth-Key ${this.deepLApiKey}`
         },
         extraData: JSON.stringify({
           text: [text],
-          target_lang: targetLangMap[this.targetLanguage] || 'ZH'
+          target_lang: targetLang
         }),
         expectDataType: http.HttpDataType.STRING,
         connectTimeout: 15000,
         readTimeout: 30000
       });
 
+      console.info(`[ScanPage] DeepL response code: ${response.responseCode}`);
+
       if (response.responseCode === 200) {
-        const data = JSON.parse(response.result as string) as DeepLResponse;
-        return data.translations[0]?.text || '';
+        const resultStr = response.result as string;
+        console.info(`[ScanPage] DeepL response: ${resultStr.substring(0, 200)}`);
+        const data = JSON.parse(resultStr) as DeepLResponse;
+        if (data.translations && data.translations.length > 0) {
+          return data.translations[0].text || '';
+        }
+        throw new Error('DeepL 返回空翻译结果');
+      } else if (response.responseCode === 403) {
+        throw new Error('DeepL API Key 无效或已过期');
+      } else if (response.responseCode === 429) {
+        throw new Error('DeepL 请求过于频繁，请稍后再试');
+      } else if (response.responseCode === 456) {
+        throw new Error('DeepL 配额已用尽');
+      } else {
+        const errorBody = response.result as string;
+        console.error(`[ScanPage] DeepL error response: ${errorBody}`);
+        throw new Error(`DeepL HTTP ${response.responseCode}`);
       }
-      throw new Error(`HTTP ${response.responseCode}`);
     } finally {
       httpRequest.destroy();
     }
@@ -1478,6 +1507,7 @@ export struct ScanPage {
         .backdropBlur(20)
         .borderRadius(40)
         .position({ x: this.isLeftHand ? 0 : '100%', y: '30%' })
+        .border({ width: 1.5, color: THEMES[this.themeColorIndex].tertiaryColor })
         .markAnchor({ x: this.isLeftHand ? 0 : '100%', y: 0 })
         .translate({ x: this.isLeftHand ? 16 : -16 })
         .alignItems(HorizontalAlign.Center)
@@ -1573,11 +1603,11 @@ export struct ScanPage {
           Button({ type: ButtonType.Circle }) {
             SymbolGlyph($r('sys.symbol.share'))
               .fontSize(24)
-              .fontColor((this.activeBtn === 3 || this.activeBtn === 13) ? [THEMES[this.themeColorIndex].primaryColor] : [this.shareBtnTextColor])
+              .fontColor((this.activeBtn === 3 || this.activeBtn === 13) ? [Color.White] : [this.shareBtnTextColor])
           }
           .width(48)
           .height(48)
-          .backgroundColor((this.activeBtn === 3 || this.activeBtn === 13) ? Color.White : this.shareBtnBgColor)
+          .backgroundColor((this.activeBtn === 3 || this.activeBtn === 13) ? THEMES[this.themeColorIndex].primaryColor : this.shareBtnBgColor)
           .shadow({ radius: 8, color: 'rgba(0,0,0,0.2)', offsetY: 4 })
           .stateStyles({
             pressed: {
@@ -1593,14 +1623,17 @@ export struct ScanPage {
           .onTouch((event: TouchEvent) => {
             if (event.type === TouchType.Down) {
               animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeBtn = 13; });
+              this.pressButton(3);
             } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
               animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeBtn = 0; });
+              this.releaseButton(3);
             }
           })
         }
         .width(64)
         .padding(8)
         .backgroundColor($r('sys.color.comp_background_secondary'))
+        .border({ width: 1.5, color: THEMES[this.themeColorIndex].tertiaryColor })
         .backdropBlur(20)
         .borderRadius(40)
         .position({ x: this.isLeftHand ? 0 : '100%', y: '30%' })

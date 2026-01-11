@@ -23,7 +23,7 @@ import ConfigurationConstant from '@ohos.app.ability.ConfigurationConstant';
 import Want from '@ohos.app.ability.Want';
 import wantConstant from '@ohos.app.ability.wantConstant';
 import { hdsEffect, HdsTabs, HdsTabsAttribute, HdsTabsController, DividerMode } from '@kit.UIDesignKit';
-import { ConfigurationPage } from './ConfigurationPage';
+import { ConfigurationPage, ValidatedApiSlot } from './ConfigurationPage';
 import { TranslationPage } from './TranslationPage';
 import { HistoryTabPage } from './HistoryTabPage';
 import { SettingsPage } from './SettingsPage';
@@ -31,7 +31,7 @@ import { PolishPage } from './PolishPage';
 import { ScanPage } from './ScanPage';
 import { ApiConfigPage, ApiMenuType } from './ApiConfigPage';
 import App from '@system.app';
-import { ApiConfigStorage, ApiConfigSnapshot, MultiKeySlots, createDefaultMultiKeySlots, MAX_KEY_SLOTS } from '../storage/ApiConfigStorage';
+import { ApiConfigStorage, ApiConfigSnapshot, MultiKeySlots, ApiKeySlot, createDefaultMultiKeySlots, MAX_KEY_SLOTS } from '../storage/ApiConfigStorage';
 import { TokenUsageStorage } from '../storage/TokenUsageStorage';
 import { HistoryStorage } from '../storage/HistoryStorage';
 import window from '@ohos.window';
@@ -268,16 +268,16 @@ struct Index {
 
   // 多密钥槽位配置
   @State openAiKeySlots: MultiKeySlots = createDefaultMultiKeySlots(
-    'https://api.openai.com/v1/chat/completions', '', 'gpt-4o-mini'
+    'https://api.openai.com/v1/chat/completions', '', 'gpt-4o-mini', 'OpenAI'
   );
   @State deepLKeySlots: MultiKeySlots = createDefaultMultiKeySlots(
-    'https://api-free.deepl.com/v2/translate', '', ''
+    'https://api-free.deepl.com/v2/translate', '', '', 'DeepL'
   );
   @State ollamaKeySlots: MultiKeySlots = createDefaultMultiKeySlots(
-    'http://localhost:11434/api/chat', '', ''
+    'http://localhost:11434/api/chat', '', '', 'Ollama'
   );
   @State doubaoKeySlots: MultiKeySlots = createDefaultMultiKeySlots(
-    'https://ark.cn-beijing.volces.com/api/v3/chat/completions', '', 'ep-20251221220646-rnx4c'
+    'https://ark.cn-beijing.volces.com/api/v3/chat/completions', '', 'ep-20251221220646-rnx4c', 'Doubao'
   );
 
   // Air Gestures
@@ -1459,50 +1459,330 @@ struct Index {
       this.doubaoModel = doubaoSlot.model;
     }
   }
+
+  // 检查指定槽位是否有效
+  private isSlotValidated(apiIndex: number, slotIndex: number): boolean {
+    switch (apiIndex) {
+      case 0: { // OpenAI
+        const slot = this.openAiKeySlots.slots[slotIndex];
+        return !!(slot && slot.apiUrl && slot.apiKey && slot.model);
+      }
+      case 1: { // DeepL
+        const slot = this.deepLKeySlots.slots[slotIndex];
+        return !!(slot && slot.apiUrl && slot.apiKey);
+      }
+      case 2: { // Ollama
+        const slot = this.ollamaKeySlots.slots[slotIndex];
+        return !!(slot && slot.apiUrl && slot.model);
+      }
+      case 3: { // Doubao
+        const slot = this.doubaoKeySlots.slots[slotIndex];
+        return !!(slot && slot.apiUrl && slot.apiKey && slot.model);
+      }
+      default:
+        return false;
+    }
+  }
+
+  // 检查指定 API 索引是否有任何已验证的槽位
+  private hasAnyValidatedSlot(apiIndex: number): boolean {
+    for (let i = 0; i < 3; i++) {
+      if (this.isSlotValidated(apiIndex, i)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // 获取供应商第一个已验证的槽位索引，如果没有则返回 -1
+  private getFirstValidatedSlotIndex(apiIndex: number): number {
+    for (let i = 0; i < 3; i++) {
+      if (this.isSlotValidated(apiIndex, i)) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  // 获取当前供应商的下一个已验证槽位索引（循环），如果只有一个则返回 -1
+  private getNextValidatedSlotInProvider(apiIndex: number): number {
+    let currentSlotIndex = 0;
+    switch (apiIndex) {
+      case 0: currentSlotIndex = this.openAiKeySlots.currentSlotIndex; break;
+      case 1: currentSlotIndex = this.deepLKeySlots.currentSlotIndex; break;
+      case 2: currentSlotIndex = this.ollamaKeySlots.currentSlotIndex; break;
+      case 3: currentSlotIndex = this.doubaoKeySlots.currentSlotIndex; break;
+    }
+    
+    // 统计该供应商有多少个已验证的槽位
+    let validatedCount = 0;
+    for (let i = 0; i < 3; i++) {
+      if (this.isSlotValidated(apiIndex, i)) {
+        validatedCount++;
+      }
+    }
+    
+    // 如果只有一个或没有，返回 -1
+    if (validatedCount <= 1) {
+      return -1;
+    }
+    
+    // 从当前槽位的下一个开始找
+    for (let i = 1; i <= 3; i++) {
+      const nextSlot = (currentSlotIndex + i) % 3;
+      if (this.isSlotValidated(apiIndex, nextSlot)) {
+        return nextSlot;
+      }
+    }
+    return -1;
+  }
+
+  // 检查指定 API 的当前槽位是否已验证
+  private isApiValidated(apiIndex: number): boolean {
+    switch (apiIndex) {
+      case 0: { // OpenAI
+        const slot = this.openAiKeySlots.slots[this.openAiKeySlots.currentSlotIndex];
+        return !!(slot && slot.apiUrl && slot.apiKey && slot.model);
+      }
+      case 1: { // DeepL
+        const slot = this.deepLKeySlots.slots[this.deepLKeySlots.currentSlotIndex];
+        return !!(slot && slot.apiUrl && slot.apiKey);
+      }
+      case 2: { // Ollama
+        const slot = this.ollamaKeySlots.slots[this.ollamaKeySlots.currentSlotIndex];
+        return !!(slot && slot.apiUrl && slot.model);
+      }
+      case 3: { // Doubao
+        const slot = this.doubaoKeySlots.slots[this.doubaoKeySlots.currentSlotIndex];
+        return !!(slot && slot.apiUrl && slot.apiKey && slot.model);
+      }
+      default:
+        return false;
+    }
+  }
+
+  // 获取下一个有已验证槽位的 API 索引，如果没有则返回 -1
+  private getNextValidatedApiIndex(currentIndex: number): number {
+    const totalApis = this.apiOptions.length;
+    for (let i = 1; i <= totalApis; i++) {
+      const nextIndex = (currentIndex + i) % totalApis;
+      if (this.hasAnyValidatedSlot(nextIndex)) {
+        return nextIndex;
+      }
+    }
+    return -1; // 没有任何已验证的 API
+  }
+
+  // 获取有已验证槽位的 API 数量
+  private getValidatedApiCount(): number {
+    let count = 0;
+    for (let i = 0; i < this.apiOptions.length; i++) {
+      if (this.hasAnyValidatedSlot(i)) {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  // 切换指定供应商的槽位索引
+  private switchApiSlotIndex(apiIndex: number, slotIndex: number): void {
+    switch (apiIndex) {
+      case 0: // OpenAI
+        this.openAiKeySlots = {
+          slots: this.openAiKeySlots.slots,
+          currentSlotIndex: slotIndex
+        };
+        break;
+      case 1: // DeepL
+        this.deepLKeySlots = {
+          slots: this.deepLKeySlots.slots,
+          currentSlotIndex: slotIndex
+        };
+        break;
+      case 2: // Ollama
+        this.ollamaKeySlots = {
+          slots: this.ollamaKeySlots.slots,
+          currentSlotIndex: slotIndex
+        };
+        break;
+      case 3: // Doubao
+        this.doubaoKeySlots = {
+          slots: this.doubaoKeySlots.slots,
+          currentSlotIndex: slotIndex
+        };
+        break;
+    }
+  }
+
+  // 获取当前选中 API 的别名（用于 ConfigurationPage 显示）
+  private getCurrentApiAlias(): string {
+    const defaultNames: string[] = ['OpenAI', 'DeepL', 'Ollama', 'Doubao'];
+    
+    // 首先检查当前选中的槽位是否已验证
+    const currentSlotIndex = this.getCurrentSlotIndex();
+    if (!this.isSlotValidated(this.selectedApiIndex, currentSlotIndex)) {
+      // 当前槽位未验证，尝试找到第一个已验证的槽位
+      const validatedSlots = this.getValidatedApiSlots();
+      if (validatedSlots.length > 0) {
+        return validatedSlots[0].displayName;
+      }
+      // 没有任何已验证的槽位
+      return '未配置';
+    }
+    
+    let currentSlot: ApiKeySlot | undefined;
+    
+    switch (this.selectedApiIndex) {
+      case 0: // OpenAI
+        currentSlot = this.openAiKeySlots.slots[this.openAiKeySlots.currentSlotIndex];
+        break;
+      case 1: // DeepL
+        currentSlot = this.deepLKeySlots.slots[this.deepLKeySlots.currentSlotIndex];
+        break;
+      case 2: // Ollama
+        currentSlot = this.ollamaKeySlots.slots[this.ollamaKeySlots.currentSlotIndex];
+        break;
+      case 3: // Doubao
+        currentSlot = this.doubaoKeySlots.slots[this.doubaoKeySlots.currentSlotIndex];
+        break;
+    }
+    
+    // 返回用户定义的别名，如果没有则返回默认格式：提供商名称 + 槽位号
+    if (currentSlot && currentSlot.alias && currentSlot.alias.trim().length > 0) {
+      return currentSlot.alias;
+    }
+    const providerName = defaultNames[this.selectedApiIndex] || '';
+    return `${providerName} ${currentSlotIndex + 1}`;
+  }
+
+  // 获取所有已验证的 API 槽位列表（用于 ApiSelectorSheet）
+  private getValidatedApiSlots(): ValidatedApiSlot[] {
+    const result: ValidatedApiSlot[] = [];
+    const providerNames: string[] = ['OpenAI', 'DeepL', 'Ollama', 'Doubao'];
+    const allSlots: MultiKeySlots[] = [
+      this.openAiKeySlots,
+      this.deepLKeySlots,
+      this.ollamaKeySlots,
+      this.doubaoKeySlots
+    ];
+
+    for (let apiIndex = 0; apiIndex < allSlots.length; apiIndex++) {
+      const keySlots = allSlots[apiIndex];
+      for (let slotIndex = 0; slotIndex < keySlots.slots.length; slotIndex++) {
+        if (this.isSlotValidated(apiIndex, slotIndex)) {
+          const slot = keySlots.slots[slotIndex];
+          const providerName = providerNames[apiIndex];
+          const alias = slot.alias && slot.alias.trim().length > 0 ? slot.alias : '';
+          const displayName = alias.length > 0 ? alias : `${providerName} ${slotIndex + 1}`;
+          const validatedSlot: ValidatedApiSlot = {
+            apiIndex: apiIndex,
+            slotIndex: slotIndex,
+            providerName: providerName,
+            alias: alias,
+            model: slot.model || '',
+            displayName: displayName
+          };
+          result.push(validatedSlot);
+        }
+      }
+    }
+    return result;
+  }
+
+  // 获取当前槽位索引
+  private getCurrentSlotIndex(): number {
+    switch (this.selectedApiIndex) {
+      case 0: return this.openAiKeySlots.currentSlotIndex;
+      case 1: return this.deepLKeySlots.currentSlotIndex;
+      case 2: return this.ollamaKeySlots.currentSlotIndex;
+      case 3: return this.doubaoKeySlots.currentSlotIndex;
+      default: return 0;
+    }
+  }
+
+  // 获取当前槽位用于 Token 追踪的 key（使用别名，如果没有则使用"供应商名 槽位号"）
+  private getTokenTrackingKey(): string {
+    return this.getCurrentApiAlias(); // 直接复用 getCurrentApiAlias 的逻辑
+  }
   
+  // 克隆槽位对象（ArkTS 不支持展开运算符）
+  private cloneSlot(s: ApiKeySlot): ApiKeySlot {
+    const slot: ApiKeySlot = {
+      apiUrl: s.apiUrl,
+      apiKey: s.apiKey,
+      model: s.model,
+      alias: s.alias
+    };
+    return slot;
+  }
+
   // 更新当前槽位的指定字段
   private updateCurrentSlot(provider: string, field: string, value: string): void {
     switch (provider) {
       case 'openai': {
-        const slots = [...this.openAiKeySlots.slots];
         const idx = this.openAiKeySlots.currentSlotIndex;
-        if (slots[idx]) {
-          if (field === 'apiUrl') slots[idx].apiUrl = value;
-          else if (field === 'apiKey') slots[idx].apiKey = value;
-          else if (field === 'model') slots[idx].model = value;
+        const newSlots: ApiKeySlot[] = [];
+        for (let i = 0; i < this.openAiKeySlots.slots.length; i++) {
+          const cloned = this.cloneSlot(this.openAiKeySlots.slots[i]);
+          if (i === idx) {
+            if (field === 'apiUrl') cloned.apiUrl = value;
+            else if (field === 'apiKey') cloned.apiKey = value;
+            else if (field === 'model') cloned.model = value;
+            else if (field === 'alias') cloned.alias = value;
+          }
+          newSlots.push(cloned);
         }
-        this.openAiKeySlots = { slots, currentSlotIndex: idx };
+        const result: MultiKeySlots = { slots: newSlots, currentSlotIndex: idx };
+        this.openAiKeySlots = result;
         break;
       }
       case 'deepl': {
-        const slots = [...this.deepLKeySlots.slots];
         const idx = this.deepLKeySlots.currentSlotIndex;
-        if (slots[idx]) {
-          if (field === 'apiUrl') slots[idx].apiUrl = value;
-          else if (field === 'apiKey') slots[idx].apiKey = value;
+        const newSlots: ApiKeySlot[] = [];
+        for (let i = 0; i < this.deepLKeySlots.slots.length; i++) {
+          const cloned = this.cloneSlot(this.deepLKeySlots.slots[i]);
+          if (i === idx) {
+            if (field === 'apiUrl') cloned.apiUrl = value;
+            else if (field === 'apiKey') cloned.apiKey = value;
+            else if (field === 'alias') cloned.alias = value;
+          }
+          newSlots.push(cloned);
         }
-        this.deepLKeySlots = { slots, currentSlotIndex: idx };
+        const result: MultiKeySlots = { slots: newSlots, currentSlotIndex: idx };
+        this.deepLKeySlots = result;
         break;
       }
       case 'ollama': {
-        const slots = [...this.ollamaKeySlots.slots];
         const idx = this.ollamaKeySlots.currentSlotIndex;
-        if (slots[idx]) {
-          if (field === 'apiUrl') slots[idx].apiUrl = value;
-          else if (field === 'model') slots[idx].model = value;
+        const newSlots: ApiKeySlot[] = [];
+        for (let i = 0; i < this.ollamaKeySlots.slots.length; i++) {
+          const cloned = this.cloneSlot(this.ollamaKeySlots.slots[i]);
+          if (i === idx) {
+            if (field === 'apiUrl') cloned.apiUrl = value;
+            else if (field === 'model') cloned.model = value;
+            else if (field === 'alias') cloned.alias = value;
+          }
+          newSlots.push(cloned);
         }
-        this.ollamaKeySlots = { slots, currentSlotIndex: idx };
+        const result: MultiKeySlots = { slots: newSlots, currentSlotIndex: idx };
+        this.ollamaKeySlots = result;
         break;
       }
       case 'doubao': {
-        const slots = [...this.doubaoKeySlots.slots];
         const idx = this.doubaoKeySlots.currentSlotIndex;
-        if (slots[idx]) {
-          if (field === 'apiUrl') slots[idx].apiUrl = value;
-          else if (field === 'apiKey') slots[idx].apiKey = value;
-          else if (field === 'model') slots[idx].model = value;
+        const newSlots: ApiKeySlot[] = [];
+        for (let i = 0; i < this.doubaoKeySlots.slots.length; i++) {
+          const cloned = this.cloneSlot(this.doubaoKeySlots.slots[i]);
+          if (i === idx) {
+            if (field === 'apiUrl') cloned.apiUrl = value;
+            else if (field === 'apiKey') cloned.apiKey = value;
+            else if (field === 'model') cloned.model = value;
+            else if (field === 'alias') cloned.alias = value;
+          }
+          newSlots.push(cloned);
         }
-        this.doubaoKeySlots = { slots, currentSlotIndex: idx };
+        const result: MultiKeySlots = { slots: newSlots, currentSlotIndex: idx };
+        this.doubaoKeySlots = result;
         break;
       }
     }
@@ -1860,6 +2140,11 @@ struct Index {
                 doubaoApiUrl: this.doubaoApiUrl,
                 doubaoApiKey: this.doubaoApiKey,
                 doubaoModel: this.doubaoModel,
+                // Alias 字段
+                openAiAlias: this.openAiKeySlots.slots[this.openAiKeySlots.currentSlotIndex]?.alias ?? '',
+                deepLAlias: this.deepLKeySlots.slots[this.deepLKeySlots.currentSlotIndex]?.alias ?? '',
+                ollamaAlias: this.ollamaKeySlots.slots[this.ollamaKeySlots.currentSlotIndex]?.alias ?? '',
+                doubaoAlias: this.doubaoKeySlots.slots[this.doubaoKeySlots.currentSlotIndex]?.alias ?? '',
                 glossary: this.glossary,
                 isLightEffectBright: this.isLightEffectBright,
                 isDarkMode: this.isDarkMode,
@@ -1956,6 +2241,23 @@ struct Index {
                   this.updateCurrentSlot('doubao', 'model', value);
                   this.persistApiConfigSnapshot();
                 },
+                // Alias 更新回调
+                onUpdateOpenAiAlias: (value: string) => {
+                  this.updateCurrentSlot('openai', 'alias', value);
+                  this.persistApiConfigSnapshot();
+                },
+                onUpdateDeepLAlias: (value: string) => {
+                  this.updateCurrentSlot('deepl', 'alias', value);
+                  this.persistApiConfigSnapshot();
+                },
+                onUpdateOllamaAlias: (value: string) => {
+                  this.updateCurrentSlot('ollama', 'alias', value);
+                  this.persistApiConfigSnapshot();
+                },
+                onUpdateDoubaoAlias: (value: string) => {
+                  this.updateCurrentSlot('doubao', 'alias', value);
+                  this.persistApiConfigSnapshot();
+                },
                 onUpdateGlossary: (value: string) => {
                   this.glossary = value;
                   this.persistApiConfigSnapshot();
@@ -1974,6 +2276,9 @@ struct Index {
                 isRightHand: this.isRightHand,
                 apiOptions: this.apiOptions,
                 selectedApiIndex: this.selectedApiIndex,
+                selectedSlotIndex: this.getCurrentSlotIndex(),
+                validatedApiSlots: this.getValidatedApiSlots(),
+                currentApiAlias: this.getCurrentApiAlias(),
                 languageOptions: this.languageOptions,
                 languageDisplayOptions: this.languageDisplayOptions,
                 selectedLanguageIndex: this.selectedLanguageIndex,
@@ -1992,7 +2297,48 @@ struct Index {
                 isLightEffectBright: this.isLightEffectBright,
                 isDarkMode: this.isDarkMode,
                 onCycleApi: () => {
-                  this.selectedApiIndex = (this.selectedApiIndex + 1) % this.apiOptions.length;
+                  // 尝试在当前供应商的槽位中循环
+                  const nextSlotInSameProvider = this.getNextValidatedSlotInProvider(this.selectedApiIndex);
+                  if (nextSlotInSameProvider !== -1) {
+                    // 同一供应商有多个已验证槽位，切换到下一个
+                    this.switchApiSlotIndex(this.selectedApiIndex, nextSlotInSameProvider);
+                    this.syncCurrentSlotToCompatFields();
+                    this.persistApiConfigSnapshot();
+                    return;
+                  }
+                  
+                  // 如果当前供应商只有一个槽位，则切换到下一个供应商
+                  const nextIndex = this.getNextValidatedApiIndex(this.selectedApiIndex);
+                  if (nextIndex === -1) {
+                    // 没有任何已验证的 API
+                    promptAction.showToast({
+                      message: '请先在"配置 API"中添加并验证至少一个 API 配置',
+                      duration: 3000
+                    });
+                    return;
+                  }
+                  if (nextIndex === this.selectedApiIndex) {
+                    // 只有当前供应商的一个槽位已验证
+                    promptAction.showToast({
+                      message: '仅有一个已验证的 API 配置',
+                      duration: 2000
+                    });
+                    return;
+                  }
+                  // 切换到新的供应商，并自动选择其第一个已验证的槽位
+                  this.selectedApiIndex = nextIndex;
+                  const firstValidSlot = this.getFirstValidatedSlotIndex(nextIndex);
+                  if (firstValidSlot !== -1) {
+                    this.switchApiSlotIndex(nextIndex, firstValidSlot);
+                  }
+                  this.syncCurrentSlotToCompatFields();
+                  this.persistApiConfigSnapshot();
+                },
+                onSelectApi: (apiIndex: number, slotIndex: number) => {
+                  // API 选择回调（从 ApiSelectorSheet）
+                  this.selectedApiIndex = apiIndex;
+                  this.switchApiSlotIndex(apiIndex, slotIndex);
+                  this.syncCurrentSlotToCompatFields();
                   this.persistApiConfigSnapshot();
                 },
                 onCycleLanguage: () => {
@@ -2058,7 +2404,7 @@ struct Index {
               originalDemoText: this.originalDemoText,
               translatedDemoText: this.translatedDemoText,
               isTranslating: this.isTranslating,
-              currentApiLabel: this.getCurrentApiLabel(),
+              currentApiLabel: this.getCurrentApiAlias(),
               currentLanguageLabel: this.getCurrentLanguageLabel(),
               hasContinuityContent: this.originalDemoText.length > 0 || this.translatedDemoText.length > 0,
               isLightEffectBright: this.isLightEffectBright,
@@ -2143,6 +2489,8 @@ struct Index {
               openAiApiUrl: this.openAiApiUrl,
               openAiApiKey: this.openAiApiKey,
               openAiModel: this.openAiModel,
+              deepLApiUrl: this.deepLApiUrl,
+              deepLApiKey: this.deepLApiKey,
               ollamaApiUrl: this.ollamaApiUrl,
               ollamaModel: this.ollamaModel,
               doubaoApiUrl: this.doubaoApiUrl,
@@ -2669,7 +3017,7 @@ struct Index {
       }
 
       if (parsed.usage && parsed.usage.total_tokens) {
-        TokenUsageStorage.getInstance().addTokenUsage('OpenAI', parsed.usage.total_tokens);
+        TokenUsageStorage.getInstance().addTokenUsage(this.getTokenTrackingKey(), parsed.usage.total_tokens);
       }
     } else {
       const parsed = JSON.parse(resultStr) as ChatCompletionResponse;
@@ -2694,7 +3042,6 @@ struct Index {
         const finishReason: string = (firstChoice && firstChoice.finish_reason) ? firstChoice.finish_reason : '';
 
         if (finishReason === 'length') {
-          // 不自动重试/不自动调大 token：只提示用户手动调整或更换模型
           promptAction.showToast({
             message: '该模型可能为“思考模型”，实时翻译不建议使用；可尝试更换模型或调大 Max Tokens',
             duration: 3000
@@ -2707,7 +3054,7 @@ struct Index {
       }
 
       if (parsed.usage && parsed.usage.total_tokens) {
-        TokenUsageStorage.getInstance().addTokenUsage('OpenAI', parsed.usage.total_tokens);
+        TokenUsageStorage.getInstance().addTokenUsage(this.getTokenTrackingKey(), parsed.usage.total_tokens);
       }
     }
 
@@ -2744,7 +3091,7 @@ struct Index {
       translated = parsed.translations[0].text;
       // DeepL charges by character, so we track characters as "tokens"
       const usage = text.length + translated.length;
-      TokenUsageStorage.getInstance().addTokenUsage('DeepL', usage);
+      TokenUsageStorage.getInstance().addTokenUsage(this.getTokenTrackingKey(), usage);
     } else {
       translated = '[DeepL: empty translations]';
     }
@@ -2792,7 +3139,7 @@ struct Index {
 
     if (parsed.eval_count || parsed.prompt_eval_count) {
       const total = (parsed.eval_count || 0) + (parsed.prompt_eval_count || 0);
-      TokenUsageStorage.getInstance().addTokenUsage('Ollama', total);
+      TokenUsageStorage.getInstance().addTokenUsage(this.getTokenTrackingKey(), total);
     }
 
     this.updateTranslationField(translated);
@@ -2858,7 +3205,6 @@ struct Index {
           });
         }
 
-        // temperature 仅支持默认值：移除 temperature 让服务端走默认
         if (response.responseCode === 400) {
           const secondStr: string = response.result as string;
           if (secondStr && secondStr.includes('temperature') && secondStr.includes('default')) {
@@ -2892,7 +3238,7 @@ struct Index {
       if (parsed.choices && parsed.choices.length > 0) {
         translated = parsed.choices[0].message.content;
         if (parsed.usage && parsed.usage.total_tokens) {
-          TokenUsageStorage.getInstance().addTokenUsage('Doubao', parsed.usage.total_tokens);
+          TokenUsageStorage.getInstance().addTokenUsage(this.getTokenTrackingKey(), parsed.usage.total_tokens);
         }
       } else {
         console.warn('Doubao response has no choices: ' + resultStr);
@@ -2923,7 +3269,7 @@ struct Index {
   private handleRecognizedSpeech(text: string): void {
     this.originalDemoText = this.trimRealtimeBuffer(text);
 
-    // 累积最终识别结果到完整记录（智能追加）
+    // 累积最终识别结果到完整记录
     if (text.trim().length > 0) {
       const currentText = text.trim();
       if (this.fullOriginalText.length === 0) {
@@ -3165,7 +3511,7 @@ struct Index {
     if (!base) return newText;
     if (!newText) return base;
 
-    // 1. Normalize
+    // Normalize
     const normalize = (s: string) => s.toLowerCase().replace(/[^\w\u4e00-\u9fa5]/g, '');
     const normBase = normalize(base);
     const normNew = normalize(newText);
@@ -3178,8 +3524,6 @@ struct Index {
 
     const minMatchLen = parseInt(this.minMatchLenOptions[this.selectedMinMatchLenIndex]);
 
-    // Strategy A: Forward Match (Prefix of New found in BaseTail)
-    // Good for: "Hello" -> "Hello world", "Hello world" -> "Hello word"
     let forwardMatchLen = 0;
     let forwardMatchIndexInTail = -1;
 
@@ -3194,8 +3538,6 @@ struct Index {
       }
     }
 
-    // Strategy B: Reverse Match (Suffix of BaseTail found in New)
-    // Good for: "world" -> "Hello world", "He was gone" -> "And then he was gone"
     let reverseMatchLen = 0;
     let reverseMatchIndexInNew = -1;
 
@@ -3244,7 +3586,7 @@ struct Index {
       return;
     }
 
-    // 1) Show immediate feedback
+    // Show immediate feedback
     this.isListening = true;
     
     // 彻底重置所有翻译相关状态，确保新录音能正常触发翻译
@@ -3264,8 +3606,8 @@ struct Index {
       this.translationDebounceId = undefined;
     }
 
-    // Now show startup message
-    this.originalDemoText = this.trimRealtimeBuffer('[正在启动语音识别…]');
+    // Show startup message
+    this.originalDemoText = this.trimRealtimeBuffer('[正在启动语音识别...]');
 
     // Start new session
     const now = new Date();
@@ -3281,7 +3623,7 @@ struct Index {
     // 同步状态到 AppStorage（供跨端流转使用）
     this.syncContinuityState();
 
-    // 2) Try real mic + sherpa-onnx (Whisper)
+    // Try real mic + sherpa-onnx (Whisper)
     if (!this.isAsrReady || !this.micService) {
       await this.initSherpaAsr();
     }
@@ -3291,7 +3633,7 @@ struct Index {
       return;
     }
 
-    // 3) Configure ASR decode timing based on user settings
+    // Configure ASR decode timing based on user settings
     // Shorter intervals = faster updates, more CPU
     const intervalSeconds: number = parseInt(this.intervalOptions[this.intervalIndex]);
     const numContexts: number = parseInt(this.contextsOptions[this.contextsIndex]);
@@ -3310,7 +3652,7 @@ struct Index {
         this.lastDisplayedText = displayText;
         this.originalDemoText = displayText;
 
-        // 累积原文到完整记录（智能追加，避免重复）
+        // 累积原文到完整记录
         if (res.text.trim().length > 0) {
           const currentText = res.text.trim();
           if (this.fullOriginalText.length === 0) {

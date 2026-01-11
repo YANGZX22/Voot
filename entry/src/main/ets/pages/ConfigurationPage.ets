@@ -4,11 +4,282 @@ import { userAuth } from '@kit.UserAuthenticationKit';
 import userIAM_userAuth from '@ohos.userIAM.userAuth';
 import { TokenUsageChart } from '../components/TokenUsageChart';
 import { THEMES } from '../model/Theme';
-import { promptAction } from '@kit.ArkUI';
+import { ColorMetrics, promptAction } from '@kit.ArkUI';
 import { BusinessError } from '@kit.BasicServicesKit';
 
 const TITLE_BAR_HEIGHT_MINI: number = 110;
 const AUTH_SUCCESS_CODE: number = userAuth.UserAuthResultCode.SUCCESS
+
+// 已验证的 API 槽位信息
+export interface ValidatedApiSlot {
+  apiIndex: number;      // 供应商索引 (0-3)
+  slotIndex: number;     // 槽位索引 (0-2)
+  providerName: string;  // 供应商名称
+  alias: string;         // 用户自定义别名
+  model: string;         // 模型名称
+  displayName: string;   // 显示名称（别名或"供应商 N"）
+}
+
+// API 选择器组件（水平滚动 Picker）
+@Component
+struct ApiSelectorSheet {
+  @Prop validatedSlots: ValidatedApiSlot[] = [];
+  @Prop selectedApiIndex: number = 0;
+  @Prop selectedSlotIndex: number = 0;
+  @Prop isDarkMode: boolean = true;
+  @Prop isLightEffectBright: boolean = true;
+  onSelect: (apiIndex: number, slotIndex: number) => void = () => {};
+  onClose: () => void = () => {};
+  @StorageLink('themeColorIndex') themeColorIndex: number = 0;
+
+  @State currentSelectedIndex: number = 0; // 在 validatedSlots 数组中的索引
+  @State pressedIndex: number = -1; // 按下的卡片索引
+  @State activeCardIndex: number = -1; // 用于追踪当前点光源激活的卡片
+  @State headerOpacity: number = 0;
+  @State headerOffsetY: number = -20;
+  @State pickerOpacity: number = 0;
+  @State pickerScale: number = 0.9;
+  private scroller: Scroller = new Scroller();
+
+  aboutToAppear() {
+    // 找到当前选中项在列表中的索引
+    for (let i = 0; i < this.validatedSlots.length; i++) {
+      if (this.validatedSlots[i].apiIndex === this.selectedApiIndex &&
+          this.validatedSlots[i].slotIndex === this.selectedSlotIndex) {
+        this.currentSelectedIndex = i;
+        break;
+      }
+    }
+    
+    // 入场动画
+    setTimeout(() => {
+      animateTo({ duration: 300, curve: Curve.FastOutSlowIn }, () => {
+        this.headerOpacity = 1;
+        this.headerOffsetY = 0;
+      });
+    }, 50);
+    
+    setTimeout(() => {
+      animateTo({ duration: 400, curve: Curve.FastOutSlowIn }, () => {
+        this.pickerOpacity = 1;
+        this.pickerScale = 1.0;
+      });
+      // 滚动到当前选中项
+      setTimeout(() => {
+        this.scroller.scrollToIndex(this.currentSelectedIndex, true, ScrollAlign.CENTER);
+      }, 100);
+    }, 150);
+  }
+
+  build() {
+    Column() {
+      // 顶部拖动指示条
+      Row()
+        .width(40)
+        .height(4)
+        .borderRadius(2)
+        .backgroundColor('#50FFFFFF')
+        .margin({ top: 12, bottom: 24 })
+
+      // 标题区域
+      Column() {
+        Text('选择 API')
+          .fontSize(24)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(Color.White)
+          .margin({ bottom: 8 })
+
+        Text('左右滑动选择已配置的翻译 / LLM 服务')
+          .fontSize(14)
+          .fontColor('#AAFFFFFF')
+      }
+      .opacity(this.headerOpacity)
+      .offset({ y: this.headerOffsetY })
+      .margin({ bottom: 32 })
+
+      // 水平滚动 Picker
+      if (this.validatedSlots.length === 0) {
+        Column() {
+          SymbolGlyph($r('sys.symbol.exclamationmark_triangle'))
+            .fontSize(40)
+            .fontColor(['#80FFFFFF'])
+            .margin({ bottom: 16 })
+          Text('暂无已配置的 API')
+            .fontSize(16)
+            .fontColor('#80FFFFFF')
+          Text('请先在"配置 API"中添加密钥')
+            .fontSize(14)
+            .fontColor('#60FFFFFF')
+            .margin({ top: 8 })
+        }
+        .height(180)
+        .justifyContent(FlexAlign.Center)
+        .opacity(this.pickerOpacity)
+        .scale({ x: this.pickerScale, y: this.pickerScale })
+      } else {
+        List({ scroller: this.scroller }) {
+          ForEach(this.validatedSlots, (slot: ValidatedApiSlot, index: number) => {
+            ListItem() {
+              this.SlotCard(slot, index)
+            }
+          })
+        }
+        .listDirection(Axis.Horizontal)
+        .scrollBar(BarState.Off)
+        .width('100%')
+        .height(200)
+        .padding({ top: 10, bottom: 10 })
+        .clip(false)
+        .contentStartOffset(60)
+        .contentEndOffset(60)
+        .opacity(this.pickerOpacity)
+        .scale({ x: this.pickerScale, y: this.pickerScale })
+      }
+
+      // 确认按钮
+      Button('确定')
+        .width('90%')
+        .height(50)
+        .fontSize(16)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(THEMES[this.themeColorIndex].primaryColor)
+        .backgroundColor('#F5FFFFFF')
+        .borderRadius(25)
+        .margin({ top: 32, bottom: 28 })
+        .onClick(() => {
+          if (this.validatedSlots.length > 0 && this.currentSelectedIndex < this.validatedSlots.length) {
+            const selected = this.validatedSlots[this.currentSelectedIndex];
+            this.onSelect(selected.apiIndex, selected.slotIndex);
+          }
+          this.onClose();
+        })
+    }
+    .width('100%')
+    .padding({ bottom: 16 })
+    .backgroundColor(Color.Transparent)
+    .backgroundBlurStyle(BlurStyle.BACKGROUND_ULTRA_THICK)
+    .borderRadius({ topLeft: 28, topRight: 28 })
+    .linearGradient({
+      angle: 180,
+      colors: this.isDarkMode
+        ? [['#FF000000', 0.0], ['#FF000000', 1.0]]
+        : [[THEMES[this.themeColorIndex].primaryColor.replace('#', '#E0'), 0.0], [THEMES[this.themeColorIndex].primaryColor.replace('#', '#F0'), 1.0]]
+    })
+  }
+
+  @Builder
+  SlotCard(slot: ValidatedApiSlot, index: number) {
+    Column() {
+      // 供应商图标
+      Image(this.getProviderIcon(slot.providerName))
+        .width(48)
+        .height(48)
+        .fillColor(this.currentSelectedIndex === index ? THEMES[this.themeColorIndex].primaryColor : Color.White)
+        .margin({ bottom: 12 })
+
+      // 显示名称
+      Text(slot.displayName)
+        .fontSize(16)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(this.currentSelectedIndex === index ? THEMES[this.themeColorIndex].primaryColor : Color.White)
+        .textAlign(TextAlign.Center)
+        .maxLines(1)
+        .textOverflow({ overflow: TextOverflow.Ellipsis })
+        .constraintSize({ maxWidth: 100 })
+
+      // 模型名称
+      if (slot.model) {
+        Text(slot.model)
+          .fontSize(11)
+          .fontColor(this.currentSelectedIndex === index ? THEMES[this.themeColorIndex].secondaryColor : '#99FFFFFF')
+          .textAlign(TextAlign.Center)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.MARQUEE })
+          .constraintSize({ maxWidth: 100 })
+          .margin({ top: 4 })
+      }
+
+      // 供应商名称（如果有别名）
+      if (slot.alias && slot.alias.length > 0) {
+        Text(slot.providerName)
+          .fontSize(11)
+          .fontColor(this.currentSelectedIndex === index ? THEMES[this.themeColorIndex].primaryColor : '#60FFFFFF')
+          .margin({ top: 4 })
+      }
+    }
+    .width(130)
+    .height(160)
+    .padding(16)
+    .borderRadius(24)
+    .backgroundColor(this.currentSelectedIndex === index 
+      ? Color.White 
+      : (this.pressedIndex === index ? '#33FFFFFF' : '#20FFFFFF'))
+    .border({
+      width: 2,
+      color: this.currentSelectedIndex === index ? THEMES[this.themeColorIndex].primaryColor : Color.Transparent
+    })
+    .shadow({
+      radius: 0,
+      color: Color.Transparent,
+      offsetX: 0,
+      offsetY: 0
+    })
+    .scale({
+      x: this.pressedIndex === index ? 0.95 : (this.currentSelectedIndex === index ? 1.02 : 0.95),
+      y: this.pressedIndex === index ? 0.95 : (this.currentSelectedIndex === index ? 1.02 : 0.95)
+    })
+    .margin({ left: 8, right: 8 })
+    .animation({ duration: 300, curve: Curve.FastOutSlowIn })
+    .visualEffect(new hdsEffect.HdsEffectBuilder()
+      .pointLight({
+        sourceType: this.isDarkMode ? hdsEffect.PointLightSourceType.NONE :
+          (this.activeCardIndex === index
+            ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT)
+            : hdsEffect.PointLightSourceType.NONE),
+        illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE :
+          (this.activeCardIndex !== -1
+            ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
+            : hdsEffect.PointLightIlluminatedType.NONE)
+      })
+      .buildEffect())
+    .onClick(() => {
+      animateTo({ duration: 300, curve: Curve.FastOutSlowIn }, () => {
+        this.currentSelectedIndex = index;
+      });
+      // 滚动到选中项并居中
+      this.scroller.scrollToIndex(index, true, ScrollAlign.CENTER);
+    })
+    .onTouch((e: TouchEvent) => {
+      if (e.type === TouchType.Down) {
+        animateTo({
+          duration: 150,
+          curve: Curve.EaseOut
+        }, () => {
+          this.pressedIndex = index;
+          this.activeCardIndex = index;
+        });
+      } else if (e.type === TouchType.Up || e.type === TouchType.Cancel) {
+        animateTo({
+          duration: 200,
+          curve: Curve.EaseOut
+        }, () => {
+          this.pressedIndex = -1;
+          this.activeCardIndex = -1;
+        });
+      }
+    })
+  }
+
+  private getProviderIcon(providerName: string): Resource {
+    switch (providerName) {
+      case 'OpenAI': return $r('app.media.OpenAI');
+      case 'DeepL': return $r('app.media.DeepL');
+      case 'Ollama': return $r('app.media.Ollama');
+      case 'Doubao': return $r('app.media.Doubao');
+      default: return $r('sys.symbol.gearshape');
+    }
+  }
+}
 
 // 选项选择器底部弹出组件
 @Component
@@ -371,7 +642,10 @@ export struct ConfigurationPage {
   // Props
   apiOptions: string[] = [];
   @Prop selectedApiIndex: number = 0;
+  @Prop selectedSlotIndex: number = 0; // 当前槽位索引
   @Prop currentModelName: string = '';
+  @Prop currentApiAlias: string = ''; // 当前选中 API 的别名（用于显示）
+  @Prop validatedApiSlots: ValidatedApiSlot[] = []; // 已验证的 API 槽位列表
   languageOptions: string[] = [];
   languageDisplayOptions: string[] = [];
   @Prop selectedLanguageIndex: number = 0;
@@ -399,6 +673,7 @@ export struct ConfigurationPage {
 
   // Callbacks
   onCycleApi: () => void = () => {};
+  onSelectApi: (apiIndex: number, slotIndex: number) => void = () => {}; // 新的 API 选择回调
   onCycleLanguage: () => void = () => {};
   onOpenApiSettings: () => void = () => {};
   onSelectInterval: (index: number) => void = () => {};
@@ -414,13 +689,14 @@ export struct ConfigurationPage {
   @State isHandPopupDismissed: boolean = false;
 
   // 底部选择器状态
-  @State isOptionSheetVisible: boolean = false;
+  // 统一的 Sheet 状态
+  @State isSheetVisible: boolean = false;
   @State sheetTitle: string = '';
   @State sheetDescription: string = '';
   @State sheetOptions: string[] = [];
   @State sheetSelectedIndex: number = 0;
   // 使用枚举类型代替函数引用，避免 @State 不支持函数的问题
-  @State sheetType: string = ''; // 'interval' | 'contexts' | 'temperature' | 'maxTokens' | 'vad' | 'minMatch'
+  @State sheetType: string = ''; // 'interval' | 'contexts' | 'temperature' | 'maxTokens' | 'vad' | 'minMatch' | 'api'
 
   // Animation states
   @State cardScales: number[] = [0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9];
@@ -519,7 +795,7 @@ export struct ConfigurationPage {
     this.sheetOptions = options;
     this.sheetSelectedIndex = selected;
     this.sheetType = type;
-    this.isOptionSheetVisible = true;
+    this.isSheetVisible = true;
   }
 
   private handleSheetSelect(index: number): void {
@@ -879,7 +1155,7 @@ export struct ConfigurationPage {
           })
 
           TokenUsageChart({
-            modelName: this.currentModelName || this.apiOptions[this.selectedApiIndex],
+            modelName: this.currentApiAlias || this.apiOptions[this.selectedApiIndex],
             activeBtn: $activeBtn,
             isLightEffectBright: this.isLightEffectBright
           })
@@ -890,12 +1166,12 @@ export struct ConfigurationPage {
             GridItem() {
               ConfigCard({
                 title: '选择 API',
-                content: this.apiOptions[this.selectedApiIndex],
+                content: this.currentApiAlias || this.apiOptions[this.selectedApiIndex],
                 btnId: 1,
                 icon: $r('sys.symbol.more'),
                 isLightEffectBright: this.isLightEffectBright,
                 isDarkMode: this.isDarkMode,
-                callback: () => this.onCycleApi(),
+                callback: () => { this.sheetType = 'api'; this.isSheetVisible = true; },
                 activeBtn: $activeBtn,
                 onInfoClick: () => {
                   AlertDialog.show({
@@ -1032,7 +1308,7 @@ export struct ConfigurationPage {
                 title: '上下文',
                 content: this.contextsOptions[this.selectedContextsIndex] + ' 轮',
                 btnId: 6,
-                icon: $r('sys.symbol.paperclip'),
+                icon: $r('sys.symbol.book_pages'),
                 isLightEffectBright: this.isLightEffectBright,
                 isDarkMode: this.isDarkMode,
                 callback: () => this.openOptionSheet(
@@ -1096,7 +1372,7 @@ export struct ConfigurationPage {
                 title: '最大 Token',
                 content: this.maxTokensOptions[this.selectedMaxTokensIndex],
                 btnId: 8,
-                icon: $r('sys.symbol.puzzle_fill'),
+                icon: $r('sys.symbol.doc_text_badge_arrow_right'),
                 isLightEffectBright: this.isLightEffectBright,
                 isDarkMode: this.isDarkMode,
                 callback: () => this.openOptionSheet(
@@ -1160,7 +1436,7 @@ export struct ConfigurationPage {
                 title: '最小匹配长度',
                 content: this.minMatchLenOptions[this.selectedMinMatchLenIndex] + ' 字符',
                 btnId: 10,
-                icon: $r('sys.symbol.text_alignleft'),
+                icon: $r('sys.symbol.root'),
                 isLightEffectBright: this.isLightEffectBright,
                 isDarkMode: this.isDarkMode,
                 callback: () => this.openOptionSheet(
@@ -1207,14 +1483,14 @@ export struct ConfigurationPage {
     .backgroundColor(Color.Transparent)
     .titleMode(HdsNavigationTitleMode.MINI)
     .hideBackButton(true)
-    .bindSheet($$this.isOptionSheetVisible, this.OptionSheetBuilder(), {
+    .bindSheet($$this.isSheetVisible, this.UnifiedSheetBuilder(), {
       height: SheetSize.FIT_CONTENT,
       backgroundColor: Color.Transparent,
       blurStyle: BlurStyle.NONE,
       showClose: false,
       dragBar: false,
       onDisappear: () => {
-        this.isOptionSheetVisible = false;
+        this.isSheetVisible = false;
       }
     })
     .titleBar({
@@ -1262,7 +1538,7 @@ export struct ConfigurationPage {
             // 1. Select API
             ListItem() {
               Column() {
-                this.QuickActionButton($r('sys.symbol.more'), 1, () => this.onCycleApi())
+                this.QuickActionButton($r('sys.symbol.more'), 1, () => { this.sheetType = 'api'; this.isSheetVisible = true; })
               }
               .margin({ top: 16 })
             }
@@ -1292,7 +1568,7 @@ export struct ConfigurationPage {
             }
             // 6. Contexts
             ListItem() {
-              this.QuickActionButton($r('sys.symbol.paperclip'), 6, () => this.openOptionSheet(
+              this.QuickActionButton($r('sys.symbol.book_pages'), 6, () => this.openOptionSheet(
                   '历史上下文',
                   '更多上下文有助于模型理解语境，但会消耗更多 Token',
                   this.contextsOptions.map(v => v + ' 轮'),
@@ -1312,7 +1588,7 @@ export struct ConfigurationPage {
             }
             // 8. Max Tokens
             ListItem() {
-              this.QuickActionButton($r('sys.symbol.puzzle_fill'), 8, () => this.openOptionSheet(
+              this.QuickActionButton($r('sys.symbol.doc_text_badge_arrow_right'), 8, () => this.openOptionSheet(
                   '最大 Token',
                   '单次回复的最大长度',
                   this.maxTokensOptions.map(v => v),
@@ -1333,7 +1609,7 @@ export struct ConfigurationPage {
             // 10. Min Match Length
             ListItem() {
               Column() {
-                this.QuickActionButton($r('sys.symbol.text_alignleft'), 10, () => this.openOptionSheet(
+                this.QuickActionButton($r('sys.symbol.root'), 10, () => this.openOptionSheet(
                   '最小匹配长度',
                   '智能拼接文本时的最小重叠字符数',
                   this.minMatchLenOptions.map(v => v + ' 字符'),
@@ -1353,6 +1629,7 @@ export struct ConfigurationPage {
         .width(64)
         .constraintSize({ maxHeight: '50%' })
         .backgroundColor($r('sys.color.comp_background_secondary'))
+        .border({ width: 1.5, color: THEMES[this.themeColorIndex].tertiaryColor })
         .backdropBlur(20)
         .borderRadius(32)
         .position({ x: this.isLeftHand ? 0 : '100%', y: '30%' })
@@ -1414,21 +1691,37 @@ export struct ConfigurationPage {
   }
 
   @Builder
-  OptionSheetBuilder() {
-    OptionSelectorSheet({
-      title: this.sheetTitle,
-      description: this.sheetDescription,
-      options: this.sheetOptions,
-      selectedIndex: this.sheetSelectedIndex,
-      isDarkMode: this.isDarkMode,
-      isLightEffectBright: this.isLightEffectBright,
-      onSelect: (index: number) => {
-        this.sheetSelectedIndex = index;
-        this.handleSheetSelect(index);
-      },
-      onClose: () => {
-        this.isOptionSheetVisible = false;
-      }
-    })
+  UnifiedSheetBuilder() {
+    if (this.sheetType === 'api') {
+      ApiSelectorSheet({
+        validatedSlots: this.validatedApiSlots,
+        selectedApiIndex: this.selectedApiIndex,
+        selectedSlotIndex: this.selectedSlotIndex,
+        isDarkMode: this.isDarkMode,
+        isLightEffectBright: this.isLightEffectBright,
+        onSelect: (apiIndex: number, slotIndex: number) => {
+          this.onSelectApi(apiIndex, slotIndex);
+        },
+        onClose: () => {
+          this.isSheetVisible = false;
+        }
+      })
+    } else {
+      OptionSelectorSheet({
+        title: this.sheetTitle,
+        description: this.sheetDescription,
+        options: this.sheetOptions,
+        selectedIndex: this.sheetSelectedIndex,
+        isDarkMode: this.isDarkMode,
+        isLightEffectBright: this.isLightEffectBright,
+        onSelect: (index: number) => {
+          this.sheetSelectedIndex = index;
+          this.handleSheetSelect(index);
+        },
+        onClose: () => {
+          this.isSheetVisible = false;
+        }
+      })
+    }
   }
 }

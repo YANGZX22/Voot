@@ -4,6 +4,7 @@
     "pages/Index",
     "pages/SessionDetailPage",
     "pages/HistoryTabPage",
-    "pages/VerifyPage"
+    "pages/VerifyPage",
+    "pages/ApiExplanationPage"
   ]
 }

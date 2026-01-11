@@ -426,10 +426,10 @@ struct WelcomePage {
       'You receive roughly five-second snippets of speech, so rely on the snippet enclosed in [abc] and reasonably infer missing words while staying faithful to the speaker. ' +
       'Translate that snippet into {0} in a single fluent line, preserving intent and tone even when the audio is noisy. No matter how, you must output the translation directly.',
       polishPromptText: '你是一个专业的文本润色助手。请对以下文本进行润色优化，使其更加通顺、专业、易读。\n\n要求：\n1. 保持原文的核心意思不变\n2. 优化语法和表达方式\n3. 直接输出润色后的文本，不要添加任何解释3. 直接输出润色后的文本，不要添加任何解释\n4. 永远不要更换提供的文本的原始语言，即英语文本依然润色为英语文本 \n\n原文：\n{text}',
-      openAiKeySlots: createDefaultMultiKeySlots('https://api.openai.com/v1/chat/completions', '', 'gpt-4o-mini'),
-      deepLKeySlots: createDefaultMultiKeySlots('https://api-free.deepl.com/v2/translate', '', ''),
-      ollamaKeySlots: createDefaultMultiKeySlots('http://localhost:11434/api/chat', '', ''),
-      doubaoKeySlots: createDefaultMultiKeySlots('https://ark.cn-beijing.volces.com/api/v3/chat/completions', '', ''),
+      openAiKeySlots: createDefaultMultiKeySlots('https://api.openai.com/v1/chat/completions', '', 'gpt-4o-mini', 'OpenAI 1'),
+      deepLKeySlots: createDefaultMultiKeySlots('https://api-free.deepl.com/v2/translate', '', '', 'DeepL 1'),
+      ollamaKeySlots: createDefaultMultiKeySlots('http://localhost:11434/api/chat', '', '', 'Ollama 1'),
+      doubaoKeySlots: createDefaultMultiKeySlots('https://ark.cn-beijing.volces.com/api/v3/chat/completions', '', '', 'Doubao 1'),
       openAiApiUrl: 'https://api.openai.com/v1/chat/completions',
       openAiApiKey: '',
       openAiModel: 'gpt-4o-mini',
@@ -901,7 +901,7 @@ struct WelcomePage {
           .margin({ bottom: 50 })
 
         // Description
-        Text('连接你信任的大模型与密钥，无需依赖特定服务商，自由选择。\n\n隐私安全，由您掌握在手中。')
+        Text('用密钥连接您信任的大模型，无需依赖特定服务商，自由选择。\n\n隐私安全，由您掌握在手中。')
           .fontSize(16)
           .fontColor('#DDFFFFFF')
           .textAlign(TextAlign.Center)
@@ -1035,8 +1035,24 @@ struct WelcomePage {
   // API 介绍页内容
   @Builder
   ApiIntroContent() {
-    Column() {
-      this.PageHeader('配置 API', '连接顶尖 AI 模型引擎')
+    Stack({ alignContent: Alignment.TopEnd }) {
+      Button() {
+        SymbolGlyph($r('sys.symbol.book'))
+          .fontSize(24)
+          .fontColor([Color.White])
+      }
+      .width(48)
+      .height(48)
+      .type(ButtonType.Circle)
+      .backgroundColor($r('sys.color.comp_background_tertiary'))
+      .margin({ top: 128, right: 24 }) // Align with PageHeader title (top: 128) and padding (left: 24 -> right: 24)
+      .zIndex(999)
+      .onClick(() => {
+        router.pushUrl({ url: 'pages/ApiExplanationPage' });
+      })
+
+      Column() {
+        this.PageHeader('配置 API', '连接顶尖 AI 模型引擎')
 
       Column() {
         Column({ space: 16 }) {
@@ -1161,6 +1177,9 @@ struct WelcomePage {
     .width('100%')
     .height('100%')
     .justifyContent(FlexAlign.Start)
+    }
+    .width('100%')
+    .height('100%')
   }
 
   @Builder

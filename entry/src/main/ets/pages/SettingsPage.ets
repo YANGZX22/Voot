@@ -1,5 +1,5 @@
 import { hdsEffect, HdsNavigation, HdsNavigationAttribute, HdsNavigationTitleMode } from '@kit.UIDesignKit';
-import { CapsuleSegmentButtonV2, SegmentButtonV2Items, ColorMetrics } from '@kit.ArkUI';
+import { CapsuleSegmentButtonV2, SegmentButtonV2Items, ColorMetrics, SymbolGlyphModifier } from '@kit.ArkUI';
 import { webview } from '@kit.ArkWeb';
 import common from '@ohos.app.ability.common';
 import bundleManager from '@ohos.bundle.bundleManager';
@@ -388,6 +388,7 @@ struct GestureActionRow {
         { value: '开关字幕', icon: $r('sys.symbol.doc_text') },
         { value: '开关传译', icon: $r('sys.symbol.mic') }
       ])
+        .arrowModifier(new SymbolGlyphModifier($r('sys.symbol.arrowtriangle_down_fill')).fontColor([Color.White]))
         .selected(this.getActionIndex(this.value))
         .value(this.getActionLabel(this.value))
         .font({ size: 14, weight: FontWeight.Medium })
@@ -658,11 +659,13 @@ export struct SettingsPage {
     Row({ space: 10 }) {
       ForEach(THEMES, (theme: Theme, index: number) => {
         Stack({ alignContent: Alignment.Center }) {
-          Circle({ width: 28, height: 28 })
-            .fill(theme.primaryColor)
-            .shadow(this.themeColorIndex === index ? { radius: 12, color: theme.primaryColor, offsetX: 0, offsetY: 4 } : { radius: 0, color: Color.Transparent, offsetX: 0, offsetY: 0 })
+          Circle({ width: 36, height: 36 })
+            .fill($r('sys.color.comp_background_tertiary'))
+
+          SymbolGlyph($r('sys.symbol.paintpalette_fill'))
+            .fontSize(28)
+            .fontColor([[ '#3c1464', '#ED3A55', '#0A59F7', '#FF6699' ][index] || theme.primaryColor])
             .scale({ x: this.themeColorIndex === index ? 1.0 : 0.85, y: this.themeColorIndex === index ? 1.0 : 0.85 })
-            .animation({ duration: 250, curve: Curve.FastOutSlowIn })
           
           if (this.themeColorIndex === index) {
             SymbolGlyph($r('sys.symbol.checkmark'))
@@ -675,9 +678,7 @@ export struct SettingsPage {
         .height(36)
         .borderRadius(18)
         .clip(true)
-        .backgroundColor(this.themeColorIndex === index ? '#20FFFFFF' : Color.Transparent)
-        .border({ width: this.themeColorIndex === index ? 2 : 0, color: Color.White })
-        .animation({ duration: 250, curve: Curve.FastOutSlowIn })
+        .border({ width: 2, color: this.themeColorIndex === index ? Color.White : Color.Transparent })
         .onClick(() => {
           animateTo({ duration: 250, curve: Curve.FastOutSlowIn }, () => {
             this.themeColorIndex = index;
@@ -745,7 +746,7 @@ export struct SettingsPage {
       Row({ space: 8 }) {
         SymbolGlyph($r('sys.symbol.info_circle'))
           .fontSize(18)
-          .fontColor([THEMES[this.themeColorIndex].primaryColor])
+          .fontColor([$r('sys.color.font_on_secondary')])
           .bindPopup(this.showAirGestureTip, {
             message: '需要先在系统设置中“系统-快捷启动和手势-隔空滑动屏幕”开启该功能',
             placementOnTop: true,
@@ -754,7 +755,12 @@ export struct SettingsPage {
               if (!e.isVisible) {
                 this.showAirGestureTip = false;
               }
-            }
+            },
+            messageOptions: {
+              textColor: Color.White
+            },
+            backgroundBlurStyle: BlurStyle.BACKGROUND_REGULAR,
+            transition: TransitionEffect.OPACITY.animation({ duration: 200, curve: Curve.FastOutSlowIn })
           })
           .onClick(() => {
             this.showAirGestureTip = !this.showAirGestureTip;
@@ -778,7 +784,7 @@ export struct SettingsPage {
       Row({ space: 8 }) {
         SymbolGlyph($r('sys.symbol.info_circle'))
           .fontSize(18)
-          .fontColor([THEMES[this.themeColorIndex].primaryColor])
+          .fontColor([$r('sys.color.font_on_secondary')])
           .bindPopup(this.showPoseDetectionTip, {
             message: '如有遮挡内容，可向屏幕边缘滑动暂时关闭',
             placementOnTop: true,
@@ -787,7 +793,12 @@ export struct SettingsPage {
               if (!e.isVisible) {
                 this.showPoseDetectionTip = false;
               }
-            }
+            },
+            messageOptions: {
+              textColor: Color.White
+            },
+            backgroundBlurStyle: BlurStyle.BACKGROUND_REGULAR,
+            transition: TransitionEffect.OPACITY.animation({ duration: 200, curve: Curve.FastOutSlowIn })
           })
           .onClick(() => {
             this.showPoseDetectionTip = !this.showPoseDetectionTip;
@@ -1217,6 +1228,7 @@ export struct SettingsPage {
         .width(64)
         .padding(8)
         .backgroundColor($r('sys.color.comp_background_secondary'))
+        .border({ width: 1.5, color: THEMES[this.themeColorIndex].tertiaryColor })
         .backdropBlur(20)
         .borderRadius(40)
         .position({ x: this.isLeftHand ? 0 : '100%', y: '30%' })

@@ -498,7 +498,7 @@ export struct TranslationPage {
 
                 // 流转按钮
                 Row() {
-                  SymbolGlyph($r('sys.symbol.arrow_2_circlepath'))
+                  SymbolGlyph($r('sys.symbol.superdevice'))
                     .fontSize(18)
                     .fontColor([this.btn3TextColor])
                 }
@@ -591,7 +591,7 @@ export struct TranslationPage {
 
               Button() {
                 Row() {
-                  SymbolGlyph($r('sys.symbol.dot_radiowaves_left_and_right_badge_person_filled'))
+                  SymbolGlyph($r('sys.symbol.superdevice'))
                     .fontSize(18)
                     .fontColor([this.btn3TextColor])
                     .margin({ right: 8 })
@@ -674,8 +674,10 @@ export struct TranslationPage {
           .onTouch((event: TouchEvent) => {
             if (event.type === TouchType.Down) {
               animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeBtn = 11; });
+              this.pressButton(1);
             } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
               animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeBtn = 0; });
+              this.leaveButton(1);
             }
           })
 
@@ -711,13 +713,15 @@ export struct TranslationPage {
           .onTouch((event: TouchEvent) => {
             if (event.type === TouchType.Down) {
               animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeBtn = 12; });
+              this.pressButton(2);
             } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
               animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeBtn = 0; });
+              this.leaveButton(2);
             }
           })
 
           Button({ type: ButtonType.Circle }) {
-            SymbolGlyph($r('sys.symbol.dot_radiowaves_left_and_right_badge_person_filled'))
+            SymbolGlyph($r('sys.symbol.superdevice'))
               .fontSize(24)
               .fontColor((this.activeBtn === 3 || this.activeBtn === 13) ? [Color.White] : [THEMES[this.themeColorIndex].primaryColor])
           }
@@ -739,14 +743,17 @@ export struct TranslationPage {
           .onTouch((event: TouchEvent) => {
             if (event.type === TouchType.Down) {
               animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeBtn = 13; });
+              this.pressButton(3);
             } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
               animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeBtn = 0; });
+              this.leaveButton(3);
             }
           })
         }
         .width(64)
         .padding(8)
         .backgroundColor($r('sys.color.comp_background_secondary'))
+        .border({ width: 1.5, color: THEMES[this.themeColorIndex].tertiaryColor })
         .backdropBlur(20)
         .borderRadius(40)
         .position({ x: this.isLeftHand ? 0 : '100%', y: '30%' })
@@ -1085,7 +1092,7 @@ struct ContinuityHelpDialog {
 
         Row({ space: 8 }) {
           Column() {
-            SymbolGlyph($r('sys.symbol.dot_radiowaves_left_and_right_badge_person_filled'))
+            SymbolGlyph($r('sys.symbol.superdevice'))
               .fontSize(18)
               .fontColor([Color.White])
           }

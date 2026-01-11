@@ -6,6 +6,7 @@ export interface ApiKeySlot {
   apiUrl: string;
   apiKey: string;
   model: string;
+  alias?: string; // 用户自定义别名
 }
 
 // 多密钥槽位配置
@@ -17,15 +18,16 @@ export interface MultiKeySlots {
 export const MAX_KEY_SLOTS: number = 3;
 
 // 创建默认的多密钥槽位
-export function createDefaultMultiKeySlots(defaultUrl: string, defaultKey: string, defaultModel: string): MultiKeySlots {
-  return {
+export function createDefaultMultiKeySlots(defaultUrl: string, defaultKey: string, defaultModel: string, defaultAlias?: string): MultiKeySlots {
+  const result: MultiKeySlots = {
     slots: [
-      { apiUrl: defaultUrl, apiKey: defaultKey, model: defaultModel },
-      { apiUrl: defaultUrl, apiKey: '', model: defaultModel },
-      { apiUrl: defaultUrl, apiKey: '', model: defaultModel }
+      { apiUrl: defaultUrl, apiKey: defaultKey, model: defaultModel, alias: defaultAlias },
+      { apiUrl: defaultUrl, apiKey: '', model: defaultModel, alias: undefined },
+      { apiUrl: defaultUrl, apiKey: '', model: defaultModel, alias: undefined }
     ],
     currentSlotIndex: 0
   };
+  return result;
 }
 
 export interface ApiConfigSnapshot {
@@ -318,7 +320,8 @@ export class ApiConfigStorage {
       const slot: ApiKeySlot = {
         apiUrl: s.apiUrl,
         apiKey: s.apiKey,
-        model: s.model
+        model: s.model,
+        alias: s.alias
       };
       return slot;
     });
