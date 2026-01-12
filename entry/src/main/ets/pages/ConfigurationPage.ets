@@ -598,16 +598,8 @@ struct LanguageSelectorSheet {
         .fontWeight(FontWeight.Medium)
         .fontColor(this.selectedIndex === index ? THEMES[this.themeColorIndex].primaryColor : Color.White)
         .transition(TransitionEffect.OPACITY.animation({ duration: 200, curve: Curve.EaseOut }))
-      
-      Blank()
-      
-      // 选中指示图标
-      if (this.selectedIndex === index) {
-        SymbolGlyph($r('sys.symbol.checkmark'))
-          .fontSize(16)
-          .fontColor([THEMES[this.themeColorIndex].primaryColor])
-      }
     }
+    .align(Alignment.Center)
     .width(200)
     .height(48)
     .padding({ left: 20, right: 20 })
@@ -676,7 +668,7 @@ struct ConfigCard {
   @Prop content: string = '';
   btnId: number = 0;
   isSymbol: boolean = false;
-  @Prop showLockIcon: boolean = true; // 显示锁定图标（人脸）还是箭头
+  @Prop showLockIcon: boolean = true;
   icon?: Resource;
   @Prop isLightEffectBright: boolean = true;
   @Prop isDarkMode: boolean = true;

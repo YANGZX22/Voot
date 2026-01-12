@@ -2,6 +2,7 @@ import { hdsEffect, HdsNavigation, HdsNavigationAttribute, HdsNavigationTitleMod
 import { CapsuleSegmentButtonV2, SegmentButtonV2Items, ColorMetrics, SymbolGlyphModifier } from '@kit.ArkUI';
 import { webview } from '@kit.ArkWeb';
 import common from '@ohos.app.ability.common';
+import { Want } from '@kit.AbilityKit';
 import bundleManager from '@ohos.bundle.bundleManager';
 import { PolicySheetType, PolicySheetContent, getPolicySheetConfig } from '../components/PolicySheet';
 import { OnboardingStorage } from '../storage/OnboardingStorage';
@@ -777,42 +778,55 @@ export struct SettingsPage {
 
   @Builder
   PoseDetectionToggleItem() {
-    SettingsItem({
-      title: '智感握姿',
-      subtitle: this.isPoseDetectionSupported ? '根据左右手握机姿势弹出快捷按钮' : '您的设备不支持智感握姿功能'
-    }) {
-      Row({ space: 8 }) {
-        SymbolGlyph($r('sys.symbol.info_circle'))
-          .fontSize(18)
-          .fontColor([$r('sys.color.font_on_secondary')])
-          .bindPopup(this.showPoseDetectionTip, {
-            message: '如有遮挡内容，可向屏幕边缘滑动暂时关闭',
-            placementOnTop: true,
-            showInSubWindow: false,
-            onStateChange: (e) => {
-              if (!e.isVisible) {
-                this.showPoseDetectionTip = false;
-              }
-            },
-            messageOptions: {
-              textColor: Color.White
-            },
-            backgroundBlurStyle: BlurStyle.BACKGROUND_REGULAR,
-            transition: TransitionEffect.OPACITY.animation({ duration: 200, curve: Curve.FastOutSlowIn })
-          })
-          .onClick(() => {
-            this.showPoseDetectionTip = !this.showPoseDetectionTip;
-          })
+    if (this.isPoseDetectionSupported) {
+      SettingsItem({
+        title: '智感握姿',
+        subtitle: '根据左右手握机姿势弹出快捷按钮'
+      }) {
+        Row({ space: 8 }) {
+          SymbolGlyph($r('sys.symbol.info_circle'))
+            .fontSize(18)
+            .fontColor([$r('sys.color.font_on_secondary')])
+            .bindPopup(this.showPoseDetectionTip, {
+              message: '如有遮挡内容，可向屏幕边缘滑动暂时关闭',
+              placementOnTop: true,
+              showInSubWindow: false,
+              onStateChange: (e) => {
+                if (!e.isVisible) {
+                  this.showPoseDetectionTip = false;
+                }
+              },
+              messageOptions: {
+                textColor: Color.White
+              },
+              backgroundBlurStyle: BlurStyle.BACKGROUND_REGULAR,
+              transition: TransitionEffect.OPACITY.animation({ duration: 200, curve: Curve.FastOutSlowIn })
+            })
+            .onClick(() => {
+              this.showPoseDetectionTip = !this.showPoseDetectionTip;
+            })
 
-        Toggle({ type: ToggleType.Switch, isOn: this.poseDetectionEnabled })
-          .selectedColor(THEMES[this.themeColorIndex].primaryColor)
-          .enabled(this.isPoseDetectionSupported)
-          .opacity(this.isPoseDetectionSupported ? 1.0 : 0.5)
-          .onChange((isOn: boolean) => {
-            if (!this.isPoseDetectionSupported) return;
-            this.poseDetectionEnabled = isOn;
-          })
+          Toggle({ type: ToggleType.Switch, isOn: this.poseDetectionEnabled })
+            .selectedColor(THEMES[this.themeColorIndex].primaryColor)
+            .onChange((isOn: boolean) => {
+              this.poseDetectionEnabled = isOn;
+            })
+        }
       }
+    } else {
+      SettingsItem({
+        title: '智感握姿',
+        subtitle: '您的设备不支持智感握姿功能，点击了解更多',
+        hasArrow: true,
+        onClickItem: () => {
+          const context = getContext(this) as common.UIAbilityContext;
+          const want: Want = {
+            action: 'ohos.want.action.viewData',
+            uri: 'https://consumer.huawei.com/cn/support/content/zh-cn16075323/'
+          };
+          context.startAbility(want);
+        }
+      })
     }
   }
 

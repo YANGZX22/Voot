@@ -3,13 +3,12 @@ import { MultiKeySlots, MAX_KEY_SLOTS } from '../storage/ApiConfigStorage';
 import http from '@ohos.net.http';
 import promptAction from '@ohos.promptAction';
 import router from '@ohos.router';
-import { ColorMetrics } from '@kit.ArkUI';
+import { ColorMetrics, curves } from '@kit.ArkUI';
 import { THEMES } from '../model/Theme';
 import window from '@ohos.window';
 
 const TITLE_BAR_HEIGHT_MINI: number = 84;
 
-// Interfaces for Navigation Menu Items to satisfy ArkTS compiler
 interface NavMenuContent {
   label: string;
   icon: Resource;
@@ -31,10 +30,21 @@ export enum ApiMenuType {
   Doubao
 }
 
+// 定义 SlotInfo 类
+class SlotInfo {
+  x: number = 0;
+  width: number = 0;
+
+  constructor(x: number = 0, width: number = 0) {
+    this.x = x;
+    this.width = width;
+  }
+}
+
 // 密钥槽位切换器组件
 @Component
 struct KeySlotSwitcher {
-  @Prop currentSlotIndex: number = 0;
+  @Prop @Watch('onIndexChange') currentSlotIndex: number = 0;
   @Prop totalSlots: number = MAX_KEY_SLOTS;
   @Prop hasApiKey: boolean = false;
   @Prop providerName: string = '';
@@ -44,47 +54,188 @@ struct KeySlotSwitcher {
   @State isExpand: boolean = true;
   @StorageLink('themeColorIndex') themeColorIndex: number = 0;
 
+  // 动画状态
+  @State private indicatorX: number = 0;
+  @State private indicatorWidth: number = 0;
+  @State private slotInfos: SlotInfo[] = [
+    new SlotInfo(0, 0), new SlotInfo(0, 0), new SlotInfo(0, 0)
+  ];
+  private previousIndex: number = 0;
+  private pendingAnimation: boolean = false; // 标记是否有待执行的动画
+
+  // 监听索引变化，标记需要动画
+  onIndexChange() {
+    if (this.currentSlotIndex !== this.previousIndex) {
+      this.pendingAnimation = true;
+    }
+  }
+
+  // 执行流动动画
+  private executeAnimation(newIndex: number, newX: number, newWidth: number) {
+    const oldX = this.indicatorX;
+    const oldWidth = this.indicatorWidth;
+    
+    // 如果之前没有宽度（初始化），直接跳到新位置
+    if (oldWidth === 0) {
+      this.indicatorX = newX;
+      this.indicatorWidth = newWidth;
+      this.previousIndex = newIndex;
+      this.pendingAnimation = false;
+      return;
+    }
+
+    const isMovingRight = newX > oldX;
+    const distance = Math.abs(newX - oldX);
+    
+    // 动态时长
+    const stretchDuration = Math.min(250, 150 + distance * 0.5);
+    const shrinkDuration = Math.min(300, 180 + distance * 0.6);
+
+    if (isMovingRight) {
+      // 向右移动
+      // 快速延伸到覆盖新位置
+      const targetStretchWidth = (newX + newWidth) - oldX;
+      
+      animateTo({ duration: stretchDuration, curve: Curve.EaseOut }, () => {
+        this.indicatorWidth = targetStretchWidth;
+      });
+
+      // 尾部收缩到新位置
+      setTimeout(() => {
+        animateTo({ duration: shrinkDuration, curve: curves.springMotion(0.4, 0.8) }, () => {
+          this.indicatorX = newX;
+          this.indicatorWidth = newWidth;
+        });
+      }, stretchDuration * 0.7);
+    } else {
+      // 向左移动
+      // 快速延伸到覆盖新位置
+      const targetStretchWidth = (oldX + oldWidth) - newX;
+      
+      animateTo({ duration: stretchDuration, curve: Curve.EaseOut }, () => {
+        this.indicatorX = newX;
+        this.indicatorWidth = targetStretchWidth;
+      });
+
+      // 头部收缩
+      setTimeout(() => {
+        animateTo({ duration: shrinkDuration, curve: curves.springMotion(0.4, 0.8) }, () => {
+          this.indicatorWidth = newWidth;
+        });
+      }, stretchDuration * 0.7);
+    }
+
+    this.previousIndex = newIndex;
+    this.pendingAnimation = false;
+  }
+
+  // 更新槽位信息
+  private updateSlotInfo(index: number, area: Area) {
+    const x = Number(area.position.x);
+    const width = Number(area.width);
+    
+    // 更新存储的位置信息
+    this.slotInfos[index] = new SlotInfo(x, width);
+    
+    // 当前选中项布局变化时
+    if (index === this.currentSlotIndex) {
+      if (this.indicatorWidth === 0) {
+        // 初始化
+        this.indicatorX = x;
+        this.indicatorWidth = width;
+        this.previousIndex = index;
+        this.pendingAnimation = false;
+      } else if (this.pendingAnimation) {
+        this.executeAnimation(index, x, width);
+      } else if (this.previousIndex === index) {
+        animateTo({ duration: 200, curve: Curve.EaseOut }, () => {
+          this.indicatorX = x;
+          this.indicatorWidth = width;
+        });
+      }
+    }
+  }
+
+  // 获取选中项的显示文本
+  private getSelectedLabel(index: number): string {
+    const alias = this.aliases[index];
+    if (alias && alias.trim().length > 0) {
+      return alias;
+    }
+    return `${this.providerName} ${index + 1}`;
+  }
+
+  // 获取槽位显示文本
   private getSlotLabel(index: number): string {
     if (this.currentSlotIndex === index) {
-      const alias = this.aliases[index];
-      if (alias && alias.trim().length > 0) {
-        return alias;
-      }
-      return `${this.providerName} ${index + 1}`;
+      return this.getSelectedLabel(index);
     }
     return `${index + 1}`;
   }
 
   build() {
     Column() {
-      // 槽位指示器
-      Row() {
-        ForEach([0, 1, 2], (index: number) => {
-          Text(this.getSlotLabel(index))
-            .fontSize(12)
-            .fontWeight(this.currentSlotIndex === index ? FontWeight.Bold : FontWeight.Normal)
-            .fontColor(this.currentSlotIndex === index ? Color.White : $r('sys.color.font_on_secondary'))
-            .constraintSize({ minWidth: 24 })
-            .padding({ left: 10, right: 10 })
-            .height(28)
-            .textAlign(TextAlign.Center)
-            .borderRadius(14)
-            .backgroundColor(this.currentSlotIndex === index ? THEMES[this.themeColorIndex].primaryColor : $r('sys.color.comp_background_tertiary'))
-            .border({ width: 0 }) 
-            .margin({ left: 4, right: 4 })
-            .shadow(this.currentSlotIndex === index ? { radius: 8, color: '#40000000', offsetY: 2 } : { radius: 0, color: Color.Transparent })
-            .scale({ x: this.currentSlotIndex === index ? 1.05 : 1.0, y: this.currentSlotIndex === index ? 1.05 : 1.0 })
-            .animation({ duration: 350, curve: Curve.FastOutSlowIn })
-            .onClick(() => {
-              animateTo({ duration: 350, curve: Curve.FastOutSlowIn }, () => {
-                this.onSwitchSlot(index);
-              })
-            })
-        })
+      // 槽位指示器容器
+      Stack({ alignContent: Alignment.TopStart }) {
+        // 浮动指示器
+        Column()
+          .height(28)
+          .borderRadius(14)
+          .backgroundColor(THEMES[this.themeColorIndex].primaryColor)
+          .position({ x: this.indicatorX, y: 0 })
+          .width(this.indicatorWidth > 30 ? this.indicatorWidth : 30)
+          .opacity(this.indicatorWidth > 0 ? 1 : 0) // 初始化前隐藏
+          .shadow({ radius: 8, color: '#40000000', offsetY: 2 })
+
+        // 按钮组
+        Row() {
+          ForEach([0, 1, 2], (index: number) => {
+            if (this.currentSlotIndex === index) {
+              // 选中状态
+              Text(this.getSelectedLabel(index))
+                .fontSize(12)
+                .fontWeight(FontWeight.Bold)
+                .fontColor(Color.White)
+                .constraintSize({ minWidth: 30, maxWidth: 80 })
+                .padding({ left: 12, right: 12 })
+                .height(28)
+                .textAlign(TextAlign.Center)
+                .borderRadius(14)
+                .backgroundColor(Color.Transparent) // 露出指示器
+                .margin({ left: 4, right: 4 })
+                .maxLines(1)
+                .textOverflow({ overflow: TextOverflow.MARQUEE }) // 跑马灯
+                .onClick(() => {
+                  this.onSwitchSlot(index);
+                })
+                .onAreaChange((oldArea, newArea) => {
+                  this.updateSlotInfo(index, newArea);
+                })
+            } else {
+              // 未选中状态：圆形，只显示数字
+              Text(`${index + 1}`)
+                .fontSize(12)
+                .fontWeight(FontWeight.Normal)
+                .fontColor($r('sys.color.font_on_secondary'))
+                .width(28) // 固定宽度保持圆形
+                .height(28)
+                .textAlign(TextAlign.Center)
+                .borderRadius(14)
+                .backgroundColor($r('sys.color.comp_background_tertiary'))
+                .margin({ left: 4, right: 4 })
+                .onClick(() => {
+                  this.onSwitchSlot(index);
+                })
+                .onAreaChange((oldArea, newArea) => {
+                  this.updateSlotInfo(index, newArea);
+                })
+            }
+          })
+        }
       }
       .margin({ bottom: 12 })
 
-      // ActionBar
+
       HdsActionBar({
         startButtons: [new ActionBarButton({
           baseIcon: $r('sys.symbol.chevron_left'),
@@ -170,14 +321,16 @@ export interface ApiConfigPageProps {
   themeColorIndex: number;
 }
 
-// --- 1. Menu Button Component with Effects ---
+// Menu Button Component with Effects
 @Component
 struct MenuButton {
   @Prop label: string;
+  @Prop iconName: string;
   @Prop menuType: ApiMenuType;
   @Prop isSelected: boolean;
   @Prop isLightEffectBright: boolean = true;
   @Prop isDarkMode: boolean = true;
+  @StorageLink('themeColorIndex') themeColorIndex: number = 0;
 
   // Lighting Props
   @Prop isSource: boolean;      // True if THIS button is touched
@@ -191,34 +344,26 @@ struct MenuButton {
   build() {
     Button() {
       Row() {
-        Image($r('app.media.'+ this.label))
+        Image($r('app.media.'+ this.iconName))
           .width(20)
           .height(20)
-          .fillColor(Color.White)
+          .fillColor(this.isSelected ? THEMES[this.themeColorIndex].primaryColor : Color.White)
 
         Text(" " + this.label)
           .layoutWeight(1)
           .fontSize(15)
-          .fontWeight(this.isSelected ? FontWeight.Medium : FontWeight.Normal);
-
-        if (this.isSelected) {
-          Text('·')
-            .fontColor(Color.White)
-            .fontSize(20)
-            .fontWeight(FontWeight.Bold);
-        }
+          .fontWeight(FontWeight.Normal);
       }
       .width('100%');
     }
     .type(ButtonType.Capsule)
-    .fontColor(Color.White)
-    .width('100%')
+    .fontColor(this.isSelected ? THEMES[this.themeColorIndex].primaryColor : Color.White)
+    .width(180)
     .height(44)
     .padding({ left: 12, right: 12 })
-    .margin({ bottom: 8 })
+    .margin({ left:8, bottom: 8 })
     .backgroundColor(Color.Transparent)
     .borderRadius(12)
-    .border({ width: 0 })
     // --- APPLY VISUAL EFFECT HERE ---
     .visualEffect(new hdsEffect.HdsEffectBuilder()
       .pointLight({
@@ -317,6 +462,85 @@ export struct ApiConfigPage {
   @State activeMenuId: number = -1;
   // State for sidebar visibility
   @State isSideBarShown: boolean = false;
+  
+  // --- 指示器动画状态 ---
+  @State private indicatorTop: number = 0; // 初始位置，将在 aboutToAppear 中根据 selectedMenu 设置
+  @State private indicatorHeight: number = 24; // 初始高度
+  @State private previousMenu: ApiMenuType = ApiMenuType.Prompt;
+  @State private sidebarIndicatorInitialized: boolean = false; // 标记是否已初始化
+  
+  // 计算菜单项的Y位置 (居中位置)
+  private getMenuItemY(menu: ApiMenuType): number {
+    // 基础偏移: 34 (margin-top) + 88 (第一个按钮偏移)
+    const baseOffset = 34 + 88;
+    const itemHeight = 52; // 每个按钮高度 44 + margin 8
+    const groupGap = 40; // 第二组分组标题高度
+    
+    if (menu < 3) {
+      return baseOffset + menu * itemHeight;
+    } else {
+      return baseOffset + 3 * itemHeight + groupGap + (menu - 3) * itemHeight;
+    }
+  }
+  
+  // 触发指示器动画 - 水滴效果
+  private animateIndicator(newMenu: ApiMenuType): void {
+    if (newMenu === this.previousMenu) return;
+    
+    const oldY = this.getMenuItemY(this.previousMenu);
+    const newY = this.getMenuItemY(newMenu);
+    const isMovingDown = newY > oldY;
+    const indicatorBaseHeight = 24;
+    const distance = Math.abs(newY - oldY);
+    
+    // 根据距离动态调整时间，让短距离更快
+    const stretchDuration = Math.min(250, 120 + distance * 0.3);
+    const shrinkDuration = Math.min(300, 150 + distance * 0.4);
+    
+    if (isMovingDown) {
+      // 向下移动: 水滴下落效果
+      // 第一阶段: 快速延伸到目标（弹性曲线）
+      animateTo({ 
+        duration: stretchDuration, 
+        curve: Curve.EaseOut
+      }, () => {
+        this.indicatorHeight = newY - oldY + indicatorBaseHeight;
+      });
+      
+      // 第二阶段: 顶部缓慢跟上，带轻微回弹
+      setTimeout(() => {
+        animateTo({ 
+          duration: shrinkDuration, 
+          curve: curves.springMotion(0.4, 0.8)
+        }, () => {
+          this.indicatorTop = newY;
+          this.indicatorHeight = indicatorBaseHeight;
+        });
+      }, stretchDuration * 0.7); // 提前开始收缩，让动画更流畅
+    } else {
+      // 向上移动: 水滴上升效果
+      // 第一阶段: 顶部快速移动到新位置
+      animateTo({ 
+        duration: stretchDuration, 
+        curve: Curve.EaseOut
+      }, () => {
+        this.indicatorTop = newY;
+        this.indicatorHeight = oldY - newY + indicatorBaseHeight;
+      });
+      
+      // 第二阶段: 底部缓慢跟上
+      setTimeout(() => {
+        animateTo({ 
+          duration: shrinkDuration, 
+          curve: curves.springMotion(0.4, 0.8)
+        }, () => {
+          this.indicatorHeight = indicatorBaseHeight;
+        });
+      }, stretchDuration * 0.7);
+    }
+    
+    this.previousMenu = newMenu;
+  }
 
   private getNavigationMenuItems(): NavMenuItem[] {
     let items: NavMenuItem[] = [];
@@ -818,6 +1042,11 @@ export struct ApiConfigPage {
 
   // 页面出现时应用设置
   async aboutToAppear(): Promise<void> {
+    // 初始化 sidebar 指示器位置
+    this.indicatorTop = this.getMenuItemY(this.selectedMenu);
+    this.previousMenu = this.selectedMenu;
+    this.sidebarIndicatorInitialized = true;
+
     const mainWindow = await this.getMainWindow();
     if (!mainWindow) return;
 
@@ -855,30 +1084,31 @@ export struct ApiConfigPage {
   build() {
     HdsNavigation() {
       Stack() {
-        Column() {
-          Blank().height(TITLE_BAR_HEIGHT_MINI);
-
-          SideBarContainer(SideBarContainerType.Embed) {
+        SideBarContainer(SideBarContainerType.Overlay) {
           // --- Side Panel (Menu) ---
           Stack({ alignContent: Alignment.TopStart }) {
-            // Selection Indicator
+            // Selection Indicator (液体流动动画)
             Column()
-              .width('100%')
-              .height(44)
+              .width(6)
+              .height(this.indicatorHeight)
               .backgroundColor(THEMES[this.themeColorIndex].primaryColor)
-              .borderRadius(22)
-              .border({ width: 1, color: Color.Gray })
-              .margin({ top: 24 }) // Match the initial Blank height
-              .translate({ y: this.selectedMenu * 52 }) // 44 (height) + 8 (margin)
-              .animation({ duration: 300, curve: Curve.EaseInOut })
+              .borderRadius(3)
+              .position({ x: 0, y: this.indicatorTop })
               .hitTestBehavior(HitTestMode.None) // Allow clicks to pass through to buttons
 
             Column() {
-              Blank().height(24);
+              Blank().height(80);
 
-              // Menu Item 1: Prompt
+              Text('提示词')
+                .fontSize(12)
+                .fontColor($r('sys.color.font_on_secondary'))
+                .margin({ left: 16, bottom: 8, top: 4 })
+                .height(20)
+
+              // Menu Item: Prompt
               MenuButton({
-                label: 'Prompt',
+                label: '翻译提示词',
+                iconName: 'Prompt',
                 menuType: ApiMenuType.Prompt,
                 isSelected: this.selectedMenu === ApiMenuType.Prompt,
                 isLightEffectBright: this.isLightEffectBright,
@@ -887,12 +1117,13 @@ export struct ApiConfigPage {
                 isIlluminated: this.activeMenuId !== -1, // Illuminated if ANY button is touched
                 onTouchStart: () => { animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeMenuId = ApiMenuType.Prompt; }) },
                 onTouchEnd: () => { animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeMenuId = -1; }) },
-                onClickAction: () => this.onSelectMenu(ApiMenuType.Prompt)
+                onClickAction: () => { this.animateIndicator(ApiMenuType.Prompt); this.onSelectMenu(ApiMenuType.Prompt); }
               });
 
               // Menu Item: Polish Prompt (润色提示词)
               MenuButton({
-                label: 'Polish',
+                label: '润色提示词',
+                iconName: 'Polish',
                 menuType: ApiMenuType.PolishPrompt,
                 isSelected: this.selectedMenu === ApiMenuType.PolishPrompt,
                 isLightEffectBright: this.isLightEffectBright,
@@ -901,12 +1132,13 @@ export struct ApiConfigPage {
                 isIlluminated: this.activeMenuId !== -1,
                 onTouchStart: () => { animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeMenuId = ApiMenuType.PolishPrompt; }) },
                 onTouchEnd: () => { animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeMenuId = -1; }) },
-                onClickAction: () => this.onSelectMenu(ApiMenuType.PolishPrompt)
+                onClickAction: () => { this.animateIndicator(ApiMenuType.PolishPrompt); this.onSelectMenu(ApiMenuType.PolishPrompt); }
               });
 
-              // Menu Item 6: Glossary
+              // Menu Item: Glossary
               MenuButton({
-                label: 'Glossary',
+                label: '术语库',
+                iconName: 'Glossary',
                 menuType: ApiMenuType.Glossary,
                 isSelected: this.selectedMenu === ApiMenuType.Glossary,
                 isLightEffectBright: this.isLightEffectBright,
@@ -915,12 +1147,19 @@ export struct ApiConfigPage {
                 isIlluminated: this.activeMenuId !== -1,
                 onTouchStart: () => { animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeMenuId = ApiMenuType.Glossary; }) },
                 onTouchEnd: () => { animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeMenuId = -1; }) },
-                onClickAction: () => this.onSelectMenu(ApiMenuType.Glossary)
+                onClickAction: () => { this.animateIndicator(ApiMenuType.Glossary); this.onSelectMenu(ApiMenuType.Glossary); }
               });
 
-              // Menu Item 2: OpenAI
+              Text('提供商')
+                .fontSize(12)
+                .fontColor($r('sys.color.font_on_secondary'))
+                .margin({ left: 16, bottom: 8, top: 12 })
+                .height(20)
+
+              // Menu Item: OpenAI
               MenuButton({
                 label: 'OpenAI',
+                iconName: 'OpenAI',
                 menuType: ApiMenuType.OpenAI,
                 isSelected: this.selectedMenu === ApiMenuType.OpenAI,
                 isLightEffectBright: this.isLightEffectBright,
@@ -929,12 +1168,13 @@ export struct ApiConfigPage {
                 isIlluminated: this.activeMenuId !== -1,
                 onTouchStart: () => { animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeMenuId = ApiMenuType.OpenAI; }) },
                 onTouchEnd: () => { animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeMenuId = -1; }) },
-                onClickAction: () => this.onSelectMenu(ApiMenuType.OpenAI)
+                onClickAction: () => { this.animateIndicator(ApiMenuType.OpenAI); this.onSelectMenu(ApiMenuType.OpenAI); }
               });
 
               // Menu Item 3: DeepL
               MenuButton({
                 label: 'DeepL',
+                iconName: 'DeepL',
                 menuType: ApiMenuType.DeepL,
                 isSelected: this.selectedMenu === ApiMenuType.DeepL,
                 isLightEffectBright: this.isLightEffectBright,
@@ -943,12 +1183,13 @@ export struct ApiConfigPage {
                 isIlluminated: this.activeMenuId !== -1,
                 onTouchStart: () => { animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeMenuId = ApiMenuType.DeepL; }) },
                 onTouchEnd: () => { animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeMenuId = -1; }) },
-                onClickAction: () => this.onSelectMenu(ApiMenuType.DeepL)
+                onClickAction: () => { this.animateIndicator(ApiMenuType.DeepL); this.onSelectMenu(ApiMenuType.DeepL); }
               });
 
               // Menu Item 4: Ollama
               MenuButton({
                 label: 'Ollama',
+                iconName: 'Ollama',
                 menuType: ApiMenuType.Ollama,
                 isSelected: this.selectedMenu === ApiMenuType.Ollama,
                 isLightEffectBright: this.isLightEffectBright,
@@ -957,12 +1198,13 @@ export struct ApiConfigPage {
                 isIlluminated: this.activeMenuId !== -1,
                 onTouchStart: () => { animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeMenuId = ApiMenuType.Ollama; }) },
                 onTouchEnd: () => { animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeMenuId = -1; }) },
-                onClickAction: () => this.onSelectMenu(ApiMenuType.Ollama)
+                onClickAction: () => { this.animateIndicator(ApiMenuType.Ollama); this.onSelectMenu(ApiMenuType.Ollama); }
               });
 
               // Menu Item 5: Doubao
               MenuButton({
                 label: 'Doubao',
+                iconName: 'Doubao',
                 menuType: ApiMenuType.Doubao,
                 isSelected: this.selectedMenu === ApiMenuType.Doubao,
                 isLightEffectBright: this.isLightEffectBright,
@@ -971,24 +1213,23 @@ export struct ApiConfigPage {
                 isIlluminated: this.activeMenuId !== -1,
                 onTouchStart: () => { animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeMenuId = ApiMenuType.Doubao; }) },
                 onTouchEnd: () => { animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeMenuId = -1; }) },
-                onClickAction: () => this.onSelectMenu(ApiMenuType.Doubao)
+                onClickAction: () => { this.animateIndicator(ApiMenuType.Doubao); this.onSelectMenu(ApiMenuType.Doubao); }
               });
 
               Blank().height(16);
             }
-            .width('100%')
-            // .padding({ left: 4, right: 4, top: 24, bottom: 24 }) // Moved padding to Stack
             .justifyContent(FlexAlign.Start)
             .alignItems(HorizontalAlign.Start);
           }
-          .width('100%')
+          .backgroundBlurStyle(BlurStyle.BACKGROUND_THIN)
+          .backgroundColor(THEMES[this.themeColorIndex].tertiaryColor)
           .padding({ left: 4, right: 4, top: 24, bottom: 24 })
           .alignContent(Alignment.TopStart)
 
-          // --- Content Panel ---
+          // Content Panel
           this.ContentPanel()
         }
-        .sideBarWidth('160vp')
+        .sideBarWidth('200vp')
         .minContentWidth('360vp')
         .autoHide(true)
         .showSideBar($$this.isSideBarShown)
@@ -996,38 +1237,33 @@ export struct ApiConfigPage {
         .showControlButton(false)
         .width('100%')
         .height('100%')
-      }
-      .width('100%')
-      .height('100%')
-      .padding({ left: 0, right:0, top: 12, bottom: 0 })
-      .backgroundColor(Color.Transparent)
 
-      // Popup Anchor (Invisible)
-      // Positioning estimation: Right margin (~12) + Sidebar Button (~40) + Gap (~8) + Target Button (~40)
-      if (this.selectedMenu === ApiMenuType.OpenAI) {
-        Row()
-          .width(48)
-          .height(48)
-          .position({ right: 108, top: 38 }) // Adjusted for typical toolbar layout
-          .hitTestBehavior(HitTestMode.None) // Let clicks pass through to the real button below
-          .bindPopup(this.showOpenAIWarningPopup, {
-            message: 'OpenAI 在中国大陆、中国香港特别行政区和中国澳门特别行政区似乎不提供服务。请确认您能够访问该服务，并仔细阅读和遵守服务提供商的使用条款。',
-            placementOnTop: false,
-            showInSubWindow: false,
-            onStateChange: (e) => {
-              if (!e.isVisible) {
-                this.showOpenAIWarningPopup = false;
-              }
-            },
-            messageOptions: {
-              textColor: Color.White
-            },
-            enableArrow: false,
-            backgroundBlurStyle: BlurStyle.BACKGROUND_THIN,
-            transition: TransitionEffect.OPACITY.animation({ duration: 300, curve: Curve.FastOutSlowIn })
-          })
+        // Popup Anchor (Invisible)
+        // Positioning estimation: Right margin (~12) + Sidebar Button (~40) + Gap (~8) + Target Button (~40)
+        if (this.selectedMenu === ApiMenuType.OpenAI) {
+          Row()
+            .width(48)
+            .height(48)
+            .position({ right: 108, top: 38 }) // Adjusted for typical toolbar layout
+            .hitTestBehavior(HitTestMode.None) // Let clicks pass through to the real button below
+            .bindPopup(this.showOpenAIWarningPopup, {
+              message: 'OpenAI 在中国大陆、中国香港特别行政区和中国澳门特别行政区似乎不提供服务。请确认您能够访问该服务，并仔细阅读和遵守服务提供商的使用条款。',
+              placementOnTop: false,
+              showInSubWindow: false,
+              onStateChange: (e) => {
+                if (!e.isVisible) {
+                  this.showOpenAIWarningPopup = false;
+                }
+              },
+              messageOptions: {
+                textColor: Color.White
+              },
+              enableArrow: false,
+              backgroundBlurStyle: BlurStyle.BACKGROUND_THIN,
+              transition: TransitionEffect.OPACITY.animation({ duration: 300, curve: Curve.FastOutSlowIn })
+            })
+        }
       }
-    }
     }
     .mode(NavigationMode.Stack)
     .width('100%')
@@ -1100,6 +1336,9 @@ export struct ApiConfigPage {
   @Builder
   ContentPanel() {
     Column() {
+
+      Blank().height(30)
+
       // 可滚动的配置内容
       Stack({ alignContent: Alignment.Bottom }) {
         Scroll() {
@@ -1156,7 +1395,7 @@ export struct ApiConfigPage {
             this.RenderFloatingKeySlotSwitcher()
           }
           .width('100%')
-          .padding({ bottom: 120 })
+          .padding({ bottom: 80 })
         }
       }
       .width('100%')
@@ -1164,6 +1403,17 @@ export struct ApiConfigPage {
     }
     .width('100%')
     .height('100%')
+    .onClick(() => {
+      // 点击内容区域时关闭侧边栏
+      if (this.isSideBarShown) {
+        animateTo({
+          duration: 300,
+          curve: Curve.EaseInOut
+        }, () => {
+          this.isSideBarShown = false;
+        });
+      }
+    })
   }
 
   // 悬浮的密钥槽位切换器
@@ -1395,13 +1645,13 @@ export struct ApiConfigPage {
         .height(48)
         .margin({ bottom: 8 })
         .fillColor(Color.White)
-      Text('润色提示词 (Polish Prompt)')
+      Text('润色提示词')
         .fontSize(20)
         .fontWeight(FontWeight.Bold)
         .margin({ bottom: 12 })
         .fontColor(Color.White);
       
-      Text('设置 AI 润色文本时使用的提示词。使用 {text} 代表待润色的文本。')
+      Text('设置润色文本时使用的提示词。请确保提示词包含 {text}，代表待润色的文本。')
         .fontSize(14)
         .backgroundColor(Color.Transparent)
         .fontColor($r('sys.color.font_on_secondary'))
@@ -1431,7 +1681,7 @@ export struct ApiConfigPage {
         .height(48)
         .margin({ bottom: 8 })
         .fillColor(Color.White)
-      Text('术语库 (Glossary)').fontSize(20).fontWeight(FontWeight.Bold).margin({ bottom: 12 }).fontColor(Color.White);
+      Text('术语库').fontSize(20).fontWeight(FontWeight.Bold).margin({ bottom: 12 }).fontColor(Color.White);
       Text('每行输入一个术语对，格式为：原文 = 译文，例如：\nHarmonyOS = 鸿蒙\nAI = 人工智能')
         .fontSize(14)
         .backgroundColor(Color.Transparent)
@@ -1462,43 +1712,27 @@ function PromptContent(props: ApiConfigPageProps) {
       .height(48)
       .margin({ bottom: 8 })
       .fillColor(Color.White)
-    Text('翻译提示词 (Prompt)')
+    Text('翻译提示词')
       .fontColor(Color.White)
       .fontSize(20)
       .fontWeight(FontWeight.Bold)
       .margin({ bottom: 12 });
 
-    Column() {
-      Text('请确保提示词 (Prompt) 包含 {0} 与 [abc]。{0} 代表目标语言，[abc] 代表原始文本。')
-        .fontColor($r('sys.color.font_on_secondary'))
-        .fontSize(14)
-    }
-    .width('100%')
-    .padding(12)
-    .borderRadius(12)
-    .margin({ bottom: 16 })
+    Text('请确保提示词包含 {0} 与 [abc]。{0} 代表目标语言，[abc] 代表原始文本。')
+      .fontSize(14)
+      .backgroundColor(Color.Transparent)
+      .fontColor($r('sys.color.font_on_secondary'))
+      .margin({ bottom: 12 });
 
-    Column() {
-      Text('翻译 Prompt 文本')
-        .fontColor(Color.White)
-        .fontSize(16)
-        .backgroundColor(Color.Transparent)
-        .fontWeight(FontWeight.Medium)
-        .margin({ bottom: 8 });
-
-      TextArea({ text: props.promptText })
-        .fontColor(Color.White)
-        .width('100%')
-        .height(props.getConfigTextAreaHeight(6))
-        .maxLines(30)
-        .textAlign(TextAlign.Start)
-        .onChange((value: string) => props.onUpdatePrompt(value));
-    }
-    .width('100%')
-    .padding(12)
-    .borderRadius(16)
-
-    Blank().height(24);
+    TextArea({ text: props.promptText })
+      .fontColor(Color.White)
+      .width('100%')
+      .height(props.getConfigTextAreaHeight(12))
+      .maxLines(60)
+      .textAlign(TextAlign.Start)
+      .onChange((value: string) => props.onUpdatePrompt(value));
   }
-  .width('100%');
+  .width('100%')
+  .padding(12)
+  .borderRadius(12)
 }

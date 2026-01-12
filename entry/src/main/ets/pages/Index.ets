@@ -719,7 +719,7 @@ struct Index {
         this.showContinueRecordingDialog();
       } else {
         promptAction.showToast({
-          message: '已从其他设备接续字幕和翻译',
+          message: '已从其他设备接续',
           duration: 2000
         });
       }
@@ -763,7 +763,7 @@ struct Index {
       console.error('[Index] showContinueRecordingDialog error: ' + JSON.stringify(err));
       // 对话框失败时默认显示提示
       promptAction.showToast({
-        message: '已从其他设备接续字幕',
+        message: '已从其他设备接续',
         duration: 2000
       });
     });
