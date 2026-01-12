@@ -476,6 +476,200 @@ struct OptionSelectorSheet {
   }
 }
 
+// 语言选择器底部弹出组件（垂直列表样式）
+@Component
+struct LanguageSelectorSheet {
+  title: string = '';
+  description: string = '';
+  options: string[] = [];
+  @Prop selectedIndex: number = 0;
+  @Prop isDarkMode: boolean = true;
+  @Prop isLightEffectBright: boolean = true;
+  onSelect: (index: number) => void = () => {};
+  onClose: () => void = () => {};
+  @StorageLink('themeColorIndex') themeColorIndex: number = 0;
+
+  @State itemScales: number[] = [];
+  @State itemOpacities: number[] = [];
+  @State pressedIndex: number = -1;
+  @State headerOpacity: number = 0;
+  @State headerOffsetY: number = -20;
+  @State activeItemIndex: number = -1;
+
+  aboutToAppear() {
+    this.itemScales = this.options.map(() => 0.85);
+    this.itemOpacities = this.options.map(() => 0);
+    
+    // 标题动画
+    setTimeout(() => {
+      animateTo({
+        duration: 300,
+        curve: Curve.FastOutSlowIn
+      }, () => {
+        this.headerOpacity = 1;
+        this.headerOffsetY = 0;
+      });
+    }, 50);
+    
+    // 逐个动画显示选项
+    this.options.forEach((_, i) => {
+      setTimeout(() => {
+        animateTo({
+          duration: 280,
+          curve: Curve.FastOutSlowIn
+        }, () => {
+          this.itemScales[i] = 1.0;
+          this.itemOpacities[i] = 1.0;
+        });
+      }, 120 + i * 50);
+    });
+  }
+
+  build() {
+    Column() {
+      // 顶部拖动指示条
+      Row()
+        .width(40)
+        .height(4)
+        .borderRadius(2)
+        .backgroundColor('#50FFFFFF')
+        .margin({ top: 12, bottom: 20 })
+
+      // 标题区域
+      Column() {
+        Text(this.title)
+          .fontSize(22)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(Color.White)
+          .margin({ bottom: 6 })
+
+        // 描述
+        if (this.description) {
+          Text(this.description)
+            .fontSize(13)
+            .fontColor('#BBFFFFFF')
+            .textAlign(TextAlign.Center)
+            .maxLines(2)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+        }
+      }
+      .opacity(this.headerOpacity)
+      .offset({ y: this.headerOffsetY })
+      .margin({ bottom: 20, left: 24, right: 24 })
+
+      // 语言列表（垂直排列，每个语言单独一行）
+      Column({ space: 8 }) {
+        ForEach(this.options, (option: string, index: number) => {
+          this.LanguageItem(option, index)
+        })
+      }
+      .alignItems(HorizontalAlign.Center)
+
+      // 完成按钮
+      Button('完成')
+        .width('90%')
+        .height(50)
+        .fontSize(16)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(THEMES[this.themeColorIndex].primaryColor)
+        .backgroundColor('#F5FFFFFF')
+        .borderRadius(25)
+        .margin({ top: 28, bottom: 28 })
+        .onClick(() => this.onClose())
+    }
+    .width('100%')
+    .padding({ bottom: 16 })
+    .backgroundColor(Color.Transparent)
+    .backgroundBlurStyle(BlurStyle.BACKGROUND_ULTRA_THICK)
+    .borderRadius({ topLeft: 28, topRight: 28 })
+    .linearGradient({
+      angle: 180,
+      colors: this.isDarkMode
+        ? [['#FF000000', 0.0], ['#FF000000', 1.0]]
+        : [[THEMES[this.themeColorIndex].primaryColor.replace('#', '#E0'), 0.0], [THEMES[this.themeColorIndex].primaryColor.replace('#', '#F0'), 1.0]]
+    })
+  }
+
+  @Builder
+  LanguageItem(option: string, index: number) {
+    Row() {
+      Text(option)
+        .fontSize(15)
+        .fontWeight(FontWeight.Medium)
+        .fontColor(this.selectedIndex === index ? THEMES[this.themeColorIndex].primaryColor : Color.White)
+        .transition(TransitionEffect.OPACITY.animation({ duration: 200, curve: Curve.EaseOut }))
+      
+      Blank()
+      
+      // 选中指示图标
+      if (this.selectedIndex === index) {
+        SymbolGlyph($r('sys.symbol.checkmark'))
+          .fontSize(16)
+          .fontColor([THEMES[this.themeColorIndex].primaryColor])
+      }
+    }
+    .width(200)
+    .height(48)
+    .padding({ left: 20, right: 20 })
+    .justifyContent(FlexAlign.Center)
+    .backgroundColor(this.selectedIndex === index
+      ? Color.White
+      : (this.pressedIndex === index ? '#33FFFFFF' : '#14FFFFFF'))
+    .borderRadius(20)
+    .opacity(this.itemOpacities[index] ?? 1)
+    .border({
+      width: 1.5,
+      color: this.selectedIndex === index
+        ? THEMES[this.themeColorIndex].primaryColor
+        : Color.Transparent,
+      style: BorderStyle.Solid
+    })
+    .renderFit(RenderFit.CENTER)
+    .scale({
+      x: this.pressedIndex === index ? 0.97 : (this.selectedIndex === index ? 1.01 : 1.0),
+      y: this.pressedIndex === index ? 0.97 : (this.selectedIndex === index ? 1.01 : 1.0)
+    })
+    .animation({
+      duration: 180,
+      curve: Curve.FastOutSlowIn
+    })
+    .visualEffect(new hdsEffect.HdsEffectBuilder()
+      .pointLight({
+        sourceType: this.isDarkMode ? hdsEffect.PointLightSourceType.NONE :
+          (this.activeItemIndex === index
+            ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT)
+            : hdsEffect.PointLightSourceType.NONE),
+        illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE :
+          (this.activeItemIndex !== -1
+            ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
+            : hdsEffect.PointLightIlluminatedType.NONE)
+      })
+      .buildEffect())
+    .onClick(() => {
+      this.onSelect(index);
+    })
+    .onTouch((e: TouchEvent) => {
+      if (e.type === TouchType.Down) {
+        animateTo({
+          duration: 150,
+          curve: Curve.EaseOut
+        }, () => {
+          this.pressedIndex = index;
+          this.activeItemIndex = index;
+        });
+      } else if (e.type === TouchType.Up || e.type === TouchType.Cancel) {
+        animateTo({
+          duration: 200,
+          curve: Curve.EaseIn
+        }, () => {
+          this.pressedIndex = -1;
+          this.activeItemIndex = -1;
+        });
+      }
+    })
+  }
+}
+
 @Component
 struct ConfigCard {
   title: string = '';
@@ -675,6 +869,7 @@ export struct ConfigurationPage {
   onCycleApi: () => void = () => {};
   onSelectApi: (apiIndex: number, slotIndex: number) => void = () => {}; // 新的 API 选择回调
   onCycleLanguage: () => void = () => {};
+  onSelectLanguage: (index: number) => void = () => {};
   onOpenApiSettings: () => void = () => {};
   onSelectInterval: (index: number) => void = () => {};
   onSelectContexts: (index: number) => void = () => {};
@@ -817,6 +1012,9 @@ export struct ConfigurationPage {
         break;
       case 'minMatch':
         this.onSelectMinMatchLen(index);
+        break;
+      case 'language':
+        this.onSelectLanguage(index);
         break;
     }
   }
@@ -1253,12 +1451,18 @@ export struct ConfigurationPage {
                 icon: $r('sys.symbol.translate_e2c'),
                 isLightEffectBright: this.isLightEffectBright,
                 isDarkMode: this.isDarkMode,
-                callback: () => this.onCycleLanguage(),
+                callback: () => this.openOptionSheet(
+                  '目标语言',
+                  '翻译、扫描结果将输出为所选语言',
+                  this.getLanguageLabels(),
+                  this.selectedLanguageIndex,
+                  'language'
+                ),
                 activeBtn: $activeBtn,
                 onInfoClick: () => {
                   AlertDialog.show({
                     title: '目标语言说明',
-                    message: '翻译、扫描结果将输出为目标语言，点击切换下一个语言。',
+                    message: '翻译、扫描结果将输出为目标语言，点击选择语言。',
                     confirm: {
                       value: '我知道了',
                       fontColor: THEMES[this.themeColorIndex].primaryColor,
@@ -1701,6 +1905,22 @@ export struct ConfigurationPage {
         isLightEffectBright: this.isLightEffectBright,
         onSelect: (apiIndex: number, slotIndex: number) => {
           this.onSelectApi(apiIndex, slotIndex);
+        },
+        onClose: () => {
+          this.isSheetVisible = false;
+        }
+      })
+    } else if (this.sheetType === 'language') {
+      LanguageSelectorSheet({
+        title: this.sheetTitle,
+        description: this.sheetDescription,
+        options: this.sheetOptions,
+        selectedIndex: this.sheetSelectedIndex,
+        isDarkMode: this.isDarkMode,
+        isLightEffectBright: this.isLightEffectBright,
+        onSelect: (index: number) => {
+          this.sheetSelectedIndex = index;
+          this.handleSheetSelect(index);
         },
         onClose: () => {
           this.isSheetVisible = false;

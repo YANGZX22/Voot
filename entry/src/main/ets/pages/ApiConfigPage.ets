@@ -1022,6 +1022,7 @@ export struct ApiConfigPage {
             messageOptions: {
               textColor: Color.White
             },
+            enableArrow: false,
             backgroundBlurStyle: BlurStyle.BACKGROUND_THIN,
             transition: TransitionEffect.OPACITY.animation({ duration: 300, curve: Curve.FastOutSlowIn })
           })
@@ -1265,7 +1266,7 @@ export struct ApiConfigPage {
       Text('API Key').fontSize(14).margin({ bottom: 4 }).fontColor(Color.White);
       TextArea({ text: this.openAiApiKey ? '••••••••••••' : '未配置' })
         .backgroundColor(Color.Transparent)
-        .fontColor(this.openAiApiKey ? Color.White : Color.Gray)
+        .fontColor(Color.White)
         .width('100%')
         .height(this.getConfigTextAreaHeight(4))
         .maxLines(6)
@@ -1276,7 +1277,7 @@ export struct ApiConfigPage {
       Text('Model').fontSize(14).margin({ bottom: 4 }).fontColor(Color.White);
       TextArea({ text: this.openAiModel || '未配置' })
         .backgroundColor(Color.Transparent)
-        .fontColor(this.openAiModel ? Color.White : Color.Gray)
+        .fontColor(Color.White)
         .width('100%')
         .height(this.getConfigTextAreaHeight(3))
         .maxLines(4)
@@ -1305,7 +1306,7 @@ export struct ApiConfigPage {
       Text('API Key').fontSize(14).margin({ bottom: 4 }).fontColor(Color.White);
       TextArea({ text: this.deepLApiKey ? '••••••••••••' : '未配置' })
         .backgroundColor(Color.Transparent)
-        .fontColor(this.deepLApiKey ? Color.White : Color.Gray)
+        .fontColor(Color.White)
         .width('100%')
         .height(this.getConfigTextAreaHeight(4))
         .maxLines(6)
@@ -1323,7 +1324,7 @@ export struct ApiConfigPage {
       Text('API Url').fontSize(14).margin({ bottom: 4 }).fontColor(Color.White);
       TextArea({ text: this.ollamaApiUrl || '未配置' })
         .backgroundColor(Color.Transparent)
-        .fontColor(this.ollamaApiUrl ? Color.White : Color.Gray)
+        .fontColor(Color.White)
         .width('100%')
         .height(this.getConfigTextAreaHeight(4))
         .maxLines(6)
@@ -1334,7 +1335,7 @@ export struct ApiConfigPage {
       Text('Model').fontSize(14).margin({ bottom: 4 }).fontColor(Color.White);
       TextArea({ text: this.ollamaModel || '未配置' })
         .backgroundColor(Color.Transparent)
-        .fontColor(this.ollamaModel ? Color.White : Color.Gray)
+        .fontColor(Color.White)
         .width('100%')
         .height(this.getConfigTextAreaHeight(3))
         .maxLines(4)
@@ -1363,7 +1364,7 @@ export struct ApiConfigPage {
       Text('API Key').fontSize(14).margin({ bottom: 4 }).fontColor(Color.White);
       TextArea({ text: this.doubaoApiKey ? '••••••••••••' : '未配置' })
         .backgroundColor(Color.Transparent)
-        .fontColor(this.doubaoApiKey ? Color.White : Color.Gray)
+        .fontColor(Color.White)
         .width('100%')
         .height(this.getConfigTextAreaHeight(4))
         .maxLines(6)
@@ -1374,7 +1375,7 @@ export struct ApiConfigPage {
       Text('Model').fontSize(14).margin({ bottom: 4 }).fontColor(Color.White);
       TextArea({ text: this.doubaoModel || '未配置' })
         .backgroundColor(Color.Transparent)
-        .fontColor(this.doubaoModel ? Color.White : Color.Gray)
+        .fontColor(Color.White)
         .width('100%')
         .height(this.getConfigTextAreaHeight(3))
         .maxLines(4)

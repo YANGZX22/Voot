@@ -1247,7 +1247,7 @@ export struct ScanPage {
           })
         }
         .width('100%')
-        .padding({ left: 16, right: 16, bottom: 80 })
+        .padding({ left: 16, right: 16, bottom: 70 })
       }
     }
     .width('100%')

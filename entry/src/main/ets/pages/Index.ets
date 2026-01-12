@@ -14,6 +14,7 @@
 import http from '@ohos.net.http';
 import router from '@ohos.router';
 import { TextReader } from '@kit.SpeechKit';
+import image from '@ohos.multimedia.image';
 import { SherpaWhisperMicService, AsrResult, AsrResultCallback, AsrErrorCallback } from '../services/SherpaWhisperMicService';
 import abilityAccessCtrl, { Permissions, PermissionRequestResult } from '@ohos.abilityAccessCtrl';
 import type { BusinessError } from '@ohos.base';
@@ -223,6 +224,13 @@ struct Index {
 
   // Under Configuration: main vs API Settings subpage
   @State showApiSettings: boolean = false;
+  
+  // 进入 ApiConfigPage 前保存的状态（用于退出时恢复）
+  private savedSelectedApiIndex: number = 0;
+  private savedOpenAiSlotIndex: number = 0;
+  private savedDeepLSlotIndex: number = 0;
+  private savedOllamaSlotIndex: number = 0;
+  private savedDoubaoSlotIndex: number = 0;
 
   // Configuration main-page state
   @State apiOptions: string[] = ['OpenAI', 'DeepL', 'Ollama', 'Doubao'];
@@ -240,7 +248,7 @@ struct Index {
   @State intervalOptions: string[] = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
   @State intervalIndex: number = 4;
 
-  @StorageLink('themeColorIndex') themeColorIndex: number = 0;
+  @StorageLink('themeColorIndex') @Watch('onThemeColorChanged') themeColorIndex: number = 0;
 
   @State contextsOptions: string[] = ['1', '2', '3', '4', '5', '6'];
   @State contextsIndex: number = 2;
@@ -522,6 +530,7 @@ struct Index {
   private readonly realtimeMaxChars: number = 250; // keep display short
   private lastRealtimeTranslateTs: number = 0;
   private lastTtsPlayTime: number = 0;
+  private ttsCoverImage?: image.PixelMap;  // TTS 封面图
   private lastAsrUpdateTs: number = 0;
   private contextHistory: string[] = [];
   private lastTranslatedText: string = ''; // avoid duplicate translations
@@ -1092,6 +1101,9 @@ struct Index {
     // 检查验证状态和 IP
     this.checkVerificationAndIp();
 
+    // 加载 TTS 封面图
+    this.loadTtsCoverImage();
+
     // Initialize theme mode from system setting
     if (this.themeMode === 2) {
       if (this.currentMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK) {
@@ -1458,6 +1470,37 @@ struct Index {
       this.doubaoApiKey = doubaoSlot.apiKey;
       this.doubaoModel = doubaoSlot.model;
     }
+  }
+
+  // 保存当前选择状态（进入 ApiConfigPage 前调用）
+  private saveCurrentSelectionState(): void {
+    this.savedSelectedApiIndex = this.selectedApiIndex;
+    this.savedOpenAiSlotIndex = this.openAiKeySlots.currentSlotIndex;
+    this.savedDeepLSlotIndex = this.deepLKeySlots.currentSlotIndex;
+    this.savedOllamaSlotIndex = this.ollamaKeySlots.currentSlotIndex;
+    this.savedDoubaoSlotIndex = this.doubaoKeySlots.currentSlotIndex;
+  }
+
+  // 恢复选择状态（退出 ApiConfigPage 时调用）
+  private restoreSelectionState(): void {
+    this.selectedApiIndex = this.savedSelectedApiIndex;
+    this.openAiKeySlots = {
+      slots: this.openAiKeySlots.slots,
+      currentSlotIndex: this.savedOpenAiSlotIndex
+    };
+    this.deepLKeySlots = {
+      slots: this.deepLKeySlots.slots,
+      currentSlotIndex: this.savedDeepLSlotIndex
+    };
+    this.ollamaKeySlots = {
+      slots: this.ollamaKeySlots.slots,
+      currentSlotIndex: this.savedOllamaSlotIndex
+    };
+    this.doubaoKeySlots = {
+      slots: this.doubaoKeySlots.slots,
+      currentSlotIndex: this.savedDoubaoSlotIndex
+    };
+    this.syncCurrentSlotToCompatFields();
   }
 
   // 检查指定槽位是否有效
@@ -2149,6 +2192,7 @@ struct Index {
                 isLightEffectBright: this.isLightEffectBright,
                 isDarkMode: this.isDarkMode,
                 onBack: () => {
+                  this.restoreSelectionState(); // 恢复进入前的状态
                   this.currentTab = 0;
                   this.showApiSettings = false;
                 },
@@ -2163,32 +2207,32 @@ struct Index {
                     slots: this.openAiKeySlots.slots,
                     currentSlotIndex: index
                   };
+                  // 仅更新兼容字段用于显示，不持久化（用户只是在浏览）
                   this.syncCurrentSlotToCompatFields();
-                  this.persistApiConfigSnapshot();
                 },
                 onSwitchDeepLSlot: (index: number) => {
                   this.deepLKeySlots = {
                     slots: this.deepLKeySlots.slots,
                     currentSlotIndex: index
                   };
+                  // 仅更新兼容字段用于显示，不持久化（用户只是在浏览）
                   this.syncCurrentSlotToCompatFields();
-                  this.persistApiConfigSnapshot();
                 },
                 onSwitchOllamaSlot: (index: number) => {
                   this.ollamaKeySlots = {
                     slots: this.ollamaKeySlots.slots,
                     currentSlotIndex: index
                   };
+                  // 仅更新兼容字段用于显示，不持久化（用户只是在浏览）
                   this.syncCurrentSlotToCompatFields();
-                  this.persistApiConfigSnapshot();
                 },
                 onSwitchDoubaoSlot: (index: number) => {
                   this.doubaoKeySlots = {
                     slots: this.doubaoKeySlots.slots,
                     currentSlotIndex: index
                   };
+                  // 仅更新兼容字段用于显示，不持久化（用户只是在浏览）
                   this.syncCurrentSlotToCompatFields();
-                  this.persistApiConfigSnapshot();
                 },
                 // 更新内容回调（同时更新槽位和兼容字段）
                 onUpdateOpenAiApiUrl: (value: string) => {
@@ -2346,7 +2390,12 @@ struct Index {
                     (this.selectedLanguageIndex + 1) % this.languageOptions.length;
                   this.persistApiConfigSnapshot();
                 },
+                onSelectLanguage: (index: number) => {
+                  this.selectedLanguageIndex = index;
+                  this.persistApiConfigSnapshot();
+                },
                 onOpenApiSettings: () => {
+                  this.saveCurrentSelectionState(); // 保存当前状态
                   this.showApiSettings = true;
                   this.selectedMenu = this.mapApiIndexToMenu(this.selectedApiIndex);
                 },
@@ -2844,13 +2893,56 @@ struct Index {
       if (now - this.lastTtsPlayTime >= intervalMs) {
         const readInfoList: TextReader.ReadInfo[] = [{
           id: now.toString(),
-          title: { text: '同声传译中...', isClickable: false },
-          bodyInfo: this.translatedDemoText
+          title: { text: this.translatedDemoText, isClickable: false },
+          bodyInfo: this.translatedDemoText,
+          image: this.ttsCoverImage
         }];
         TextReader.start(readInfoList);
         this.lastTtsPlayTime = now;
       }
     }
+  }
+
+  /**
+   * 加载 TTS 封面图（使用当前主题背景图，裁剪为正方形）
+   */
+  private async loadTtsCoverImage(): Promise<void> {
+    try {
+      const ctx = getContext(this) as common.UIAbilityContext;
+      const resourceMgr = ctx.resourceManager;
+      // 使用当前主题的背景图作为封面图
+      const themeBackgroundImage = THEMES[this.themeColorIndex].backgroundImage;
+      if (!themeBackgroundImage) {
+        console.warn('[Index] No background image for current theme');
+        return;
+      }
+      const imageData = await resourceMgr.getMediaContent(themeBackgroundImage);
+      const imageSource = image.createImageSource(imageData.buffer);
+      const pixelMap = await imageSource.createPixelMap();
+      
+      // 获取图片尺寸并裁剪为正方形
+      const imageInfo = await pixelMap.getImageInfo();
+      const width = imageInfo.size.width;
+      const height = imageInfo.size.height;
+      const size = Math.min(width, height);
+      const x = Math.floor((width - size) / 2);
+      const y = Math.floor((height - size) / 2);
+      
+      // 裁剪为正方形（居中裁剪）
+      await pixelMap.crop({ x: x, y: y, size: { width: size, height: size } });
+      
+      this.ttsCoverImage = pixelMap;
+      console.info('[Index] TTS cover image loaded and cropped to square: ' + size + 'x' + size);
+    } catch (e) {
+      console.error('[Index] Failed to load TTS cover image: ' + JSON.stringify(e));
+    }
+  }
+
+  /**
+   * 主题颜色变化时重新加载封面图
+   */
+  private onThemeColorChanged(): void {
+    this.loadTtsCoverImage();
   }
 
 

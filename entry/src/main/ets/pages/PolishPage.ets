@@ -794,6 +794,9 @@ export struct PolishPage {
       HdsNavigation() {
         Column() {
           Blank().height(TITLE_BAR_HEIGHT_MINI)
+          
+          // 顶部间距，与翻译页面保持一致
+          Blank().height(16)
 
           // 响应式布局容器
           if (this.isLandscape) {
@@ -807,7 +810,6 @@ export struct PolishPage {
             .layoutWeight(1)
             .backgroundColor(Color.Transparent)
             .borderRadius(20)
-            .margin({ bottom: 20 })
           } else {
             // 纵向布局：上-中-下
             Column({ space: 0 }) {
@@ -819,12 +821,11 @@ export struct PolishPage {
             .layoutWeight(1)
             .backgroundColor(Color.Transparent)
             .borderRadius(20)
-            .margin({ bottom: 20 })
           }
         }
         .width('100%')
         .height('100%')
-        .padding({ left: 16, right: 16, bottom: 50 })
+        .padding({ left: 16, right: 16, bottom: 70 })
         .onAreaChange((oldArea: Area, newArea: Area) => {
           const width = newArea.width as number;
           const height = newArea.height as number;

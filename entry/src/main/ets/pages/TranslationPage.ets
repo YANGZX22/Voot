@@ -346,7 +346,7 @@ export struct TranslationPage {
               }
             }
             .width('100%')
-            .margin({ bottom: 16 });
+            .margin({ bottom: 12 });
           }
 
           if (!this.isLandscape) {
@@ -392,7 +392,7 @@ export struct TranslationPage {
             }
             .width('100%')
             .padding(4)
-            .margin({ bottom: 16 })
+            .margin({ bottom: 12 })
             .borderRadius(12)
             .backgroundColor(Color.Transparent);
           }
@@ -546,7 +546,7 @@ export struct TranslationPage {
             }
             .width('100%')
             .layoutWeight(1)
-            .margin({ bottom: 16 });
+            .margin({ bottom: 12 });
 
             Row() {
               Button() {
@@ -624,7 +624,7 @@ export struct TranslationPage {
             }
             .width('100%')
             .padding(4)
-            .margin({ bottom: 16 })
+            .margin({ bottom: 12 })
             .borderRadius(12)
             .backgroundColor(Color.Transparent);
 
@@ -638,7 +638,7 @@ export struct TranslationPage {
         .height('100%')
         .width('100%')
         .layoutWeight(1)
-        .padding({ left: 24, right: 24, top: 16, bottom: 70 })
+        .padding({ left: 16, right: 16, top: 16, bottom: 70 })
         .onAreaChange((_oldValue: Area, newValue: Area) => {
           const width = newValue.width as number;
           const height = newValue.height as number;
@@ -895,7 +895,8 @@ export struct TranslationPage {
         .height('100%')
         .fontColor(Color.White)
         .placeholderColor($r('sys.color.font_on_secondary'))
-        .fontSize(16)
+        .fontSize(15)
+        .lineHeight(24)
         .backgroundColor(Color.Transparent)
         .borderRadius(0)
         .padding({ left: 16, right: 16, bottom: 16 })
@@ -953,7 +954,8 @@ export struct TranslationPage {
           .height('100%')
           .fontColor(Color.White)
           .placeholderColor($r('sys.color.font_on_secondary'))
-          .fontSize(16)
+          .fontSize(15)
+          .lineHeight(24)
           .backgroundColor(Color.Transparent)
           .borderRadius(0)
           .padding({ left: 16, right: 16, bottom: 16 })
