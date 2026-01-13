@@ -4,7 +4,7 @@ import { userAuth } from '@kit.UserAuthenticationKit';
 import userIAM_userAuth from '@ohos.userIAM.userAuth';
 import { TokenUsageChart } from '../components/TokenUsageChart';
 import { THEMES } from '../model/Theme';
-import { ColorMetrics, promptAction } from '@kit.ArkUI';
+import { ColorMetrics, curves, promptAction } from '@kit.ArkUI';
 import { BusinessError } from '@kit.BasicServicesKit';
 
 const TITLE_BAR_HEIGHT_MINI: number = 110;
@@ -788,6 +788,7 @@ struct ConfigCard {
           : hdsEffect.PointLightIlluminatedType.NONE)
       })
       .buildEffect())
+    .shadow({ radius: 20, color: '#1A000000'})
   }
 
   handleTouch(event: TouchEvent): void {
@@ -1366,7 +1367,7 @@ export struct ConfigurationPage {
                 onInfoClick: () => {
                   AlertDialog.show({
                     title: '选择 API 说明',
-                    message: '点击切换可用的翻译 / LLM 服务：OpenAI、DeepL、Ollama、Doubao。选择后请在“配置API”里填写对应地址、（模型）和密钥。\nDoubao 并非仅限于“豆包”，支持广义HTTP请求大模型。',
+                    message: '点击选择已验证的翻译 / LLM 服务。',
                     confirm: {
                       value: '我知道了',
                       fontColor: THEMES[this.themeColorIndex].primaryColor,
@@ -1387,7 +1388,11 @@ export struct ConfigurationPage {
                 icon: $r('sys.symbol.gearshape'),
                 isLightEffectBright: this.isLightEffectBright,
                 isDarkMode: this.isDarkMode,
-                callback: () => this.handleConfigApi(),
+                callback: () => {
+                  animateTo({ duration: 400, curve: Curve.FastOutSlowIn }, () => {
+                    this.handleConfigApi()
+                  })
+                },
                 isSymbol: true,
                 showLockIcon: this.apiConfigRequireScreenLock,
                 activeBtn: $activeBtn,

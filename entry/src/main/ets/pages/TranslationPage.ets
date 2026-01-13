@@ -37,6 +37,7 @@ export struct TranslationPage {
   @Prop isDarkMode: boolean = true;
   @Prop isLeftHand: boolean = false;
   @Prop isRightHand: boolean = false;
+  @Prop isHistoryOpen: boolean = false;
   @StorageLink('themeColorIndex') @Watch('onThemeColorChange') themeColorIndex: number = 0;
 
   // Callbacks
@@ -294,137 +295,77 @@ export struct TranslationPage {
     HdsNavigation() {
       Stack({ alignContent: Alignment.TopStart }) {
         Scroll() {
-        Column() {
-          Blank().height(TITLE_BAR_HEIGHT_MINI);
+          Column() {
+            Blank().height(TITLE_BAR_HEIGHT_MINI);
 
-          if (this.currentApiLabel || this.currentLanguageLabel) {
-            Row() {
-              if (this.currentApiLabel) {
-                Column() {
-                  Text('当前选择 API')
-                    .fontSize(12)
-                    .fontColor($r('sys.color.font_on_secondary'))
-                    .margin({ bottom: 4 });
-                  Text(this.currentApiLabel)
-                    .fontSize(14)
-                    .fontColor(Color.White)
-                    .fontWeight(FontWeight.Medium);
+            if (this.currentApiLabel || this.currentLanguageLabel) {
+              Row() {
+                if (this.currentApiLabel) {
+                  Column() {
+                    Text('当前选择 API')
+                      .fontSize(12)
+                      .fontColor($r('sys.color.font_on_secondary'))
+                      .margin({ bottom: 4 });
+                    Text(this.currentApiLabel)
+                      .fontSize(14)
+                      .fontColor(Color.White)
+                      .fontWeight(FontWeight.Medium);
+                  }
+                  .backgroundColor(THEMES[this.themeColorIndex].secondaryColor)
+                  .padding({ left: 12, right: 12, top: 12, bottom: 12 })
+                  .borderRadius(24)
+                  .layoutWeight(1)
+                  .visualEffect(new hdsEffect.HdsEffectBuilder()
+                    .pointLight({
+                      illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
+                    })
+                    .buildEffect())
+                  .margin({ right: this.currentLanguageLabel ? 8 : 0 });
                 }
-                .backgroundColor(THEMES[this.themeColorIndex].secondaryColor)
-                .padding({ left: 12, right: 12, top: 12, bottom: 12 })
-                .borderRadius(24)
-                .layoutWeight(1)
-                .visualEffect(new hdsEffect.HdsEffectBuilder()
-                  .pointLight({
-                    illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
-                  })
-                  .buildEffect())
-                .margin({ right: this.currentLanguageLabel ? 8 : 0 });
-              }
 
-              if (this.currentLanguageLabel) {
-                Column() {
-                  Text('当前目标语言')
-                    .fontSize(12)
-                    .fontColor($r('sys.color.font_on_secondary'))
-                    .margin({ bottom: 4 });
-                  Text(this.currentLanguageLabel)
-                    .fontSize(14)
-                    .fontColor(Color.White)
-                    .fontWeight(FontWeight.Medium);
-                }
-                .padding({ left: 12, right: 12, top: 12, bottom: 12 })
-                .backgroundColor(THEMES[this.themeColorIndex].secondaryColor)
-                .borderRadius(24)
-                .layoutWeight(1)
-                .visualEffect(new hdsEffect.HdsEffectBuilder()
-                  .pointLight({
-                    illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
-                  })
-                  .buildEffect())
-                .margin({ left: this.currentApiLabel ? 8 : 0 });
-              }
-            }
-            .width('100%')
-            .margin({ bottom: 12 });
-          }
-
-          if (!this.isLandscape) {
-            Row() {
-              Button() {
-                Row() {
-                  SymbolGlyph(this.isListening ? $r('sys.symbol.square') : $r('sys.symbol.mic'))
-                    .fontSize(18)
-                    .fontColor([this.btn1TextColor])
-                    .margin({ right: 8 })
-                  Text(this.isListening ? '关闭麦克风' : '开启麦克风')
-                    .fontSize(16)
-                    .fontColor(this.btn1TextColor)
+                if (this.currentLanguageLabel) {
+                  Column() {
+                    Text('当前目标语言')
+                      .fontSize(12)
+                      .fontColor($r('sys.color.font_on_secondary'))
+                      .margin({ bottom: 4 });
+                    Text(this.currentLanguageLabel)
+                      .fontSize(14)
+                      .fontColor(Color.White)
+                      .fontWeight(FontWeight.Medium);
+                  }
+                  .padding({ left: 12, right: 12, top: 12, bottom: 12 })
+                  .backgroundColor(THEMES[this.themeColorIndex].secondaryColor)
+                  .borderRadius(24)
+                  .layoutWeight(1)
+                  .visualEffect(new hdsEffect.HdsEffectBuilder()
+                    .pointLight({
+                      illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
+                    })
+                    .buildEffect())
+                  .margin({ left: this.currentApiLabel ? 8 : 0 });
                 }
               }
               .width('100%')
-              .height(40)
-              .backgroundColor(this.btn1BgColor)
-              .scale({ x: this.button1Scale, y: this.button1Scale })
-              .enabled(this.isAsrReady || !this.isListening)
-              .visualEffect(new hdsEffect.HdsEffectBuilder()
-                .pointLight({
-                  sourceType: this.isDarkMode ? hdsEffect.PointLightSourceType.NONE :
-                  (this.activeBtn === 1 || this.isListening
-                    ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT)
-                    : hdsEffect.PointLightSourceType.NONE),
-                  illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE : hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
-                })
-                .buildEffect())
-              .onTouch((event: TouchEvent) => {
-                if (event.type === TouchType.Down) {
-                  this.pressButton(1); // Pass ID 1
-                  animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeBtn = 1; });
-                } else if (event.type === TouchType.Up) {
-                  this.leaveButton(1, true); // Pass ID 1, isUp=true
-                  animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeBtn = 0; });
-                } else if (event.type === TouchType.Cancel) {
-                  this.leaveButton(1, false); // Pass ID 1, isUp=false
-                  animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeBtn = 0; });
-                }
-              })
-              .onClick(() => this.onToggleCaptioning());
+              .margin({ bottom: 12 });
             }
-            .width('100%')
-            .padding(4)
-            .margin({ bottom: 12 })
-            .borderRadius(12)
-            .backgroundColor(Color.Transparent);
-          }
 
-          // 文本区域 - 响应式布局
-          if (this.isLandscape) {
-            // 宽屏模式：左文本框-中间圆形按钮-右文本框
-            Row({ space: 0 }) {
-              Column() {
-                this.OriginalTextPanel()
-              }
-              .layoutWeight(1)
-              .height('100%')
-
-              // 中间操作按钮栏
-              Flex({
-                direction: FlexDirection.Column,
-                justifyContent: FlexAlign.Center,
-                alignItems: ItemAlign.Center
-              }) {
-                // 开启/关闭麦克风
-                Row() {
-                  SymbolGlyph(this.isListening ? $r('sys.symbol.square') : $r('sys.symbol.mic'))
-                    .fontSize(18)
-                    .fontColor([this.btn1TextColor])
+            if (!this.isLandscape) {
+              Row() {
+                Button() {
+                  Row() {
+                    SymbolGlyph(this.isListening ? $r('sys.symbol.square') : $r('sys.symbol.mic'))
+                      .fontSize(18)
+                      .fontColor([this.btn1TextColor])
+                      .margin({ right: 8 })
+                    Text(this.isListening ? '关闭麦克风' : '开启麦克风')
+                      .fontSize(16)
+                      .fontColor(this.btn1TextColor)
+                  }
                 }
-                .width(44)
-                .height(44)
-                .justifyContent(FlexAlign.Center)
+                .width('100%')
+                .height(40)
                 .backgroundColor(this.btn1BgColor)
-                .borderRadius(22)
-                .shadow({ radius: 8, color: 'rgba(0,0,0,0.2)', offsetY: 4 })
                 .scale({ x: this.button1Scale, y: this.button1Scale })
                 .enabled(this.isAsrReady || !this.isListening)
                 .visualEffect(new hdsEffect.HdsEffectBuilder()
@@ -449,31 +390,186 @@ export struct TranslationPage {
                   }
                 })
                 .onClick(() => this.onToggleCaptioning());
+              }
+              .width('100%')
+              .padding(4)
+              .margin({ bottom: 12 })
+              .borderRadius(12)
+              .backgroundColor(Color.Transparent);
+            }
 
-                Blank().height(12)
+            // 文本区域 - 响应式布局
+            if (this.isLandscape) {
+              // 宽屏模式：左文本框-中间圆形按钮-右文本框
+              Row({ space: 0 }) {
+                Column() {
+                  this.OriginalTextPanel()
+                }
+                .layoutWeight(1)
+                .height('100%')
 
-                // 开始翻译按钮
-                Row() {
-                  if (this.isTranslating) {
-                    LoadingProgress()
-                      .width(18)
-                      .height(18)
-                      .color(this.btn2TextColor)
-                  } else {
-                    SymbolGlyph($r('sys.symbol.translate'))
+                // 中间操作按钮栏
+                Flex({
+                  direction: FlexDirection.Column,
+                  justifyContent: FlexAlign.Center,
+                  alignItems: ItemAlign.Center
+                }) {
+                  // 开启/关闭麦克风
+                  Row() {
+                    SymbolGlyph(this.isListening ? $r('sys.symbol.square') : $r('sys.symbol.mic'))
                       .fontSize(18)
-                      .fontColor([this.btn2TextColor])
+                      .fontColor([this.btn1TextColor])
+                  }
+                  .width(44)
+                  .height(44)
+                  .justifyContent(FlexAlign.Center)
+                  .backgroundColor(this.btn1BgColor)
+                  .borderRadius(22)
+                  .shadow({ radius: 8, color: 'rgba(0,0,0,0.2)', offsetY: 4 })
+                  .scale({ x: this.button1Scale, y: this.button1Scale })
+                  .enabled(this.isAsrReady || !this.isListening)
+                  .visualEffect(new hdsEffect.HdsEffectBuilder()
+                    .pointLight({
+                      sourceType: this.isDarkMode ? hdsEffect.PointLightSourceType.NONE :
+                      (this.activeBtn === 1 || this.isListening
+                        ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT)
+                        : hdsEffect.PointLightSourceType.NONE),
+                      illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE : hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
+                    })
+                    .buildEffect())
+                  .onTouch((event: TouchEvent) => {
+                    if (event.type === TouchType.Down) {
+                      this.pressButton(1); // Pass ID 1
+                      animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeBtn = 1; });
+                    } else if (event.type === TouchType.Up) {
+                      this.leaveButton(1, true); // Pass ID 1, isUp=true
+                      animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeBtn = 0; });
+                    } else if (event.type === TouchType.Cancel) {
+                      this.leaveButton(1, false); // Pass ID 1, isUp=false
+                      animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeBtn = 0; });
+                    }
+                  })
+                  .onClick(() => this.onToggleCaptioning());
+
+                  Blank().height(12)
+
+                  // 开始翻译按钮
+                  Row() {
+                    if (this.isTranslating) {
+                      LoadingProgress()
+                        .width(18)
+                        .height(18)
+                        .color(this.btn2TextColor)
+                    } else {
+                      SymbolGlyph($r('sys.symbol.translate'))
+                        .fontSize(18)
+                        .fontColor([this.btn2TextColor])
+                    }
+                  }
+                  .width(44)
+                  .height(44)
+                  .justifyContent(FlexAlign.Center)
+                  .backgroundColor(this.btn2BgColor)
+                  .borderRadius(22)
+                  .shadow({ radius: 8, color: 'rgba(0,0,0,0.2)', offsetY: 4 })
+                  .scale({ x: this.button2Scale, y: this.button2Scale })
+                  .enabled(!this.isTranslating)
+                  .opacity(!this.isTranslating ? 1.0 : 0.5)
+                  .visualEffect(new hdsEffect.HdsEffectBuilder()
+                    .pointLight({
+                      sourceType: this.isDarkMode ? hdsEffect.PointLightSourceType.NONE :
+                        (this.activeBtn === 2
+                          ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT)
+                          : hdsEffect.PointLightSourceType.NONE),
+                      illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE : hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
+                    })
+                    .buildEffect())
+                  .onTouch((event: TouchEvent) => {
+                    if (event.type === TouchType.Down) {
+                      this.pressButton(2);
+                      animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeBtn = 2; });
+                    } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+                      this.leaveButton(2);
+                      animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeBtn = 0; });
+                    }
+                  })
+                  .onClick(() => this.onTranslateDemo())
+
+                  Blank().height(12)
+
+                  // 流转按钮
+                  Row() {
+                    SymbolGlyph($r('sys.symbol.superdevice'))
+                      .fontSize(18)
+                      .fontColor([this.btn3TextColor])
+                  }
+                  .width(44)
+                  .height(44)
+                  .justifyContent(FlexAlign.Center)
+                  .backgroundColor(this.btn3BgColor)
+                  .borderRadius(22)
+                  .shadow({ radius: 8, color: 'rgba(0,0,0,0.2)', offsetY: 4 })
+                  .scale({ x: this.button3Scale, y: this.button3Scale })
+                  .visualEffect(new hdsEffect.HdsEffectBuilder()
+                    .pointLight({
+                      sourceType: this.isDarkMode ? hdsEffect.PointLightSourceType.NONE :
+                        (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT),
+                      illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE : hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
+                    })
+                    .buildEffect())
+                  .onTouch((event: TouchEvent) => {
+                    if (event.type === TouchType.Down) {
+                      this.pressButton(3);
+                      animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeBtn = 3; });
+                    } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+                      this.leaveButton(3);
+                      animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeBtn = 0; });
+                    }
+                  })
+                  .onClick(() => this.startDeviceDiscovery())
+                }
+                .height('100%')
+                .padding(12)
+                .backgroundColor(Color.Transparent)
+
+                Column() {
+                  this.TranslatedTextPanel()
+                }
+                .layoutWeight(1)
+                .height('100%')
+              }
+              .width('100%')
+              .layoutWeight(1)
+            } else {
+              // 窄屏模式：原文 -> 按钮 -> 译文
+              Column() {
+                this.OriginalTextPanel()
+              }
+              .width('100%')
+              .layoutWeight(1)
+              .margin({ bottom: 12 });
+
+              Row() {
+                Button() {
+                  Row() {
+                    if (this.isTranslating) {
+                      LoadingProgress()
+                        .width(16)
+                        .height(16)
+                        .color(this.btn2TextColor)
+                        .margin({ right: 8 })
+                    }
+                    Text(this.isTranslating ? '翻译中' : '开始翻译')
+                      .fontSize(16)
+                      .fontColor(this.btn2TextColor)
                   }
                 }
-                .width(44)
-                .height(44)
-                .justifyContent(FlexAlign.Center)
+                .layoutWeight(2)
+                .height(40)
                 .backgroundColor(this.btn2BgColor)
-                .borderRadius(22)
-                .shadow({ radius: 8, color: 'rgba(0,0,0,0.2)', offsetY: 4 })
                 .scale({ x: this.button2Scale, y: this.button2Scale })
                 .enabled(!this.isTranslating)
-                .opacity(!this.isTranslating ? 1.0 : 0.5)
+                .margin({ right: 8 })
                 .visualEffect(new hdsEffect.HdsEffectBuilder()
                   .pointLight({
                     sourceType: this.isDarkMode ? hdsEffect.PointLightSourceType.NONE :
@@ -492,28 +588,28 @@ export struct TranslationPage {
                     animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeBtn = 0; });
                   }
                 })
-                .onClick(() => this.onTranslateDemo())
+                .onClick(() => this.onTranslateDemo());
 
-                Blank().height(12)
-
-                // 流转按钮
-                Row() {
-                  SymbolGlyph($r('sys.symbol.superdevice'))
-                    .fontSize(18)
-                    .fontColor([this.btn3TextColor])
+                Button() {
+                  Row() {
+                    SymbolGlyph($r('sys.symbol.superdevice'))
+                      .fontSize(18)
+                      .fontColor([this.btn3TextColor])
+                      .margin({ right: 8 })
+                    Text('流转')
+                      .fontSize(16)
+                      .fontColor(this.btn3TextColor)
+                  }
                 }
-                .width(44)
-                .height(44)
-                .justifyContent(FlexAlign.Center)
+                .layoutWeight(1)
+                .height(40)
                 .backgroundColor(this.btn3BgColor)
-                .borderRadius(22)
-                .shadow({ radius: 8, color: 'rgba(0,0,0,0.2)', offsetY: 4 })
                 .scale({ x: this.button3Scale, y: this.button3Scale })
                 .visualEffect(new hdsEffect.HdsEffectBuilder()
                   .pointLight({
-                    sourceType: this.isDarkMode ? hdsEffect.PointLightSourceType.NONE :
+                    sourceType: (this.isDarkMode || this.isHistoryOpen) ? hdsEffect.PointLightSourceType.NONE :
                       (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT),
-                    illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE : hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
+                    illuminatedType: (this.isDarkMode || this.isHistoryOpen) ? hdsEffect.PointLightIlluminatedType.NONE : hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
                   })
                   .buildEffect())
                 .onTouch((event: TouchEvent) => {
@@ -527,256 +623,161 @@ export struct TranslationPage {
                 })
                 .onClick(() => this.startDeviceDiscovery())
               }
-              .height('100%')
-              .padding(12)
-              .backgroundColor(Color.Transparent)
+              .width('100%')
+              .padding(4)
+              .margin({ bottom: 12 })
+              .borderRadius(12)
+              .backgroundColor(Color.Transparent);
 
               Column() {
                 this.TranslatedTextPanel()
               }
-              .layoutWeight(1)
-              .height('100%')
+              .width('100%')
+              .layoutWeight(1);
             }
-            .width('100%')
-            .layoutWeight(1)
-          } else {
-            // 窄屏模式：原文 -> 按钮 -> 译文
-            Column() {
-              this.OriginalTextPanel()
-            }
-            .width('100%')
-            .layoutWeight(1)
-            .margin({ bottom: 12 });
-
-            Row() {
-              Button() {
-                Row() {
-                  if (this.isTranslating) {
-                    LoadingProgress()
-                      .width(16)
-                      .height(16)
-                      .color(this.btn2TextColor)
-                      .margin({ right: 8 })
-                  }
-                  Text(this.isTranslating ? '翻译中' : '开始翻译')
-                    .fontSize(16)
-                    .fontColor(this.btn2TextColor)
-                }
-              }
-              .layoutWeight(2)
-              .height(40)
-              .backgroundColor(this.btn2BgColor)
-              .scale({ x: this.button2Scale, y: this.button2Scale })
-              .enabled(!this.isTranslating)
-              .margin({ right: 8 })
-              .visualEffect(new hdsEffect.HdsEffectBuilder()
-                .pointLight({
-                  sourceType: this.isDarkMode ? hdsEffect.PointLightSourceType.NONE :
-                    (this.activeBtn === 2
-                      ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT)
-                      : hdsEffect.PointLightSourceType.NONE),
-                  illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE : hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
-                })
-                .buildEffect())
-              .onTouch((event: TouchEvent) => {
-                if (event.type === TouchType.Down) {
-                  this.pressButton(2);
-                  animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeBtn = 2; });
-                } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
-                  this.leaveButton(2);
-                  animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeBtn = 0; });
-                }
-              })
-              .onClick(() => this.onTranslateDemo());
-
-              Button() {
-                Row() {
-                  SymbolGlyph($r('sys.symbol.superdevice'))
-                    .fontSize(18)
-                    .fontColor([this.btn3TextColor])
-                    .margin({ right: 8 })
-                  Text('流转')
-                    .fontSize(16)
-                    .fontColor(this.btn3TextColor)
-                }
-              }
-              .layoutWeight(1)
-              .height(40)
-              .backgroundColor(this.btn3BgColor)
-              .scale({ x: this.button3Scale, y: this.button3Scale })
-              .visualEffect(new hdsEffect.HdsEffectBuilder()
-                .pointLight({
-                  sourceType: this.isDarkMode ? hdsEffect.PointLightSourceType.NONE :
-                    (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT),
-                  illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE : hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
-                })
-                .buildEffect())
-              .onTouch((event: TouchEvent) => {
-                if (event.type === TouchType.Down) {
-                  this.pressButton(3);
-                  animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeBtn = 3; });
-                } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
-                  this.leaveButton(3);
-                  animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeBtn = 0; });
-                }
-              })
-              .onClick(() => this.startDeviceDiscovery())
-            }
-            .width('100%')
-            .padding(4)
-            .margin({ bottom: 12 })
-            .borderRadius(12)
-            .backgroundColor(Color.Transparent);
-
-            Column() {
-              this.TranslatedTextPanel()
-            }
-            .width('100%')
-            .layoutWeight(1);
           }
+          .height('100%')
+          .width('100%')
+          .layoutWeight(1)
+          .padding({ left: 16, right: 16, top: 16, bottom: 70 })
+          .onAreaChange((_oldValue: Area, newValue: Area) => {
+            const width = newValue.width as number;
+            const height = newValue.height as number;
+            this.isLandscape = width > height || width >= 600;
+          });
         }
-        .height('100%')
-        .width('100%')
-        .layoutWeight(1)
-        .padding({ left: 16, right: 16, top: 16, bottom: 70 })
-        .onAreaChange((_oldValue: Area, newValue: Area) => {
-          const width = newValue.width as number;
-          const height = newValue.height as number;
-          this.isLandscape = width > height || width >= 600;
-        });
-      }
-      .scrollable(ScrollDirection.None)
-      .scrollBar(BarState.Off)
-      .edgeEffect(EdgeEffect.Spring)
+        .scrollable(ScrollDirection.None)
+        .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.Spring)
 
-      if ((this.isLeftHand || this.isRightHand) && !this.isHandPopupDismissed) {
-        Column({ space: 16 }) {
-          Button({ type: ButtonType.Circle }) {
-            SymbolGlyph(this.isListening ? $r('sys.symbol.square') : $r('sys.symbol.mic'))
-              .fontSize(24)
-              .fontColor((this.isListening || this.activeBtn === 1 || this.activeBtn === 11) ? [THEMES[this.themeColorIndex].primaryColor] : [Color.White])
-          }
-          .width(48)
-          .height(48)
-          .backgroundColor((this.isListening || this.activeBtn === 1 || this.activeBtn === 11) ? Color.White : THEMES[this.themeColorIndex].secondaryColor)
-          .shadow({ radius: 8, color: 'rgba(0,0,0,0.2)', offsetY: 4 })
-          .stateStyles({
-            pressed: {
-              .scale({ x: 0.95, y: 0.95 })
-            },
-            normal: {
-              .scale({ x: 1.0, y: 1.0 })
-            }
-          })
-          .onClick(() => {
-            this.onToggleCaptioning();
-          })
-          .onTouch((event: TouchEvent) => {
-            if (event.type === TouchType.Down) {
-              animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeBtn = 11; });
-              this.pressButton(1);
-            } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
-              animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeBtn = 0; });
-              this.leaveButton(1);
-            }
-          })
-
-          Button({ type: ButtonType.Circle }) {
-            if (this.isTranslating) {
-              LoadingProgress()
-                .width(24)
-                .height(24)
-                .color((this.activeBtn === 2 || this.activeBtn === 12) ? THEMES[this.themeColorIndex].primaryColor : Color.White)
-            } else {
-              SymbolGlyph($r('sys.symbol.translate'))
+        if ((this.isLeftHand || this.isRightHand) && !this.isHandPopupDismissed) {
+          Column({ space: 16 }) {
+            Button({ type: ButtonType.Circle }) {
+              SymbolGlyph(this.isListening ? $r('sys.symbol.square') : $r('sys.symbol.mic'))
                 .fontSize(24)
-                .fontColor((this.activeBtn === 2 || this.activeBtn === 12) ? [THEMES[this.themeColorIndex].primaryColor] : [Color.White])
+                .fontColor((this.isListening || this.activeBtn === 1 || this.activeBtn === 11) ? [THEMES[this.themeColorIndex].primaryColor] : [Color.White])
             }
-          }
-          .width(48)
-          .height(48)
-          .backgroundColor((this.activeBtn === 2 || this.activeBtn === 12) ? Color.White : THEMES[this.themeColorIndex].secondaryColor)
-          .shadow({ radius: 8, color: 'rgba(0,0,0,0.2)', offsetY: 4 })
-          .enabled(!this.isTranslating)
-          .opacity(this.isTranslating ? 0.7 : 1.0)
-          .stateStyles({
-            pressed: {
-              .scale({ x: 0.95, y: 0.95 })
-            },
-            normal: {
-              .scale({ x: 1.0, y: 1.0 })
-            }
-          })
-          .onClick(() => {
-            this.onTranslateDemo();
-          })
-          .onTouch((event: TouchEvent) => {
-            if (event.type === TouchType.Down) {
-              animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeBtn = 12; });
-              this.pressButton(2);
-            } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
-              animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeBtn = 0; });
-              this.leaveButton(2);
-            }
-          })
-
-          Button({ type: ButtonType.Circle }) {
-            SymbolGlyph($r('sys.symbol.superdevice'))
-              .fontSize(24)
-              .fontColor((this.activeBtn === 3 || this.activeBtn === 13) ? [Color.White] : [THEMES[this.themeColorIndex].primaryColor])
-          }
-          .width(48)
-          .height(48)
-          .backgroundColor((this.activeBtn === 3 || this.activeBtn === 13) ? THEMES[this.themeColorIndex].primaryColor : Color.White)
-          .shadow({ radius: 8, color: 'rgba(0,0,0,0.2)', offsetY: 4 })
-          .stateStyles({
-            pressed: {
-              .scale({ x: 0.95, y: 0.95 })
-            },
-            normal: {
-              .scale({ x: 1.0, y: 1.0 })
-            }
-          })
-          .onClick(() => {
-            this.startDeviceDiscovery();
-          })
-          .onTouch((event: TouchEvent) => {
-            if (event.type === TouchType.Down) {
-              animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeBtn = 13; });
-              this.pressButton(3);
-            } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
-              animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeBtn = 0; });
-              this.leaveButton(3);
-            }
-          })
-        }
-        .width(64)
-        .padding(8)
-        .backgroundColor($r('sys.color.comp_background_secondary'))
-        .border({ width: 1.5, color: THEMES[this.themeColorIndex].tertiaryColor })
-        .backdropBlur(20)
-        .borderRadius(40)
-        .position({ x: this.isLeftHand ? 0 : '100%', y: '30%' })
-        .markAnchor({ x: this.isLeftHand ? 0 : '100%', y: 0 })
-        .translate({ x: this.isLeftHand ? 16 : -16 })
-        .alignItems(HorizontalAlign.Center)
-        .transition(
-          TransitionEffect.move(this.isLeftHand ? TransitionEdge.START : TransitionEdge.END)
-            .animation({ duration: 300, curve: Curve.EaseOut })
-        )
-        .gesture(
-          PanGesture({ direction: PanDirection.Horizontal, distance: 5 })
-            .onActionEnd((event: GestureEvent) => {
-              // 左手时左滑关闭，右手时右滑关闭
-              if ((this.isLeftHand && event.offsetX < -20) ||
-                  (this.isRightHand && event.offsetX > 20)) {
-                animateTo({ duration: 300, curve: Curve.EaseOut }, () => {
-                  this.isHandPopupDismissed = true;
-                });
+            .width(48)
+            .height(48)
+            .backgroundColor((this.isListening || this.activeBtn === 1 || this.activeBtn === 11) ? Color.White : THEMES[this.themeColorIndex].secondaryColor)
+            .shadow({ radius: 8, color: 'rgba(0,0,0,0.2)', offsetY: 4 })
+            .stateStyles({
+              pressed: {
+                .scale({ x: 0.95, y: 0.95 })
+              },
+              normal: {
+                .scale({ x: 1.0, y: 1.0 })
               }
             })
-        )
-      }
+            .onClick(() => {
+              this.onToggleCaptioning();
+            })
+            .onTouch((event: TouchEvent) => {
+              if (event.type === TouchType.Down) {
+                animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeBtn = 11; });
+                this.pressButton(1);
+              } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+                animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeBtn = 0; });
+                this.leaveButton(1);
+              }
+            })
+
+            Button({ type: ButtonType.Circle }) {
+              if (this.isTranslating) {
+                LoadingProgress()
+                  .width(24)
+                  .height(24)
+                  .color((this.activeBtn === 2 || this.activeBtn === 12) ? THEMES[this.themeColorIndex].primaryColor : Color.White)
+              } else {
+                SymbolGlyph($r('sys.symbol.translate'))
+                  .fontSize(24)
+                  .fontColor((this.activeBtn === 2 || this.activeBtn === 12) ? [THEMES[this.themeColorIndex].primaryColor] : [Color.White])
+              }
+            }
+            .width(48)
+            .height(48)
+            .backgroundColor((this.activeBtn === 2 || this.activeBtn === 12) ? Color.White : THEMES[this.themeColorIndex].secondaryColor)
+            .shadow({ radius: 8, color: 'rgba(0,0,0,0.2)', offsetY: 4 })
+            .enabled(!this.isTranslating)
+            .opacity(this.isTranslating ? 0.7 : 1.0)
+            .stateStyles({
+              pressed: {
+                .scale({ x: 0.95, y: 0.95 })
+              },
+              normal: {
+                .scale({ x: 1.0, y: 1.0 })
+              }
+            })
+            .onClick(() => {
+              this.onTranslateDemo();
+            })
+            .onTouch((event: TouchEvent) => {
+              if (event.type === TouchType.Down) {
+                animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeBtn = 12; });
+                this.pressButton(2);
+              } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+                animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeBtn = 0; });
+                this.leaveButton(2);
+              }
+            })
+
+            Button({ type: ButtonType.Circle }) {
+              SymbolGlyph($r('sys.symbol.superdevice'))
+                .fontSize(24)
+                .fontColor((this.activeBtn === 3 || this.activeBtn === 13) ? [Color.White] : [THEMES[this.themeColorIndex].primaryColor])
+            }
+            .width(48)
+            .height(48)
+            .backgroundColor((this.activeBtn === 3 || this.activeBtn === 13) ? THEMES[this.themeColorIndex].primaryColor : Color.White)
+            .shadow({ radius: 8, color: 'rgba(0,0,0,0.2)', offsetY: 4 })
+            .stateStyles({
+              pressed: {
+                .scale({ x: 0.95, y: 0.95 })
+              },
+              normal: {
+                .scale({ x: 1.0, y: 1.0 })
+              }
+            })
+            .onClick(() => {
+              this.startDeviceDiscovery();
+            })
+            .onTouch((event: TouchEvent) => {
+              if (event.type === TouchType.Down) {
+                animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeBtn = 13; });
+                this.pressButton(3);
+              } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+                animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeBtn = 0; });
+                this.leaveButton(3);
+              }
+            })
+          }
+          .width(64)
+          .padding(8)
+          .backgroundColor($r('sys.color.comp_background_secondary'))
+          .border({ width: 1.5, color: THEMES[this.themeColorIndex].tertiaryColor })
+          .backdropBlur(20)
+          .borderRadius(40)
+          .position({ x: this.isLeftHand ? 0 : '100%', y: '30%' })
+          .markAnchor({ x: this.isLeftHand ? 0 : '100%', y: 0 })
+          .translate({ x: this.isLeftHand ? 16 : -16 })
+          .alignItems(HorizontalAlign.Center)
+          .transition(
+            TransitionEffect.move(this.isLeftHand ? TransitionEdge.START : TransitionEdge.END)
+              .animation({ duration: 300, curve: Curve.EaseOut })
+          )
+          .gesture(
+            PanGesture({ direction: PanDirection.Horizontal, distance: 5 })
+              .onActionEnd((event: GestureEvent) => {
+                // 左手时左滑关闭，右手时右滑关闭
+                if ((this.isLeftHand && event.offsetX < -20) ||
+                    (this.isRightHand && event.offsetX > 20)) {
+                  animateTo({ duration: 300, curve: Curve.EaseOut }, () => {
+                    this.isHandPopupDismissed = true;
+                  });
+                }
+              })
+          )
+        }
       }
     }
     .mode(NavigationMode.Stack)

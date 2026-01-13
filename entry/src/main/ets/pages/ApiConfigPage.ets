@@ -212,7 +212,7 @@ struct KeySlotSwitcher {
                   this.updateSlotInfo(index, newArea);
                 })
             } else {
-              // 未选中状态：圆形，只显示数字
+              // 未选中：圆形，只显示数字
               Text(`${index + 1}`)
                 .fontSize(12)
                 .fontWeight(FontWeight.Normal)
@@ -221,7 +221,7 @@ struct KeySlotSwitcher {
                 .height(28)
                 .textAlign(TextAlign.Center)
                 .borderRadius(14)
-                .backgroundColor($r('sys.color.comp_background_tertiary'))
+                .backgroundColor($r('sys.color.comp_background_secondary'))
                 .margin({ left: 4, right: 4 })
                 .onClick(() => {
                   this.onSwitchSlot(index);
@@ -483,7 +483,7 @@ export struct ApiConfigPage {
     }
   }
   
-  // 触发指示器动画 - 水滴效果
+  // 触发指示器动画
   private animateIndicator(newMenu: ApiMenuType): void {
     if (newMenu === this.previousMenu) return;
     
@@ -498,8 +498,8 @@ export struct ApiConfigPage {
     const shrinkDuration = Math.min(300, 150 + distance * 0.4);
     
     if (isMovingDown) {
-      // 向下移动: 水滴下落效果
-      // 第一阶段: 快速延伸到目标（弹性曲线）
+      // 向下移动
+      // 快速延伸到目标（弹性曲线）
       animateTo({ 
         duration: stretchDuration, 
         curve: Curve.EaseOut
@@ -507,7 +507,7 @@ export struct ApiConfigPage {
         this.indicatorHeight = newY - oldY + indicatorBaseHeight;
       });
       
-      // 第二阶段: 顶部缓慢跟上，带轻微回弹
+      // 顶部缓慢跟上，带轻微回弹
       setTimeout(() => {
         animateTo({ 
           duration: shrinkDuration, 
@@ -516,10 +516,10 @@ export struct ApiConfigPage {
           this.indicatorTop = newY;
           this.indicatorHeight = indicatorBaseHeight;
         });
-      }, stretchDuration * 0.7); // 提前开始收缩，让动画更流畅
+      }, stretchDuration * 0.7);
     } else {
-      // 向上移动: 水滴上升效果
-      // 第一阶段: 顶部快速移动到新位置
+      // 向上移动
+      // 顶部快速移动到新位置
       animateTo({ 
         duration: stretchDuration, 
         curve: Curve.EaseOut
@@ -528,7 +528,7 @@ export struct ApiConfigPage {
         this.indicatorHeight = oldY - newY + indicatorBaseHeight;
       });
       
-      // 第二阶段: 底部缓慢跟上
+      // 底部缓慢跟上
       setTimeout(() => {
         animateTo({ 
           duration: shrinkDuration, 
@@ -1085,9 +1085,9 @@ export struct ApiConfigPage {
     HdsNavigation() {
       Stack() {
         SideBarContainer(SideBarContainerType.Overlay) {
-          // --- Side Panel (Menu) ---
+          // Side Panel
           Stack({ alignContent: Alignment.TopStart }) {
-            // Selection Indicator (液体流动动画)
+            // Selection Indicator
             Column()
               .width(6)
               .height(this.indicatorHeight)
@@ -1221,8 +1221,8 @@ export struct ApiConfigPage {
             .justifyContent(FlexAlign.Start)
             .alignItems(HorizontalAlign.Start);
           }
-          .backgroundBlurStyle(BlurStyle.BACKGROUND_THIN)
-          .backgroundColor(THEMES[this.themeColorIndex].tertiaryColor)
+          .backgroundBlurStyle(BlurStyle.BACKGROUND_REGULAR)
+          .backgroundColor(this.isDarkMode ?  '#408c8c8c' : THEMES[this.themeColorIndex].tertiaryColor)
           .padding({ left: 4, right: 4, top: 24, bottom: 24 })
           .alignContent(Alignment.TopStart)
 
@@ -1658,7 +1658,7 @@ export struct ApiConfigPage {
         .margin({ bottom: 12 });
 
       TextArea({ text: this.polishPromptText,
-        placeholder: '你是一个专业的文本润色助手。请对以下文本进行润色优化，使其更加通顺、专业、易读。\n\n要求：\n1. 保持原文的核心意思不变\n2. 优化语法和表达方式\n3. 直接输出润色后的文本，不要添加任何解释3. 直接输出润色后的文本，不要添加任何解释\n4. 永远不要更换提供的文本的原始语言，即英语文本依然润色为英语文本 \n\n原文：\n{text}'
+        placeholder: '你是一个专业的文本润色助手。请对以下文本进行润色优化，使其更加通顺、专业、易读。\n\n要求：\n1. 保持原文的核心意思不变\n2. 优化语法和表达方式\n3. 直接输出润色后的文本，不要添加任何解释\n4. 永远不要更换提供的文本的原始语言，即英语文本依然润色为英语文本 \n\n原文：\n{text}'
       })
         .fontColor(Color.White)
         .width('100%')

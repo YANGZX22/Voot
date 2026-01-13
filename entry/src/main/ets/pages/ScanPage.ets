@@ -119,6 +119,7 @@ export struct ScanPage {
   @Prop doubaoModel: string = 'doubao-pro-32k';
   @Prop targetLanguage: string = 'Chinese';
   @Prop promptText: string = '';
+  @Prop isHistoryOpen: boolean = false;
   onOpenHistory: () => void = () => {};
 
   // 扫描状态
@@ -1228,9 +1229,9 @@ export struct ScanPage {
           .opacity((this.recognizedText.length > 0 || this.translatedText.length > 0) ? 1.0 : 0.5)
           .visualEffect(new hdsEffect.HdsEffectBuilder()
             .pointLight({
-              sourceType: this.isDarkMode ? hdsEffect.PointLightSourceType.NONE :
+              sourceType: (this.isDarkMode || this.isHistoryOpen) ? hdsEffect.PointLightSourceType.NONE :
                 (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT),
-              illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE : hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
+              illuminatedType: (this.isDarkMode || this.isHistoryOpen) ? hdsEffect.PointLightIlluminatedType.NONE : hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
             })
             .buildEffect())
           .onTouch((event: TouchEvent) => {
@@ -1302,11 +1303,11 @@ export struct ScanPage {
         .scale({ x: this.scanBtnScale, y: this.scanBtnScale })
         .visualEffect(new hdsEffect.HdsEffectBuilder()
           .pointLight({
-            sourceType: this.isDarkMode ? hdsEffect.PointLightSourceType.NONE :
+            sourceType: (this.isDarkMode || this.isHistoryOpen) ? hdsEffect.PointLightSourceType.NONE :
               (this.activeBtn === 1
                 ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT)
                 : hdsEffect.PointLightSourceType.NONE),
-            illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE : hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
+            illuminatedType: (this.isDarkMode || this.isHistoryOpen) ? hdsEffect.PointLightIlluminatedType.NONE : hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
           })
           .buildEffect())
         .onTouch((event: TouchEvent) => {
@@ -1392,10 +1393,7 @@ export struct ScanPage {
                     icon: $r('sys.symbol.clock_arrow_2_circlepath'),
                     isEnabled: true,
                     action: () => {
-                      router.pushUrl({
-                        url: 'pages/HistoryTabPage',
-                        params: { type: 'scan' }
-                      });
+                      this.onOpenHistory();
                     }
                   }
                 }
@@ -1455,10 +1453,7 @@ export struct ScanPage {
                     icon: $r('sys.symbol.clock_arrow_2_circlepath'),
                     isEnabled: true,
                     action: () => {
-                      router.pushUrl({
-                        url: 'pages/HistoryTabPage',
-                        params: { type: 'scan' }
-                      });
+                      this.onOpenHistory();
                     }
                   }
                 }

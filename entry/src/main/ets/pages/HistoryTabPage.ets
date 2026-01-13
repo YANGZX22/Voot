@@ -37,10 +37,14 @@ struct SwipeActionButton {
     .scale({ x: this.scaleValue, y: this.scaleValue })
     .visualEffect(new hdsEffect.HdsEffectBuilder()
       .pointLight({
-        sourceType: this.isDarkMode ? hdsEffect.PointLightSourceType.NONE :
-          (this.activeBtnId === this.btnId ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT) : hdsEffect.PointLightSourceType.NONE),
-        illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE :
-          (this.activeBtnId !== 0 ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT : hdsEffect.PointLightIlluminatedType.NONE)
+        illuminatedType: hdsEffect.PointLightIlluminatedType.DEFAULT_FEATHERING_BORDER,
+        options: {
+          color: this.bgColor,
+          intensity: this.isDarkMode ? 0 :
+            (this.activeBtnId === this.btnId ? (this.isLightEffectBright ? 1 : 0.5) : 0),
+          bloom: 1,
+          height: 200
+        }
       })
       .buildEffect())
     .onTouch((event: TouchEvent) => {
@@ -68,6 +72,8 @@ export struct HistoryTabPage {
   @Prop isLightEffectBright: boolean = true;
   @Prop isDarkMode: boolean = true;
   @Prop type: 'translation' | 'scan' = 'translation';
+  // Callback for custom back navigation (e.g. when embedded)
+  onBack: () => void = () => { router.back() };
   @StorageLink('themeColorIndex') themeColorIndex: number = 0;
   @State sessions: Session[] = [];
   @State pendingDeleteId: number = -1;
@@ -279,7 +285,7 @@ export struct HistoryTabPage {
     .width('calc(100% - 48vp)')
     .padding(16)
     .margin({ left: 24, right: 24 })
-    .backgroundColor(THEMES[this.themeColorIndex].secondaryColor)
+    .backgroundColor(THEMES[this.themeColorIndex].tertiaryColor)
     .borderRadius(24)
     .opacity(this.cardOpacities[index] ?? 1)
     .translate({ x: this.cardOffsets[index] ?? 0 })
@@ -315,7 +321,7 @@ export struct HistoryTabPage {
       // 删除按钮
       SwipeActionButton({
         icon: $r('sys.symbol.trash'),
-        bgColor: Color.Red,
+        bgColor: '#ffff3a3a',
         btnId: 1,
         isLightEffectBright: this.isLightEffectBright,
         isDarkMode: this.isDarkMode,
@@ -331,7 +337,7 @@ export struct HistoryTabPage {
       // 收藏按钮
       SwipeActionButton({
         icon: session.isStarred ? $r('sys.symbol.star_fill') : $r('sys.symbol.star'),
-        bgColor: '#FFB800',
+        bgColor: '#ffffca43',
         btnId: 2,
         isLightEffectBright: this.isLightEffectBright,
         isDarkMode: this.isDarkMode,
@@ -344,7 +350,7 @@ export struct HistoryTabPage {
       // 分享按钮
       SwipeActionButton({
         icon: $r('sys.symbol.share'),
-        bgColor: '#4CAF50',
+        bgColor: '#ff5ed663',
         btnId: 3,
         isLightEffectBright: this.isLightEffectBright,
         isDarkMode: this.isDarkMode,
@@ -362,14 +368,6 @@ export struct HistoryTabPage {
 
   build() {
     Stack() {
-      // 主题背景图片
-      if (THEMES[this.themeColorIndex].backgroundImage) {
-        Image(THEMES[this.themeColorIndex].backgroundImage)
-          .width('100%')
-          .height('100%')
-          .objectFit(ImageFit.Cover)
-      }
-
       HdsNavigation() {
       List({ space: 8 }) {
         ListItem() {
@@ -447,6 +445,11 @@ export struct HistoryTabPage {
           mainTitle: this.showFavorites 
             ? (this.type === 'scan' ? '扫描收藏' : '翻译收藏')
             : (this.type === 'scan' ? '扫描历史' : '翻译历史'),
+        },
+        backIcon: {
+          action: () => {
+            this.onBack();
+          }
         },
         menu: {
           value: [

@@ -275,25 +275,41 @@ struct SessionDetailPage {
                       .fontWeight(FontWeight.Bold)
                       .fontColor(Color.White)
                     Text('AI 生成')
+                      .height(28)
                       .fontSize(12)
                       .fontColor(Color.White)
                       .backgroundColor(THEMES[this.themeColorIndex].tertiaryColor)
                       .padding({ left: 8, right: 8, top: 2, bottom: 2 })
-                      .borderRadius(10)
                       .margin({ left: 8 })
+                      .borderRadius(24)
+
                     Blank()
-                    Button(this.isSummarizing ? '正在重新生成...' : '重新生成')
-                      .fontSize(12)
-                      .height(28)
-                      .backgroundColor(THEMES[this.themeColorIndex].tertiaryColor)
-                      .fontColor(Color.White)
-                      .enabled(!this.isSummarizing)
-                      .onClick(() => {
-                        this.generateSummary();
-                      })
+
+                    Button() {
+                      Row() {
+                        SymbolGlyph($r('sys.symbol.AI'))
+                          .fontColor([Color.White])
+                          .fontSize(12)
+
+                        Blank().width(12)
+
+                        Text(this.isSummarizing ? '正在重新生成...' : '重新生成')
+                          .fontColor(Color.White)
+                          .fontSize(12)
+                      }
+                    }
+                    .borderRadius(24)
+                    .height(28)
+                    .width(120)
+                    .backgroundColor(THEMES[this.themeColorIndex].tertiaryColor)
+                    .enabled(!this.isSummarizing)
+                    .onClick(() => {
+                      this.generateSummary();
+                    })
                   }
                   .width('100%')
                   .margin({ bottom: 8 })
+
                   Text(this.session.summary)
                     .fontSize(16)
                     .lineHeight(24)
@@ -307,15 +323,27 @@ struct SessionDetailPage {
                 .alignItems(HorizontalAlign.Start)
                 .margin({ bottom: 24 })
               } else {
-                Button(this.isSummarizing ? '正在生成总结...' : '生成 AI 总结')
-                  .width('100%')
-                  .margin({ bottom: 24 })
-                  .enabled(!this.isSummarizing)
-                  .backgroundColor(THEMES[this.themeColorIndex].tertiaryColor)
-                  .fontColor(Color.White)
-                  .onClick(() => {
-                    this.generateSummary();
-                  })
+                Button() {
+                  Row() {
+                    SymbolGlyph($r('sys.symbol.AI'))
+                      .fontColor([Color.White])
+                      .fontSize(16)
+
+                    Blank().width(12)
+
+                    Text(this.isSummarizing ? '正在生成总结...' : '生成 AI 总结')
+                      .fontColor(Color.White)
+                      .fontSize(16)
+                  }
+                }
+                .height(48)
+                .width(240)
+                .margin({ bottom: 24 })
+                .enabled(!this.isSummarizing)
+                .backgroundColor(THEMES[this.themeColorIndex].tertiaryColor)
+                .onClick(() => {
+                  this.generateSummary();
+                })
               }
 
               // Original Text
@@ -357,12 +385,13 @@ struct SessionDetailPage {
                     .fontWeight(FontWeight.Bold)
                     .fontColor(Color.White)
                   Text('AI 生成')
+                    .height(28)
                     .fontSize(12)
                     .fontColor(Color.White)
                     .backgroundColor(THEMES[this.themeColorIndex].tertiaryColor)
                     .padding({ left: 8, right: 8, top: 2, bottom: 2 })
-                    .borderRadius(10)
                     .margin({ left: 8 })
+                    .borderRadius(24)
                 }
                 .width('100%')
                 .margin({ bottom: 8 })

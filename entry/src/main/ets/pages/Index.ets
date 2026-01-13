@@ -38,7 +38,7 @@ import { HistoryStorage } from '../storage/HistoryStorage';
 import window from '@ohos.window';
 import promptAction from '@ohos.promptAction';
 import { PipSubtitleManager, SubtitleParams } from '../services/PipSubtitleManager';
-import { PiPWindow } from '@kit.ArkUI';
+import { PiPWindow, curves } from '@kit.ArkUI';
 import { ContinuityService, ContinuityState, CONTINUITY_KEY, DeviceInfo, SubtitleStyleConfig } from '../services/ContinuityService';
 import { deviceInfo } from '@kit.BasicServicesKit';
 import display from '@ohos.display';
@@ -273,6 +273,10 @@ struct Index {
 
   // API Settings subpage state
   @State selectedMenu: ApiMenuType = ApiMenuType.Prompt;
+  
+  // History Page state
+  @State showTranslationHistory: boolean = false;
+  @State showScanHistory: boolean = false;
 
   // 多密钥槽位配置
   @State openAiKeySlots: MultiKeySlots = createDefaultMultiKeySlots(
@@ -2076,6 +2080,29 @@ struct Index {
     });
   }
 
+  onBackPress() {
+    if (this.showApiSettings) {
+      animateTo({ duration: 300, curve: curves.springMotion(0.55, 0.8) }, () => {
+        this.restoreSelectionState();
+        this.showApiSettings = false;
+      });
+      return true;
+    }
+    if (this.showTranslationHistory) {
+      animateTo({ duration: 300, curve: curves.springMotion(0.55, 0.8) }, () => {
+        this.showTranslationHistory = false;
+      });
+      return true;
+    }
+    if (this.showScanHistory) {
+      animateTo({ duration: 300, curve: curves.springMotion(0.55, 0.8) }, () => {
+        this.showScanHistory = false;
+      });
+      return true;
+    }
+    return false;
+  }
+
   build() {
     Stack() {
       // 验证弹窗
@@ -2312,7 +2339,8 @@ struct Index {
                   this.persistApiConfigSnapshot();
                 },
                 getConfigTextAreaHeight: (rows: number) => this.getConfigTextAreaHeight(rows)
-              });
+              })
+              .transition(TransitionEffect.move(TransitionEdge.START).animation({ curve: curves.springMotion(0.55, 0.8) }));
             } else {
               ConfigurationPage({
                 isVisible: this.currentTab === 0,
@@ -2426,7 +2454,7 @@ struct Index {
                   this.selectedMinMatchLenIndex = index;
                   this.persistApiConfigSnapshot();
                 }
-              });
+              })
             }
           }
           .width('100%')
@@ -2443,7 +2471,7 @@ struct Index {
         )
 
         TabContent() {
-          Column() {
+          Stack() {
             TranslationPage({
               isVisible: this.currentTab === 1,
               isLeftHand: this.isLeftHand,
@@ -2458,6 +2486,7 @@ struct Index {
               hasContinuityContent: this.originalDemoText.length > 0 || this.translatedDemoText.length > 0,
               isLightEffectBright: this.isLightEffectBright,
               isDarkMode: this.isDarkMode,
+              isHistoryOpen: this.showTranslationHistory,
               onToggleCaptioning: () => {
                 if (this.isListening) {
                   this.stopMicCaptioning();
@@ -2476,9 +2505,29 @@ struct Index {
                 }
               },
               onOpenHistory: () => {
-                router.pushUrl({ url: 'pages/HistoryTabPage' });
+                animateTo({ duration: 300, curve: curves.springMotion(0.55, 0.8) }, () => {
+                  this.showTranslationHistory = true;
+                });
               }
-            });
+            })
+            .visibility(this.showTranslationHistory ? Visibility.Hidden : Visibility.Visible)
+
+            if (this.showTranslationHistory) {
+              HistoryTabPage({
+                isVisible: this.showTranslationHistory,
+                isLightEffectBright: this.isLightEffectBright,
+                isDarkMode: this.isDarkMode,
+                type: 'translation',
+                onBack: () => {
+                  animateTo({ duration: 300, curve: curves.springMotion(0.55, 0.8) }, () => {
+                    this.showTranslationHistory = false;
+                  });
+                }
+              })
+              .width('100%')
+              .height('100%')
+              .transition(TransitionEffect.move(TransitionEdge.START).animation({ curve: curves.springMotion(0.55, 0.8) }))
+            }
           }
           .width('100%')
         }
@@ -2527,7 +2576,7 @@ struct Index {
         )
 
         TabContent() {
-          Column() {
+          Stack() {
             ScanPage({
               isVisible: this.currentTab === 3,
               isLeftHand: this.isLeftHand,
@@ -2547,10 +2596,31 @@ struct Index {
               doubaoModel: this.doubaoModel,
               targetLanguage: this.languageOptions[this.selectedLanguageIndex],
               promptText: this.promptText,
+              isHistoryOpen: this.showScanHistory,
               onOpenHistory: () => {
-                router.pushUrl({ url: 'pages/HistoryTabPage' });
+                animateTo({ duration: 300, curve: curves.springMotion(0.55, 0.8) }, () => {
+                  this.showScanHistory = true;
+                });
               }
             })
+            .visibility(this.showScanHistory ? Visibility.Hidden : Visibility.Visible)
+
+            if (this.showScanHistory) {
+              HistoryTabPage({
+                isVisible: this.showScanHistory,
+                isLightEffectBright: this.isLightEffectBright,
+                isDarkMode: this.isDarkMode,
+                type: 'scan',
+                onBack: () => {
+                  animateTo({ duration: 300, curve: curves.springMotion(0.55, 0.8) }, () => {
+                    this.showScanHistory = false;
+                  });
+                }
+              })
+              .width('100%')
+              .height('100%')
+              .transition(TransitionEffect.move(TransitionEdge.START).animation({ curve: curves.springMotion(0.55, 0.8) }))
+            }
           }
           .width('100%')
         }

@@ -279,6 +279,8 @@ struct SettingsGroup {
   @BuilderParam content: () => void
   @StorageLink('themeColorIndex') themeColorIndex: number = 0
   @Prop isDarkMode: boolean = false
+  @Prop isLightEffectBright: boolean = true
+  @State lightIntensity: number = 0;
 
   build() {
     Column() {
@@ -333,7 +335,27 @@ struct SettingsGroup {
     .borderRadius(24)
     .clip(true)
     .margin({ bottom: 16 })
-    .border({ width: 1, color: this.isDarkMode ? '#26FFFFFF' : '#40FFFFFF' })
+    .onTouch((event: TouchEvent) => {
+      if (event.type === TouchType.Down) {
+        animateTo({ duration: 300, curve: "cubic-bezier(0.33, 0, 0.67, 1)" }, () => {
+          this.lightIntensity = this.isLightEffectBright ? 1 : 0.3;
+        });
+      } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+        animateTo({ duration: 200, curve: Curve.Linear }, () => {
+          this.lightIntensity = 0;
+        });
+      }
+    })
+    .visualEffect(new hdsEffect.HdsEffectBuilder()
+      .pointLight({
+        illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT,
+        options: {
+          color: Color.White,
+          intensity: this.isDarkMode ? 0 : this.lightIntensity,
+          height: 200
+        }
+      })
+      .buildEffect())
     .shadow({ radius: 20, color: '#1A000000', offsetX: 0, offsetY: 8 })
   }
 }
@@ -947,7 +969,8 @@ export struct SettingsPage {
                 title: this.isVerified ? '已验证' : '未验证手机号码',
                 icon: this.isVerified ? $r('sys.symbol.checkmark_circle') : $r('sys.symbol.exclamationmark_circle'),
                 isOpen: $isVerifiedSectionOpen,
-                isDarkMode: this.isDarkMode
+                isDarkMode: this.isDarkMode,
+                isLightEffectBright: this.isLightEffectBright
               }) {
                 if (this.isVerified) {
                   SettingsItem({
@@ -982,7 +1005,8 @@ export struct SettingsPage {
                 title: '字幕',
                 icon: $r('sys.symbol.AI_subtitles'),
                 isOpen: $isSubtitleSectionOpen,
-                isDarkMode: this.isDarkMode
+                isDarkMode: this.isDarkMode,
+                isLightEffectBright: this.isLightEffectBright
               }) {
                 this.PipToggleItem()
               }
@@ -996,7 +1020,8 @@ export struct SettingsPage {
                 title: '传译',
                 icon: $r('sys.symbol.voice_convert_text'),
                 isOpen: $isTranslateSectionOpen,
-                isDarkMode: this.isDarkMode
+                isDarkMode: this.isDarkMode,
+                isLightEffectBright: this.isLightEffectBright
               }) {
                 this.RealtimeReadingItem()
               }
@@ -1010,7 +1035,8 @@ export struct SettingsPage {
                 title: '手势',
                 icon: $r('sys.symbol.hand_raised_hexagon'),
                 isOpen: $isGestureSectionOpen,
-                isDarkMode: this.isDarkMode
+                isDarkMode: this.isDarkMode,
+                isLightEffectBright: this.isLightEffectBright
               }) {
                 this.AirGestureToggleItem()
 
@@ -1051,7 +1077,8 @@ export struct SettingsPage {
                 title: '安全',
                 icon: $r('sys.symbol.safe_box'),
                 isOpen: $isApiConfigSectionOpen,
-                isDarkMode: this.isDarkMode
+                isDarkMode: this.isDarkMode,
+                isLightEffectBright: this.isLightEffectBright
               }) {
                 this.ApiConfigItems()
               }
@@ -1065,7 +1092,8 @@ export struct SettingsPage {
                 title: '外观',
                 icon: $r('sys.symbol.brush'),
                 isOpen: $isAppearanceSectionOpen,
-                isDarkMode: this.isDarkMode
+                isDarkMode: this.isDarkMode,
+                isLightEffectBright: this.isLightEffectBright
               }) {
                 this.AppearanceItems()
               }
@@ -1079,7 +1107,8 @@ export struct SettingsPage {
                 title: '基本信息',
                 icon: $r('sys.symbol.info_circle'),
                 isOpen: $isInfoSectionOpen,
-                isDarkMode: this.isDarkMode
+                isDarkMode: this.isDarkMode,
+                isLightEffectBright: this.isLightEffectBright
               }) {
                 SettingsItem({
                   title: '用户协议',
@@ -1107,7 +1136,8 @@ export struct SettingsPage {
                 title: '常见问题',
                 icon: $r('sys.symbol.questionmark_circle'),
                 isOpen: $isFaqSectionOpen,
-                isDarkMode: this.isDarkMode
+                isDarkMode: this.isDarkMode,
+                isLightEffectBright: this.isLightEffectBright
               }) {
                 SettingsItem({
                   title: '为什么 Voot 备案了服务器？',
@@ -1132,7 +1162,7 @@ export struct SettingsPage {
           .offset({ y: this.pageOffsetY })
           .scale({ x: this.pageScale, y: this.pageScale })
           .width('100%')
-          .padding({ left: 24, right: 24, top: 16, bottom: 70 })
+          .padding({ left: 16, right: 16, top: 16, bottom: 70 })
         }
         .scrollable(ScrollDirection.Vertical)
         .scrollBar(BarState.Auto)
