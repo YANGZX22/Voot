@@ -35,16 +35,23 @@ export interface ApiConfigSnapshot {
   polishPromptText: string; // 润色提示词
   // OpenAI 多密钥槽位
   openAiKeySlots: MultiKeySlots;
+  // Gemini 多密钥槽位
+  geminiKeySlots: MultiKeySlots;
   // DeepL 多密钥槽位
   deepLKeySlots: MultiKeySlots;
   // Ollama 多密钥槽位
   ollamaKeySlots: MultiKeySlots;
   // Doubao 多密钥槽位
   doubaoKeySlots: MultiKeySlots;
+  // Huawei 多密钥槽位
+  huaweiKeySlots: MultiKeySlots;
   // 兼容旧版本的单密钥字段（用于迁移）
   openAiApiUrl: string;
   openAiApiKey: string;
   openAiModel: string;
+  geminiApiUrl: string;
+  geminiApiKey: string;
+  geminiModel: string;
   deepLApiUrl: string;
   deepLApiKey: string;
   ollamaApiUrl: string;
@@ -52,6 +59,9 @@ export interface ApiConfigSnapshot {
   doubaoApiUrl: string;
   doubaoApiKey: string;
   doubaoModel: string;
+  huaweiApiUrl: string;
+  huaweiApiKey: string;
+  huaweiModel: string;
   selectedApiIndex: number;
   selectedLanguageIndex: number;
   intervalIndex: number;
@@ -76,13 +86,18 @@ export interface PartialApiConfigSnapshot {
   polishPromptText?: string; // 润色提示词
   // 多密钥槽位
   openAiKeySlots?: MultiKeySlots;
+  geminiKeySlots?: MultiKeySlots;
   deepLKeySlots?: MultiKeySlots;
   ollamaKeySlots?: MultiKeySlots;
   doubaoKeySlots?: MultiKeySlots;
+  huaweiKeySlots?: MultiKeySlots;
   // 兼容旧版本
   openAiApiUrl?: string;
   openAiApiKey?: string;
   openAiModel?: string;
+  geminiApiUrl?: string;
+  geminiApiKey?: string;
+  geminiModel?: string;
   deepLApiUrl?: string;
   deepLApiKey?: string;
   ollamaApiUrl?: string;
@@ -90,6 +105,9 @@ export interface PartialApiConfigSnapshot {
   doubaoApiUrl?: string;
   doubaoApiKey?: string;
   doubaoModel?: string;
+  huaweiApiUrl?: string;
+  huaweiApiKey?: string;
+  huaweiModel?: string;
   selectedApiIndex?: number;
   selectedLanguageIndex?: number;
   intervalIndex?: number;
@@ -187,12 +205,31 @@ export class ApiConfigStorage {
       candidate.doubaoModel,
       defaults.doubaoKeySlots
     );
+    sanitized.geminiKeySlots = ApiConfigStorage.migrateKeySlots(
+      candidate.geminiKeySlots,
+      candidate.geminiApiUrl,
+      candidate.geminiApiKey,
+      candidate.geminiModel,
+      defaults.geminiKeySlots
+    );
+    sanitized.huaweiKeySlots = ApiConfigStorage.migrateKeySlots(
+      candidate.huaweiKeySlots,
+      candidate.huaweiApiUrl,
+      candidate.huaweiApiKey,
+      candidate.huaweiModel,
+      defaults.huaweiKeySlots
+    );
     
     // 兼容字段（从当前槽位同步）
     const openAiSlot = sanitized.openAiKeySlots.slots[sanitized.openAiKeySlots.currentSlotIndex];
     sanitized.openAiApiUrl = openAiSlot?.apiUrl ?? defaults.openAiApiUrl;
     sanitized.openAiApiKey = openAiSlot?.apiKey ?? defaults.openAiApiKey;
     sanitized.openAiModel = openAiSlot?.model ?? defaults.openAiModel;
+
+    const geminiSlot = sanitized.geminiKeySlots.slots[sanitized.geminiKeySlots.currentSlotIndex];
+    sanitized.geminiApiUrl = geminiSlot?.apiUrl ?? defaults.geminiApiUrl;
+    sanitized.geminiApiKey = geminiSlot?.apiKey ?? defaults.geminiApiKey;
+    sanitized.geminiModel = geminiSlot?.model ?? defaults.geminiModel;
     
     const deepLSlot = sanitized.deepLKeySlots.slots[sanitized.deepLKeySlots.currentSlotIndex];
     sanitized.deepLApiUrl = deepLSlot?.apiUrl ?? defaults.deepLApiUrl;
@@ -206,6 +243,11 @@ export class ApiConfigStorage {
     sanitized.doubaoApiUrl = doubaoSlot?.apiUrl ?? defaults.doubaoApiUrl;
     sanitized.doubaoApiKey = doubaoSlot?.apiKey ?? defaults.doubaoApiKey;
     sanitized.doubaoModel = doubaoSlot?.model ?? defaults.doubaoModel;
+
+    const huaweiSlot = sanitized.huaweiKeySlots.slots[sanitized.huaweiKeySlots.currentSlotIndex];
+    sanitized.huaweiApiUrl = huaweiSlot?.apiUrl ?? defaults.huaweiApiUrl;
+    sanitized.huaweiApiKey = huaweiSlot?.apiKey ?? defaults.huaweiApiKey;
+    sanitized.huaweiModel = huaweiSlot?.model ?? defaults.huaweiModel;
     
     sanitized.subtitleFontSize = ApiConfigStorage.pickNumber(candidate.subtitleFontSize, defaults.subtitleFontSize);
     sanitized.subtitleFontColor = ApiConfigStorage.pickString(candidate.subtitleFontColor, defaults.subtitleFontColor);
@@ -285,12 +327,17 @@ export class ApiConfigStorage {
       promptText: snapshot.promptText,
       polishPromptText: snapshot.polishPromptText,
       openAiKeySlots: ApiConfigStorage.cloneMultiKeySlots(snapshot.openAiKeySlots),
+      geminiKeySlots: ApiConfigStorage.cloneMultiKeySlots(snapshot.geminiKeySlots),
       deepLKeySlots: ApiConfigStorage.cloneMultiKeySlots(snapshot.deepLKeySlots),
       ollamaKeySlots: ApiConfigStorage.cloneMultiKeySlots(snapshot.ollamaKeySlots),
       doubaoKeySlots: ApiConfigStorage.cloneMultiKeySlots(snapshot.doubaoKeySlots),
+      huaweiKeySlots: ApiConfigStorage.cloneMultiKeySlots(snapshot.huaweiKeySlots),
       openAiApiUrl: snapshot.openAiApiUrl,
       openAiApiKey: snapshot.openAiApiKey,
       openAiModel: snapshot.openAiModel,
+      geminiApiUrl: snapshot.geminiApiUrl,
+      geminiApiKey: snapshot.geminiApiKey,
+      geminiModel: snapshot.geminiModel,
       deepLApiUrl: snapshot.deepLApiUrl,
       deepLApiKey: snapshot.deepLApiKey,
       ollamaApiUrl: snapshot.ollamaApiUrl,
@@ -298,6 +345,9 @@ export class ApiConfigStorage {
       doubaoApiUrl: snapshot.doubaoApiUrl,
       doubaoApiKey: snapshot.doubaoApiKey,
       doubaoModel: snapshot.doubaoModel,
+      huaweiApiUrl: snapshot.huaweiApiUrl,
+      huaweiApiKey: snapshot.huaweiApiKey,
+      huaweiModel: snapshot.huaweiModel,
       selectedApiIndex: snapshot.selectedApiIndex,
       selectedLanguageIndex: snapshot.selectedLanguageIndex,
       intervalIndex: snapshot.intervalIndex,
@@ -330,5 +380,20 @@ export class ApiConfigStorage {
       currentSlotIndex: slots.currentSlotIndex
     };
     return result;
+  }
+
+  /**
+   * 同步读取配置快照的 JSON 字符串（用于流转时的 onContinue）
+   * 注意：此方法使用同步 API，仅在必要时使用
+   */
+  static loadSnapshotSync(ctx: common.Context): string {
+    try {
+      const prefs = preferences.getPreferencesSync(ctx, { name: ApiConfigStorage.PREF_FILE });
+      const serialized = prefs.getSync(ApiConfigStorage.SNAPSHOT_KEY, '') as string;
+      return serialized || '{}';
+    } catch (error) {
+      console.error('[ApiConfigStorage] loadSnapshotSync error: ' + JSON.stringify(error));
+      return '{}';
+    }
   }
 }

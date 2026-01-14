@@ -273,9 +273,11 @@ struct ApiSelectorSheet {
   private getProviderIcon(providerName: string): Resource {
     switch (providerName) {
       case 'OpenAI': return $r('app.media.OpenAI');
+      case 'Gemini': return $r('app.media.Gemini');
       case 'DeepL': return $r('app.media.DeepL');
       case 'Ollama': return $r('app.media.Ollama');
       case 'Doubao': return $r('app.media.Doubao');
+      case 'Huawei': return $r('app.media.Huawei');
       default: return $r('sys.symbol.gearshape');
     }
   }
@@ -833,20 +835,28 @@ export struct ConfigurationPage {
   @Prop currentModelName: string = '';
   @Prop currentApiAlias: string = ''; // 当前选中 API 的别名（用于显示）
   @Prop validatedApiSlots: ValidatedApiSlot[] = []; // 已验证的 API 槽位列表
-  languageOptions: string[] = [];
-  languageDisplayOptions: string[] = [];
+  @Prop languageOptions: string[] = [];
+  @Prop languageDisplayOptions: string[] = [];
   @Prop selectedLanguageIndex: number = 0;
-  intervalOptions: string[] = [];
+  
+  // 原始语言选项（ASR 识别语言）
+  @Prop sourceLanguageOptions: string[] = [];
+  @Prop sourceLanguageDisplayOptions: string[] = [];
+  @Prop selectedSourceLanguageIndex: number = 0;
+  @Prop isSenseVoiceAvailable: boolean = false; // SenseVoice 模型是否已下载
+  @Prop isUsingSenseVoice: boolean = false; // 当前是否使用 SenseVoice 模型
+  
+  @Prop intervalOptions: string[] = [];
   @Prop selectedIntervalIndex: number = 0;
-  contextsOptions: string[] = [];
+  @Prop contextsOptions: string[] = [];
   @Prop selectedContextsIndex: number = 0;
-  temperatureOptions: string[] = [];
+  @Prop temperatureOptions: string[] = [];
   @Prop selectedTemperatureIndex: number = 0;
-  maxTokensOptions: string[] = [];
+  @Prop maxTokensOptions: string[] = [];
   @Prop selectedMaxTokensIndex: number = 0;
-  vadSensitivityOptions: string[] = [];
+  @Prop vadSensitivityOptions: string[] = [];
   @Prop selectedVadSensitivityIndex: number = 0;
-  minMatchLenOptions: string[] = [];
+  @Prop minMatchLenOptions: string[] = [];
   @Prop selectedMinMatchLenIndex: number = 0;
   @Prop @Watch('onVisibleChange') isVisible: boolean = false;
   @Prop isLightEffectBright: boolean = true;
@@ -863,6 +873,7 @@ export struct ConfigurationPage {
   onSelectApi: (apiIndex: number, slotIndex: number) => void = () => {}; // 新的 API 选择回调
   onCycleLanguage: () => void = () => {};
   onSelectLanguage: (index: number) => void = () => {};
+  onSelectSourceLanguage: (index: number) => void = () => {}; // 原始语言选择回调
   onOpenApiSettings: () => void = () => {};
   onSelectInterval: (index: number) => void = () => {};
   onSelectContexts: (index: number) => void = () => {};
@@ -977,6 +988,13 @@ export struct ConfigurationPage {
     return this.languageOptions;
   }
 
+  private getSourceLanguageLabels(): string[] {
+    if (this.sourceLanguageDisplayOptions.length > 0) {
+      return this.sourceLanguageDisplayOptions;
+    }
+    return this.sourceLanguageOptions;
+  }
+
   private openOptionSheet(title: string, description: string, options: string[], selected: number, type: string): void {
     this.sheetTitle = title;
     this.sheetDescription = description;
@@ -1008,6 +1026,9 @@ export struct ConfigurationPage {
         break;
       case 'language':
         this.onSelectLanguage(index);
+        break;
+      case 'sourceLanguage':
+        this.onSelectSourceLanguage(index);
         break;
     }
   }
@@ -1415,19 +1436,42 @@ export struct ConfigurationPage {
             GridItem() {
               ConfigCard({
                 title: '原始语言',
-                content: '英语',
+                content: this.isUsingSenseVoice ?
+                  this.getSourceLanguageLabels()[this.selectedSourceLanguageIndex] : '英语',
                 btnId: 3,
                 icon: $r('sys.symbol.mic_arrow_2_circlepath'),
                 isLightEffectBright: this.isLightEffectBright,
                 isDarkMode: this.isDarkMode,
                 callback: () => {
-                  // ToastUtil.showToast('当前仅支持英语作为原始语言');
+                  if (this.isUsingSenseVoice) {
+                    this.openOptionSheet(
+                      '原始语言',
+                      '设置语音识别的原始语言',
+                      this.getSourceLanguageLabels(),
+                      this.selectedSourceLanguageIndex,
+                      'sourceLanguage'
+                    );
+                  } else {
+                    AlertDialog.show({
+                      title: '功能提示',
+                      message: this.isSenseVoiceAvailable ?
+                        '当前使用 Moonshine 模型，仅支持英语。\n如需更多语言识别，请前往设置页面切换到 SenseVoice 模型。' :
+                        '当前使用 Moonshine 模型，仅支持英语。\n如需更多语言识别，请前往设置页面下载 SenseVoice 语音模型。',
+                      confirm: {
+                        value: '我知道了',
+                        fontColor: THEMES[this.themeColorIndex].primaryColor,
+                        action: () => {}
+                      }
+                    })
+                  }
                 },
                 activeBtn: $activeBtn,
                 onInfoClick: () => {
                   AlertDialog.show({
                     title: '原始语言说明',
-                    message: '翻译功能的原始语言，暂时仅支持英语。',
+                    message: this.isUsingSenseVoice ?
+                      '选择语音识别的原始语言，支持中文、英语、日语、韩语和粤语。' :
+                      '当前使用 Moonshine 模型，仅支持英语作为原始语言。如需支持更多语言，请在设置页面切换到 SenseVoice 模型。',
                     confirm: {
                       value: '我知道了',
                       fontColor: THEMES[this.themeColorIndex].primaryColor,
@@ -1750,7 +1794,27 @@ export struct ConfigurationPage {
             // 3. Original Language
             ListItem() {
               this.QuickActionButton($r('sys.symbol.mic_arrow_2_circlepath'), 3, () => {
-                // ToastUtil.showToast('当前仅支持英语作为原始语言');
+                if (this.isUsingSenseVoice) {
+                  this.openOptionSheet(
+                    '原始语言',
+                    '设置语音识别的原始语言',
+                    this.getSourceLanguageLabels(),
+                    this.selectedSourceLanguageIndex,
+                    'sourceLanguage'
+                  );
+                } else {
+                  AlertDialog.show({
+                    title: '功能提示',
+                    message: this.isSenseVoiceAvailable ?
+                      '当前使用 Moonshine 模型，仅支持英语。\n如需更多语言识别，请前往设置页面切换到 SenseVoice 模型。' :
+                      '当前使用 Moonshine 模型，仅支持英语。\n如需更多语言识别，请前往设置页面下载 SenseVoice 语音模型。',
+                    confirm: {
+                      value: '我知道了',
+                      fontColor: THEMES[this.themeColorIndex].primaryColor,
+                      action: () => {}
+                    }
+                  })
+                }
               })
             }
             // 4. Target Language
@@ -1907,7 +1971,7 @@ export struct ConfigurationPage {
           this.isSheetVisible = false;
         }
       })
-    } else if (this.sheetType === 'language') {
+    } else if (this.sheetType === 'language' || this.sheetType === 'sourceLanguage') {
       LanguageSelectorSheet({
         title: this.sheetTitle,
         description: this.sheetDescription,

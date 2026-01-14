@@ -91,7 +91,7 @@ struct ApiExplanationPage {
             router.back();
           })
 
-          Text('API 参数说明')
+          Text('API 参数填写说明')
             .fontSize(20)
             .fontWeight(FontWeight.Bold)
             .fontColor(Color.White)

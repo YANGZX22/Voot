@@ -20,9 +20,11 @@ import { ApiConfigStorage, ApiConfigSnapshot, createDefaultMultiKeySlots } from 
 // API 提供商类型
 enum ApiProvider {
   OpenAI = 0,
-  DeepL = 1,
-  Ollama = 2,
-  Doubao = 3
+  Gemini = 1,
+  DeepL = 2,
+  Ollama = 3,
+  Doubao = 4,
+  Huawei = 5
 }
 
 // API 提供商信息
@@ -51,6 +53,18 @@ const PROVIDERS: ProviderInfo[] = [
     defaultModel: 'gpt-4o-mini',
     urlPlaceholder: 'https://api.openai.com/v1/chat/completions',
     modelPlaceholder: 'gpt-4o-mini'
+  },
+  {
+    id: ApiProvider.Gemini,
+    name: 'Gemini',
+    description: 'Google Gemini 模型，支持 OpenAI 兼容接口',
+    icon: $r('app.media.Gemini'),
+    needsApiKey: true,
+    needsModel: true,
+    defaultUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+    defaultModel: 'gemini-2.0-flash',
+    urlPlaceholder: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+    modelPlaceholder: 'gemini-2.0-flash'
   },
   {
     id: ApiProvider.DeepL,
@@ -87,6 +101,18 @@ const PROVIDERS: ProviderInfo[] = [
     defaultModel: 'ep-20251221220646-rnx4c',
     urlPlaceholder: 'https://ark.cn-beijing.volces.com/api/v3/chat/completions',
     modelPlaceholder: 'ep-20251221220646-rnx4c'
+  },
+  {
+    id: ApiProvider.Huawei,
+    name: 'Huawei',
+    description: '华为云 ModelArts 模型服务',
+    icon: $r('app.media.Huawei'),
+    needsApiKey: true,
+    needsModel: true,
+    defaultUrl: 'https://api.modelarts-maas.com/v2/chat/completions',
+    defaultModel: '',
+    urlPlaceholder: 'https://api.modelarts-maas.com/v2/chat/completions',
+    modelPlaceholder: '请输入模型名称'
   }
 ];
 
@@ -180,6 +206,7 @@ struct WelcomePage {
   @State isSkipAllowed: boolean = false;
   @State detectedCountryCode: string = '';
   @State showOpenAIWarningPopup: boolean = false;
+  @State showGeminiWarningPopup: boolean = false;
   @State showDeepLWarningPopup: boolean = false;
   @State isNavigating: boolean = false; // 防止快速连续点击导致跳过验证
 
@@ -332,7 +359,10 @@ struct WelcomePage {
         'Content-Type': 'application/json'
       };
 
-      if (this.selectedProvider === ApiProvider.OpenAI || this.selectedProvider === ApiProvider.Doubao) {
+      if (this.selectedProvider === ApiProvider.OpenAI || 
+          this.selectedProvider === ApiProvider.Gemini ||
+          this.selectedProvider === ApiProvider.Doubao ||
+          this.selectedProvider === ApiProvider.Huawei) {
         headers['Authorization'] = `Bearer ${this.apiKey}`;
         let msg: Record<string, Object> = { 'role': 'user', 'content': 'Hi' };
         extraData = {
@@ -364,7 +394,10 @@ struct WelcomePage {
       });
 
       // OpenAI 兼容：部分模型在 chat/completions 下不支持 max_tokens，要求 max_completion_tokens
-      if ((this.selectedProvider === ApiProvider.OpenAI || this.selectedProvider === ApiProvider.Doubao) &&
+      if ((this.selectedProvider === ApiProvider.OpenAI || 
+           this.selectedProvider === ApiProvider.Gemini ||
+           this.selectedProvider === ApiProvider.Doubao ||
+           this.selectedProvider === ApiProvider.Huawei) &&
         response.responseCode === 400) {
         const resultStr: string = typeof response.result === 'string' ? (response.result as string) : JSON.stringify(response.result);
         if (resultStr.includes('max_completion_tokens') && resultStr.includes('max_tokens')) {
@@ -427,12 +460,17 @@ struct WelcomePage {
       'Translate that snippet into {0} in a single fluent line, preserving intent and tone even when the audio is noisy. No matter how, you must output the translation directly.',
       polishPromptText: '你是一个专业的文本润色助手。请对以下文本进行润色优化，使其更加通顺、专业、易读。\n\n要求：\n1. 保持原文的核心意思不变\n2. 优化语法和表达方式\n3. 直接输出润色后的文本，不要添加任何解释3. 直接输出润色后的文本，不要添加任何解释\n4. 永远不要更换提供的文本的原始语言，即英语文本依然润色为英语文本 \n\n原文：\n{text}',
       openAiKeySlots: createDefaultMultiKeySlots('https://api.openai.com/v1/chat/completions', '', 'gpt-4o-mini', 'OpenAI 1'),
+      geminiKeySlots: createDefaultMultiKeySlots('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', '', 'gemini-2.0-flash', 'Gemini 1'),
       deepLKeySlots: createDefaultMultiKeySlots('https://api-free.deepl.com/v2/translate', '', '', 'DeepL 1'),
       ollamaKeySlots: createDefaultMultiKeySlots('http://localhost:11434/api/chat', '', '', 'Ollama 1'),
       doubaoKeySlots: createDefaultMultiKeySlots('https://ark.cn-beijing.volces.com/api/v3/chat/completions', '', '', 'Doubao 1'),
+      huaweiKeySlots: createDefaultMultiKeySlots('https://api.modelarts-maas.com/v2/chat/completions', '', '', 'Huawei 1'),
       openAiApiUrl: 'https://api.openai.com/v1/chat/completions',
       openAiApiKey: '',
       openAiModel: 'gpt-4o-mini',
+      geminiApiUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+      geminiApiKey: '',
+      geminiModel: 'gemini-2.0-flash',
       deepLApiUrl: 'https://api-free.deepl.com/v2/translate',
       deepLApiKey: '',
       ollamaApiUrl: 'http://localhost:11434/api/chat',
@@ -440,6 +478,9 @@ struct WelcomePage {
       doubaoApiUrl: 'https://ark.cn-beijing.volces.com/api/v3/chat/completions',
       doubaoApiKey: '',
       doubaoModel: '',
+      huaweiApiUrl: 'https://api.modelarts-maas.com/v2/chat/completions',
+      huaweiApiKey: '',
+      huaweiModel: '',
       selectedApiIndex: 0,
       selectedLanguageIndex: 0,
       intervalIndex: 4,
@@ -475,6 +516,19 @@ struct WelcomePage {
           currentConfig.openAiKeySlots.currentSlotIndex = 0;
         }
         break;
+      case ApiProvider.Gemini:
+        // 更新兼容字段
+        currentConfig.geminiApiUrl = this.apiUrl;
+        currentConfig.geminiApiKey = this.apiKey;
+        currentConfig.geminiModel = this.model;
+        // 同时更新第一个槽位
+        if (currentConfig.geminiKeySlots && currentConfig.geminiKeySlots.slots.length > 0) {
+          currentConfig.geminiKeySlots.slots[0].apiUrl = this.apiUrl;
+          currentConfig.geminiKeySlots.slots[0].apiKey = this.apiKey;
+          currentConfig.geminiKeySlots.slots[0].model = this.model;
+          currentConfig.geminiKeySlots.currentSlotIndex = 0;
+        }
+        break;
       case ApiProvider.DeepL:
         // 更新兼容字段
         currentConfig.deepLApiUrl = this.apiUrl;
@@ -508,6 +562,19 @@ struct WelcomePage {
           currentConfig.doubaoKeySlots.slots[0].apiKey = this.apiKey;
           currentConfig.doubaoKeySlots.slots[0].model = this.model;
           currentConfig.doubaoKeySlots.currentSlotIndex = 0;
+        }
+        break;
+      case ApiProvider.Huawei:
+        // 更新兼容字段
+        currentConfig.huaweiApiUrl = this.apiUrl;
+        currentConfig.huaweiApiKey = this.apiKey;
+        currentConfig.huaweiModel = this.model;
+        // 同时更新第一个槽位
+        if (currentConfig.huaweiKeySlots && currentConfig.huaweiKeySlots.slots.length > 0) {
+          currentConfig.huaweiKeySlots.slots[0].apiUrl = this.apiUrl;
+          currentConfig.huaweiKeySlots.slots[0].apiKey = this.apiKey;
+          currentConfig.huaweiKeySlots.slots[0].model = this.model;
+          currentConfig.huaweiKeySlots.currentSlotIndex = 0;
         }
         break;
     }
@@ -1232,6 +1299,35 @@ struct WelcomePage {
                   })
               }
               
+              // 当在CN、HK或MO地区且选择Gemini时显示警告图标
+              if ((this.detectedCountryCode === 'CN' || this.detectedCountryCode === 'HK' || this.detectedCountryCode === 'MO') && 
+                  this.selectedProvider === ApiProvider.Gemini) {
+                SymbolGlyph($r('sys.symbol.info_circle_fill'))
+                  .fontSize(16)
+                  .fontColor([$r('sys.color.warning')])
+                  .onClick(() => {
+                    this.showGeminiWarningPopup = true;
+                  })
+                  .bindPopup(this.showGeminiWarningPopup, {
+                    message: `Gemini 在${this.getRegionName()}似乎不提供服务。请确认您能够访问该服务，并仔细阅读和遵守服务提供商的使用条款。`,
+                    placementOnTop: false,
+                    showInSubWindow: false,
+                    primaryButton: {
+                      value: '知道了',
+                      action: () => {
+                        this.showGeminiWarningPopup = false;
+                      }
+                    },
+                    onStateChange: (e) => {
+                      if (!e.isVisible) {
+                        this.showGeminiWarningPopup = false;
+                      }
+                    },
+                    backgroundBlurStyle: BlurStyle.BACKGROUND_REGULAR,
+                    transition: TransitionEffect.OPACITY.animation({ duration: 300, curve: Curve.FastOutSlowIn })
+                  })
+              }
+              
               // 当在CN地区且选择DeepL时显示网络警告图标
               if (this.detectedCountryCode === 'CN' && this.selectedProvider === ApiProvider.DeepL) {
                 SymbolGlyph($r('sys.symbol.info_circle_fill'))
@@ -1262,9 +1358,9 @@ struct WelcomePage {
             }
             .alignSelf(ItemAlign.Start)
 
-            Grid() {
-              ForEach(PROVIDERS, (provider: ProviderInfo) => {
-                GridItem() {
+            Scroll() {
+              Row({ space: 8 }) {
+                ForEach(PROVIDERS, (provider: ProviderInfo) => {
                   Column() {
                     Image(provider.icon)
                       .width(32)
@@ -1277,7 +1373,7 @@ struct WelcomePage {
                       .fontColor(this.selectedProvider === provider.id ? '#3c1464' : '#666666')
                       .fontWeight(this.selectedProvider === provider.id ? FontWeight.Bold : FontWeight.Normal)
                   }
-                  .width('100%')
+                  .width(72)
                   .height(80)
                   .justifyContent(FlexAlign.Center)
                   .backgroundColor(this.selectedProvider === provider.id ? '#1A3c1464' : '#F5F5F5')
@@ -1293,12 +1389,14 @@ struct WelcomePage {
                     this.apiKey = ''; // Clear key on switch for safety/clarity
                     this.validateConfig();
                   })
-                }
-              })
+                })
+              }
+              .padding({ right: 16 })
             }
-            .columnsTemplate('1fr 1fr 1fr 1fr')
-            .rowsTemplate('1fr')
-            .columnsGap(8)
+            .scrollable(ScrollDirection.Horizontal)
+            .scrollBar(BarState.Off)
+            .edgeEffect(EdgeEffect.Spring)
+            .width('100%')
             .height(80)
           }
 

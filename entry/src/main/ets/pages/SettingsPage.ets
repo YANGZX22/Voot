@@ -12,9 +12,11 @@ import { THEMES, Theme } from '../model/Theme';
 import { AuthUtil } from '@pura/harmony-utils';
 import userIAM_userAuth from '@ohos.userIAM.userAuth';
 import { BusinessError } from '@kit.BasicServicesKit';
+import { AsrModelType, ASR_MODELS, AsrModelStorage, AsrModelConfig } from '../storage/AsrModelStorage';
+import { ModelDownloadService, DownloadState, DownloadProgress } from '../services/ModelDownloadService';
 
 const TITLE_BAR_HEIGHT_MINI: number = 94;
-const SETTINGS_SECTION_COUNT: number = 8;
+const SETTINGS_SECTION_COUNT: number = 9; // 增加到9，新增语音模型设置
 type ToggleKey = 'subtitles' | 'liveWindow';
 
 @CustomDialog
@@ -91,6 +93,209 @@ struct CustomDialogLiveWindows {
     .alignItems(HorizontalAlign.Center)
     .backgroundColor(Color.Transparent)
     .borderRadius(24)
+  }
+}
+
+// 模型下载确认弹窗
+@CustomDialog
+struct ModelDownloadDialog {
+  controller: CustomDialogController;
+  onConfirm: () => void = () => {};
+  modelSizeMB: number = 228;
+  @StorageLink('themeColorIndex') themeColorIndex: number = 0;
+
+  build() {
+    Column() {
+      Text('下载 SenseVoice 模型')
+        .fontSize(20)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(Color.Black)
+        .margin({ top: 24, bottom: 16 })
+        .textAlign(TextAlign.Center)
+
+      Column({ space: 12 }) {
+        Row({ space: 8 }) {
+          Column() {
+            SymbolGlyph($r('sys.symbol.globe_badge_heart'))
+              .fontSize(18)
+              .fontColor([Color.White])
+          }
+          .width(32)
+          .height(32)
+          .borderRadius(16)
+          .backgroundColor(THEMES[this.themeColorIndex].primaryColor)
+          .justifyContent(FlexAlign.Center)
+
+          Text('支持中、英、日、韩、粤语识别')
+            .fontSize(14)
+            .fontColor('#333333')
+            .layoutWeight(1)
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Center)
+
+        Row({ space: 8 }) {
+          Column() {
+            SymbolGlyph($r('sys.symbol.doc_zipper'))
+              .fontSize(18)
+              .fontColor([Color.White])
+          }
+          .width(32)
+          .height(32)
+          .borderRadius(16)
+          .backgroundColor('#FFB800')
+          .justifyContent(FlexAlign.Center)
+
+          Text(`文件大小：约 ${this.modelSizeMB} MB`)
+            .fontSize(14)
+            .fontColor('#333333')
+            .layoutWeight(1)
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Center)
+
+        Row({ space: 8 }) {
+          Column() {
+            SymbolGlyph($r('sys.symbol.cloud_and_arrow_down'))
+              .fontSize(18)
+              .fontColor([Color.White])
+          }
+          .width(32)
+          .height(32)
+          .borderRadius(16)
+          .backgroundColor($r('sys.color.brand'))
+          .justifyContent(FlexAlign.Center)
+
+          Text('下载源：HuggingFace 镜像')
+            .fontSize(14)
+            .fontColor('#333333')
+            .layoutWeight(1)
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Center)
+      }
+      .width('100%')
+      .padding({ left: 16, right: 16 })
+
+      Row({ space: 12 }) {
+        Button('取消')
+          .layoutWeight(1)
+          .borderRadius(30)
+          .backgroundColor('#F5F5F5')
+          .fontColor('#666666')
+          .onClick(() => {
+            this.controller.close();
+          })
+
+        Button('开始下载')
+          .layoutWeight(1)
+          .borderRadius(30)
+          .backgroundColor(THEMES[this.themeColorIndex].primaryColor)
+          .fontColor(Color.White)
+          .onClick(() => {
+            this.controller.close();
+            this.onConfirm();
+          })
+      }
+      .width('100%')
+      .padding({ left: 16, right: 16 })
+      .margin({ top: 20, bottom: 16 })
+    }
+    .width(320)
+    .backgroundColor(Color.White)
+    .borderRadius(30)
+    .alignItems(HorizontalAlign.Center)
+  }
+}
+
+// 模型删除确认弹窗
+@CustomDialog
+struct ModelDeleteDialog {
+  controller: CustomDialogController;
+  onConfirm: () => void = () => {};
+  @StorageLink('themeColorIndex') themeColorIndex: number = 0;
+
+  build() {
+    Column() {
+      Text('删除模型')
+        .fontSize(20)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(Color.Black)
+        .margin({ top: 24, bottom: 16 })
+        .textAlign(TextAlign.Center)
+
+      Column({ space: 12 }) {
+        Row({ space: 8 }) {
+          Column() {
+            SymbolGlyph($r('sys.symbol.trash'))
+              .fontSize(18)
+              .fontColor([Color.White])
+          }
+          .width(32)
+          .height(32)
+          .borderRadius(16)
+          .backgroundColor($r('sys.color.warning'))
+          .justifyContent(FlexAlign.Center)
+
+          Text('确定要删除已下载的 SenseVoice 模型吗？')
+            .fontSize(14)
+            .fontColor('#333333')
+            .layoutWeight(1)
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Center)
+
+        Row({ space: 8 }) {
+          Column() {
+            SymbolGlyph($r('sys.symbol.exclamationmark_triangle'))
+              .fontSize(18)
+              .fontColor([Color.White])
+          }
+          .width(32)
+          .height(32)
+          .borderRadius(16)
+          .backgroundColor('#FFB800')
+          .justifyContent(FlexAlign.Center)
+
+          Text('删除后需重新下载才能使用更多语言识别')
+            .fontSize(14)
+            .fontColor('#333333')
+            .layoutWeight(1)
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Center)
+      }
+      .width('100%')
+      .padding({ left: 16, right: 16 })
+
+      Row({ space: 12 }) {
+        Button('取消')
+          .layoutWeight(1)
+          .borderRadius(30)
+          .backgroundColor('#F5F5F5')
+          .fontColor('#666666')
+          .onClick(() => {
+            this.controller.close();
+          })
+
+        Button('删除')
+          .layoutWeight(1)
+          .borderRadius(30)
+          .backgroundColor('#FF4444')
+          .fontColor(Color.White)
+          .onClick(() => {
+            this.controller.close();
+            this.onConfirm();
+          })
+      }
+      .width('100%')
+      .padding({ left: 16, right: 16 })
+      .margin({ top: 20, bottom: 16 })
+    }
+    .width(320)
+    .backgroundColor(Color.White)
+    .borderRadius(30)
+    .alignItems(HorizontalAlign.Center)
   }
 }
 
@@ -513,6 +718,9 @@ export struct SettingsPage {
   // 隔空手势提示 Popup
   @State showAirGestureTip: boolean = false;
 
+  // 实时朗读提示 Popup
+  @State showRealtimeReadingTip: boolean = false;
+
   // 本地动画状态变量
   @State showSubtitleStyle: boolean = false;
   @State showGestureActions: boolean = false;
@@ -617,6 +825,9 @@ export struct SettingsPage {
     // 检测屏幕锁定选项是否可用
     this.checkScreenLockAvailability();
 
+    // 加载 ASR 模型配置
+    await this.loadAsrModelConfig();
+
     // 初始化展开状态（无动画）
     this.showSubtitleStyle = this.isPipSubtitleEnabled;
     this.showGestureActions = this.airGesturesEnabled;
@@ -645,6 +856,149 @@ export struct SettingsPage {
     }
   }
 
+  // 加载 ASR 模型配置
+  private async loadAsrModelConfig(): Promise<void> {
+    this.isCheckingModel = true;
+    try {
+      const context = getContext(this) as common.UIAbilityContext;
+      this.asrModelConfig = await AsrModelStorage.loadConfig(context);
+      
+      // 检查 SenseVoice 模型是否存在（包括下载目录和 rawfile）
+      const modelExistsInStorage = await AsrModelStorage.checkSenseVoiceModelExists(context);
+      const modelExistsInDownloads = await this.downloadService.checkModelExists(context);
+      const modelExists = modelExistsInStorage || modelExistsInDownloads;
+      
+      this.isSenseVoiceDownloaded = modelExists;
+      
+      // 如果配置显示已下载但文件不存在，更新配置
+      if (this.asrModelConfig.senseVoiceDownloaded && !modelExists) {
+        this.asrModelConfig.senseVoiceDownloaded = false;
+        this.asrModelConfig.currentModel = AsrModelType.MOONSHINE_EN;
+        await AsrModelStorage.saveConfig(context, this.asrModelConfig);
+      } else if (modelExists && !this.asrModelConfig.senseVoiceDownloaded) {
+        // 如果文件存在但配置显示未下载，更新配置
+        this.asrModelConfig.senseVoiceDownloaded = true;
+        await AsrModelStorage.saveConfig(context, this.asrModelConfig);
+      }
+      
+      // 同步下载状态
+      this.downloadState = this.downloadService.getState();
+    } catch (e) {
+      console.error('[SettingsPage] Failed to load ASR model config: ' + JSON.stringify(e));
+    } finally {
+      this.isCheckingModel = false;
+    }
+  }
+
+  // 打开下载指引
+  private openDownloadGuide(): void {
+    this.modelDownloadDialogController.open();
+  }
+
+  // 开始下载模型
+  private async startModelDownload(): Promise<void> {
+    const context = getContext(this) as common.UIAbilityContext;
+    
+    // 设置进度回调
+    this.downloadService.setProgressCallback((progress: DownloadProgress) => {
+      this.downloadState = progress.state;
+      this.downloadProgress = progress.progress;
+      this.downloadedMB = progress.downloadedMB;
+      this.downloadSpeed = progress.speed;
+      this.downloadError = progress.errorMessage;
+
+      // 下载完成后更新状态
+      if (progress.state === DownloadState.COMPLETED) {
+        this.isSenseVoiceDownloaded = true;
+        this.asrModelConfig.senseVoiceDownloaded = true;
+        this.asrModelConfig.currentModel = AsrModelType.SENSE_VOICE_MULTI;
+        AsrModelStorage.saveConfig(context, this.asrModelConfig);
+        this.onAsrModelChange(AsrModelType.SENSE_VOICE_MULTI);
+        promptAction.showToast({ message: '模型下载完成，已自动切换到 SenseVoice 多语言模型' });
+      } else if (progress.state === DownloadState.FAILED) {
+        promptAction.showToast({ message: `下载失败: ${progress.errorMessage}` });
+      }
+    });
+
+    // 开始下载
+    await this.downloadService.startDownload(context);
+  }
+
+  // 取消下载
+  private async cancelDownload(): Promise<void> {
+    const context = getContext(this) as common.UIAbilityContext;
+    await this.downloadService.cancelDownload(context);
+    promptAction.showToast({ message: '已取消下载' });
+  }
+
+  // 删除已下载的模型
+  private deleteDownloadedModel(): void {
+    this.modelDeleteDialogController.open();
+  }
+
+  // 确认删除模型
+  private async confirmDeleteModel(): Promise<void> {
+    try {
+      const context = getContext(this) as common.UIAbilityContext;
+      await this.downloadService.deleteModel(context);
+      
+      // 更新状态
+      this.isSenseVoiceDownloaded = false;
+      this.downloadState = DownloadState.IDLE;
+      this.asrModelConfig.senseVoiceDownloaded = false;
+      this.asrModelConfig.currentModel = AsrModelType.MOONSHINE_EN;
+      await AsrModelStorage.saveConfig(context, this.asrModelConfig);
+      this.onAsrModelChange(AsrModelType.MOONSHINE_EN);
+      
+      promptAction.showToast({ message: '模型已删除' });
+    } catch (err) {
+      console.error('[SettingsPage] Delete model error: ' + JSON.stringify(err));
+      promptAction.showToast({ message: '删除失败' });
+    }
+  }
+
+  // 切换 ASR 模型
+  private async switchAsrModel(modelType: AsrModelType): Promise<void> {
+    if (modelType === AsrModelType.SENSE_VOICE_MULTI && !this.isSenseVoiceDownloaded) {
+      promptAction.showToast({ message: '请先下载 SenseVoice 模型' });
+      return;
+    }
+
+    // 如果已经是当前模型，不做切换
+    if (modelType === this.asrModelConfig.currentModel) {
+      return;
+    }
+
+    // 显示切换中状态 - 先设置状态再等一帧让 UI 渲染
+    this.isSwitchingModel = true;
+    
+    // 等待足够的时间让 UI 完成渲染 (Loading 弹窗出现)
+    await new Promise<void>(resolve => setTimeout(resolve, 200));
+
+    try {
+      const context = getContext(this) as common.UIAbilityContext;
+      this.asrModelConfig.currentModel = modelType;
+      await AsrModelStorage.saveConfig(context, this.asrModelConfig);
+      
+      // 等待模型切换完成
+      await this.onAsrModelChange(modelType);
+      
+      // 确保 loading 显示足够长时间让用户看到
+      await new Promise<void>(resolve => setTimeout(resolve, 800));
+      
+      promptAction.showToast({ 
+        message: modelType === AsrModelType.SENSE_VOICE_MULTI 
+          ? '已切换到 SenseVoice 模型'
+          : '已切换到 Moonshine 模型'
+      });
+    } catch (e) {
+      console.error('[SettingsPage] Failed to switch ASR model: ' + JSON.stringify(e));
+      promptAction.showToast({ message: '模型切换失败' });
+    } finally {
+      this.isSwitchingModel = false;
+    }
+  }
+
   @State liveWindowEnabled: boolean = false;
   @State isPolicySheetOpen: boolean = false;
   @State currentPolicySheet: PolicySheetType = PolicySheetType.Privacy;
@@ -660,10 +1014,49 @@ export struct SettingsPage {
   @State isSubtitleSectionOpen: boolean = true;
   @State isTranslateSectionOpen: boolean = true;
   @State isGestureSectionOpen: boolean = false;
+  @State isAsrModelSectionOpen: boolean = false; // 语音模型设置
   @State isApiConfigSectionOpen: boolean = false;
   @State isAppearanceSectionOpen: boolean = false;
   @State isInfoSectionOpen: boolean = false;
   @State isFaqSectionOpen: boolean = false;
+
+  // ASR Model States
+  @State asrModelConfig: AsrModelConfig = AsrModelStorage.getDefaultConfig();
+  @State isSenseVoiceDownloaded: boolean = false;
+  @State isCheckingModel: boolean = true;
+  @State isSwitchingModel: boolean = false; // 模型切换中
+  
+  // Download States
+  @State downloadState: DownloadState = DownloadState.IDLE;
+  @State downloadProgress: number = 0;
+  @State downloadedMB: number = 0;
+  @State downloadSpeed: string = '';
+  @State downloadError: string = '';
+  private downloadService: ModelDownloadService = ModelDownloadService.getInstance();
+
+  // Model Dialog Controllers
+  private modelDownloadDialogController: CustomDialogController = new CustomDialogController({
+    builder: ModelDownloadDialog({
+      modelSizeMB: ASR_MODELS[AsrModelType.SENSE_VOICE_MULTI].fileSizeMB,
+      onConfirm: () => this.startModelDownload()
+    }),
+    autoCancel: true,
+    customStyle: true,
+    alignment: DialogAlignment.Center
+  });
+
+  private modelDeleteDialogController: CustomDialogController = new CustomDialogController({
+    builder: ModelDeleteDialog({
+      onConfirm: () => this.confirmDeleteModel()
+    }),
+    autoCancel: true,
+    customStyle: true,
+    alignment: DialogAlignment.Center
+  });
+
+  // Callbacks for ASR model
+  onAsrModelChange: (modelType: AsrModelType) => void = () => {};
+  onSourceLanguageChange: (langCode: string) => void = () => {};
 
   private policyWebController: webview.WebviewController = new webview.WebviewController();
 
@@ -751,12 +1144,36 @@ export struct SettingsPage {
       title: '实时朗读',
       subtitle: '打开后，翻译成功时传译将自动开启'
     }) {
-      Toggle({ type: ToggleType.Switch, isOn: this.isRealtimeReadingEnabled })
-        .selectedColor(THEMES[this.themeColorIndex].primaryColor)
-        .onChange((isOn: boolean) => {
-          this.isRealtimeReadingEnabled = isOn;
-          this.onToggleRealtimeReading();
-        })
+      Row({ space: 8 }) {
+        SymbolGlyph($r('sys.symbol.info_circle'))
+          .fontSize(18)
+          .fontColor([$r('sys.color.font_on_secondary')])
+          .bindPopup(this.showRealtimeReadingTip, {
+            message: '适用于中文译文，英语及其他语言可能表现一般',
+            placementOnTop: true,
+            showInSubWindow: false,
+            onStateChange: (e) => {
+              if (!e.isVisible) {
+                this.showRealtimeReadingTip = false;
+              }
+            },
+            messageOptions: {
+              textColor: Color.White
+            },
+            backgroundBlurStyle: BlurStyle.BACKGROUND_REGULAR,
+            transition: TransitionEffect.OPACITY.animation({ duration: 200, curve: Curve.FastOutSlowIn })
+          })
+          .onClick(() => {
+            this.showRealtimeReadingTip = !this.showRealtimeReadingTip;
+          })
+
+        Toggle({ type: ToggleType.Switch, isOn: this.isRealtimeReadingEnabled })
+          .selectedColor(THEMES[this.themeColorIndex].primaryColor)
+          .onChange((isOn: boolean) => {
+            this.isRealtimeReadingEnabled = isOn;
+            this.onToggleRealtimeReading();
+          })
+      }
     }
   }
 
@@ -870,6 +1287,144 @@ export struct SettingsPage {
       console.error('SettingsPage: Failed to check screen lock availability', err);
       this.isScreenLockAvailable = false;
     }
+  }
+
+  @Builder
+  AsrModelItems() {
+    // 语音识别模型选择（类似手势开关的简洁风格）
+    SettingsItem({
+      title: '语音识别模型'
+    }) {
+      Select(this.isSenseVoiceDownloaded
+        ? [{ value: 'Moonshine' }, { value: 'SenseVoice' }]
+        : [{ value: 'Moonshine' }])
+        .arrowModifier(new SymbolGlyphModifier($r('sys.symbol.arrowtriangle_down_fill')).fontColor([Color.White]))
+        .selected(this.asrModelConfig.currentModel === AsrModelType.MOONSHINE_EN ? 0 : 1)
+        .value(this.asrModelConfig.currentModel === AsrModelType.MOONSHINE_EN
+          ? 'Moonshine'
+          : 'SenseVoice')
+        .font({ size: 14, weight: FontWeight.Medium })
+        .fontColor(Color.White)
+        .selectedOptionFont({ size: 14, weight: FontWeight.Medium })
+        .optionFont({ size: 14, weight: FontWeight.Medium })
+        .backgroundColor(THEMES[this.themeColorIndex].secondaryColor)
+        .selectedOptionBgColor(THEMES[this.themeColorIndex].secondaryColor)
+        .selectedOptionFontColor($r('sys.color.font_on_primary'))
+        .menuBackgroundBlurStyle(BlurStyle.Thin)
+        .onSelect((index: number) => {
+          if (index === 0) {
+            this.switchAsrModel(AsrModelType.MOONSHINE_EN);
+          } else if (this.isSenseVoiceDownloaded && index === 1) {
+            this.switchAsrModel(AsrModelType.SENSE_VOICE_MULTI);
+          }
+        })
+    }
+
+    // 下载进度显示（仅在下载中显示）
+    if (this.downloadState === DownloadState.DOWNLOADING || this.downloadState === DownloadState.EXTRACTING) {
+      Column({ space: 8 }) {
+        Row() {
+          Text(this.downloadState === DownloadState.EXTRACTING ? '正在解压...' : '正在下载 SenseVoice 模型')
+            .fontSize(14)
+            .fontColor($r('sys.color.font_on_secondary'))
+            .fontWeight(FontWeight.Medium)
+          Blank()
+          Text(this.downloadSpeed)
+            .fontSize(14)
+            .fontColor($r('sys.color.font_on_secondary'))
+        }
+        .width('100%')
+
+        Progress({ value: this.downloadProgress, total: 100, type: ProgressType.Linear })
+          .color(THEMES[this.themeColorIndex].primaryColor)
+          .backgroundColor($r('sys.color.comp_background_tertiary'))
+          .width('100%')
+          .height(6)
+          .borderRadius(3)
+
+        Row() {
+          Text(`${this.downloadedMB.toFixed(1)} / ${ASR_MODELS[AsrModelType.SENSE_VOICE_MULTI].fileSizeMB} MB`)
+            .fontSize(12)
+            .fontColor($r('sys.color.font_secondary'))
+          Blank()
+          Button('取消')
+            .type(ButtonType.Normal)
+            .backgroundColor(Color.Transparent)
+            .fontColor($r('sys.color.warning'))
+            .fontSize(12)
+            .height(24)
+            .onClick(() => {
+              this.cancelDownload();
+            })
+        }
+        .width('100%')
+      }
+      .width('100%')
+      .padding({ left: 16, right: 16, top: 8, bottom: 8 })
+    }
+
+    // 下载失败提示
+    if (this.downloadState === DownloadState.FAILED) {
+      Row() {
+        Text(this.downloadError || '下载失败，请检查网络')
+          .fontSize(13)
+          .fontColor($r('sys.color.warning'))
+        Blank()
+        Text('重试')
+          .fontSize(13)
+          .fontColor(THEMES[this.themeColorIndex].primaryColor)
+          .onClick(() => {
+            this.startModelDownload();
+          })
+      }
+      .width('100%')
+      .padding({ left: 16, right: 16, top: 8, bottom: 8 })
+    }
+
+    // 多语言模型未下载时显示下载入口
+    if (!this.isSenseVoiceDownloaded && this.downloadState === DownloadState.IDLE) {
+      SettingsItem({
+        title: '下载 SenseVoice 模型',
+        subtitle: `支持中文、英语、日语、韩语、粤语 (约 ${ASR_MODELS[AsrModelType.SENSE_VOICE_MULTI].fileSizeMB} MB)`,
+        hasArrow: false,
+        onClickItem: () => {
+          this.openDownloadGuide();
+        }
+      }) {
+        SymbolGlyph($r('sys.symbol.arrow_down_circle'))
+          .fontSize(18)
+          .fontColor([$r('sys.color.font_on_primary')])
+      }
+    }
+
+    // 多语言模型已下载时显示删除选项
+    if (this.isSenseVoiceDownloaded) {
+      SettingsItem({
+        title: '删除多语言模型',
+        subtitle: '删除后可释放约 228 MB 存储空间',
+        hasArrow: false,
+        onClickItem: () => {
+          this.deleteDownloadedModel();
+        }
+      }) {
+        SymbolGlyph($r('sys.symbol.trash'))
+          .fontSize(18)
+          .fontColor([$r('sys.color.font_on_primary')])
+      }
+    }
+
+    SettingsItem({
+      title: '模型开源许可证',
+      hasArrow: true,
+      onClickItem: () => {
+        const context = getContext(this) as common.UIAbilityContext;
+        context.startAbility({
+          action: 'ohos.want.action.viewData',
+          entities: ['entity.system.browsable'],
+          uri: 'https://github.com/k2-fsa/sherpa-onnx/blob/master/LICENSE'
+        });
+      }
+    })
   }
 
   @Builder
@@ -1071,6 +1626,21 @@ export struct SettingsPage {
             .opacity(this.sectionOpacities[3])
             .offset({ y: this.sectionOffsets[3] })
 
+            // ASR Model Section
+            Column() {
+              SettingsGroup({
+                title: '语音模型',
+                icon: $r('sys.symbol.satellite_map'),
+                isOpen: $isAsrModelSectionOpen,
+                isDarkMode: this.isDarkMode,
+                isLightEffectBright: this.isLightEffectBright
+              }) {
+                this.AsrModelItems()
+              }
+            }
+            .opacity(this.sectionOpacities[4])
+            .offset({ y: this.sectionOffsets[4] })
+
             // API Config Page Section
             Column() {
               SettingsGroup({
@@ -1083,8 +1653,8 @@ export struct SettingsPage {
                 this.ApiConfigItems()
               }
             }
-            .opacity(this.sectionOpacities[4])
-            .offset({ y: this.sectionOffsets[4] })
+            .opacity(this.sectionOpacities[5])
+            .offset({ y: this.sectionOffsets[5] })
 
             // Appearance Section
             Column() {
@@ -1098,8 +1668,8 @@ export struct SettingsPage {
                 this.AppearanceItems()
               }
             }
-            .opacity(this.sectionOpacities[5])
-            .offset({ y: this.sectionOffsets[5] })
+            .opacity(this.sectionOpacities[6])
+            .offset({ y: this.sectionOffsets[6] })
 
             // Info Section
             Column() {
@@ -1127,8 +1697,8 @@ export struct SettingsPage {
                 })
               }
             }
-            .opacity(this.sectionOpacities[6])
-            .offset({ y: this.sectionOffsets[6] })
+            .opacity(this.sectionOpacities[7])
+            .offset({ y: this.sectionOffsets[7] })
 
             // FAQ Section
             Column() {
@@ -1153,8 +1723,8 @@ export struct SettingsPage {
                 })
               }
             }
-            .opacity(this.sectionOpacities[7])
-            .offset({ y: this.sectionOffsets[7] })
+            .opacity(this.sectionOpacities[8])
+            .offset({ y: this.sectionOffsets[8] })
 
             Blank().height(70)
           }
@@ -1295,6 +1865,31 @@ export struct SettingsPage {
               }
             })
         )
+      }
+
+      // 模型切换中的加载遮罩
+      if (this.isSwitchingModel) {
+        Column() {
+          Column({ space: 16 }) {
+            LoadingProgress()
+              .width(24)
+              .height(24)
+              .color(Color.White)
+            Text('切换中，请稍等...')
+              .fontSize(16)
+              .fontColor(Color.White)
+              .fontWeight(FontWeight.Medium)
+          }
+          .padding(32)
+          .backgroundColor(THEMES[this.themeColorIndex].primaryColor)
+          .borderRadius(20)
+          .shadow({ radius: 30, color: 'rgba(0,0,0,0.3)' })
+        }
+        .width('100%')
+        .height('100%')
+        .backgroundColor('rgba(0,0,0,0.6)')
+        .justifyContent(FlexAlign.Center)
+        .hitTestBehavior(HitTestMode.Block) // 阻止点击穿透
       }
     }
     .width('100%')

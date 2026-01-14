@@ -47,6 +47,7 @@ import { OnboardingStorage, PolicyUpdateResult } from '../storage/OnboardingStor
 import { webview } from '@kit.ArkWeb';
 import { PolicySheetType, PolicySheetContent, getPolicySheetConfig } from '../components/PolicySheet';
 import { motion } from '@kit.MultimodalAwarenessKit';
+import { AsrModelType, ASR_MODELS, AsrModelStorage, AsrModelConfig, getAvailableSourceLanguages } from '../storage/AsrModelStorage';
 
 // 扩展流转状态（包含翻译状态和当前Tab）
 interface ContinuityStateExtended extends ContinuityState {
@@ -58,6 +59,8 @@ interface ContinuityStateExtended extends ContinuityState {
   isPipEnabled?: boolean;
   // 字幕样式配置
   subtitleConfig?: SubtitleStyleConfig;
+  // ASR 模型类型
+  asrModelType?: AsrModelType;
 }
 
 // ---------- Shared types for JSON parsing ----------
@@ -228,12 +231,14 @@ struct Index {
   // 进入 ApiConfigPage 前保存的状态（用于退出时恢复）
   private savedSelectedApiIndex: number = 0;
   private savedOpenAiSlotIndex: number = 0;
+  private savedGeminiSlotIndex: number = 0;
   private savedDeepLSlotIndex: number = 0;
   private savedOllamaSlotIndex: number = 0;
   private savedDoubaoSlotIndex: number = 0;
+  private savedHuaweiSlotIndex: number = 0;
 
   // Configuration main-page state
-  @State apiOptions: string[] = ['OpenAI', 'DeepL', 'Ollama', 'Doubao'];
+  @State apiOptions: string[] = ['OpenAI', 'Gemini', 'DeepL', 'Ollama', 'Doubao', 'Huawei'];
 
   // 验证弹窗
   @State showVerificationDialog: boolean = false;
@@ -267,9 +272,18 @@ struct Index {
   @State minMatchLenOptions: string[] = ['3', '5', '7', '10'];
   @State selectedMinMatchLenIndex: number = 1; // Default 5
 
+  // 目标语言选项（翻译目标语言）
   @State languageOptions: string[] = ['Chinese', 'English', 'Spanish', 'French', 'Japanese'];
   @State languageDisplayOptions: string[] = ['中文', '英语', '西班牙语', '法语', '日语'];
   @State selectedLanguageIndex: number = 0;
+
+  // 原始语言选项（ASR 语音识别语言，根据模型动态更新）
+  @State sourceLanguageOptions: string[] = ['en'];
+  @State sourceLanguageDisplayOptions: string[] = ['English'];
+  @State selectedSourceLanguageIndex: number = 0;
+
+  // ASR 模型配置
+  @State asrModelConfig: AsrModelConfig = AsrModelStorage.getDefaultConfig();
 
   // API Settings subpage state
   @State selectedMenu: ApiMenuType = ApiMenuType.Prompt;
@@ -280,16 +294,22 @@ struct Index {
 
   // 多密钥槽位配置
   @State openAiKeySlots: MultiKeySlots = createDefaultMultiKeySlots(
-    'https://api.openai.com/v1/chat/completions', '', 'gpt-4o-mini', 'OpenAI'
+    'https://api.openai.com/v1/chat/completions', '', 'gpt-4o-mini', 'OpenAI 1'
+  );
+  @State geminiKeySlots: MultiKeySlots = createDefaultMultiKeySlots(
+    'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', '', 'gemini-2.0-flash', 'Gemini 1'
   );
   @State deepLKeySlots: MultiKeySlots = createDefaultMultiKeySlots(
-    'https://api-free.deepl.com/v2/translate', '', '', 'DeepL'
+    'https://api-free.deepl.com/v2/translate', '', '', 'DeepL 1'
   );
   @State ollamaKeySlots: MultiKeySlots = createDefaultMultiKeySlots(
-    'http://localhost:11434/api/chat', '', '', 'Ollama'
+    'http://localhost:11434/api/chat', '', '', 'Ollama 1'
   );
   @State doubaoKeySlots: MultiKeySlots = createDefaultMultiKeySlots(
-    'https://ark.cn-beijing.volces.com/api/v3/chat/completions', '', 'ep-20251221220646-rnx4c', 'Doubao'
+    'https://ark.cn-beijing.volces.com/api/v3/chat/completions', '', 'ep-20251221220646-rnx4c', 'Doubao 1'
+  );
+  @State huaweiKeySlots: MultiKeySlots = createDefaultMultiKeySlots(
+    'https://api.modelarts-maas.com/v2/chat/completions', '', 'deepseek-V3', 'Huawei 1'
   );
 
   // Air Gestures
@@ -321,6 +341,11 @@ struct Index {
   @State openAiApiKey: string = '';
   @State openAiModel: string = 'gpt-4o-mini';
 
+  // Gemini config (兼容字段，从当前槽位同步)
+  @State geminiApiUrl: string = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
+  @State geminiApiKey: string = '';
+  @State geminiModel: string = 'gemini-2.0-flash';
+
   // Ollama config (兼容字段，从当前槽位同步)
   @State ollamaApiUrl: string = 'http://localhost:11434/api/chat';
   @State ollamaModel: string = '';
@@ -329,6 +354,11 @@ struct Index {
   @State doubaoApiUrl: string = 'https://ark.cn-beijing.volces.com/api/v3/chat/completions';
   @State doubaoApiKey: string = '';
   @State doubaoModel: string = 'ep-20251221220646-rnx4c';
+
+  // Huawei config (兼容字段，从当前槽位同步)
+  @State huaweiApiUrl: string = 'https://api.modelarts-maas.com/v2/chat/completions';
+  @State huaweiApiKey: string = '';
+  @State huaweiModel: string = 'deepdeek-v3.2';
 
   // Glossary
   @State glossary: string = 'HarmonyOS = 鸿蒙';
@@ -718,9 +748,9 @@ struct Index {
         }, 1000);
       }
 
-      // 处理录音状态
+      // 处理录音状态 - 检查 ASR 模型是否匹配
       if (state.isListening) {
-        this.showContinueRecordingDialog();
+        this.handleContinuityRecordingState(state.asrModelType);
       } else {
         promptAction.showToast({
           message: '已从其他设备接续',
@@ -734,6 +764,99 @@ struct Index {
 
     } catch (err) {
       console.error('[Index] restoreContinuityStateDirectly error: ' + JSON.stringify(err));
+    }
+  }
+
+  /**
+   * 处理流转时的录音状态（检查 ASR 模型是否匹配）
+   */
+  private handleContinuityRecordingState(sourceAsrModelType?: AsrModelType): void {
+    const localModelType = this.asrModelConfig.currentModel;
+    const localHasSenseVoice = this.asrModelConfig.senseVoiceDownloaded;
+
+    // 如果源设备没有传递模型类型（旧版本兼容），直接显示继续录音对话框
+    if (!sourceAsrModelType) {
+      this.showContinueRecordingDialog();
+      return;
+    }
+
+    // 检查模型是否匹配
+    if (sourceAsrModelType === localModelType) {
+      // 模型相同，直接提示是否继续录音
+      this.showContinueRecordingDialog();
+    } else {
+      // 模型不同，提示用户切换或下载
+      const sourceModelName = sourceAsrModelType === AsrModelType.SENSE_VOICE_MULTI ? 'SenseVoice' : 'Moonshine';
+      const localModelName = localModelType === AsrModelType.SENSE_VOICE_MULTI ? 'SenseVoice' : 'Moonshine';
+
+      if (sourceAsrModelType === AsrModelType.SENSE_VOICE_MULTI) {
+        // 源设备使用 SenseVoice
+        if (localHasSenseVoice) {
+          // 本地已下载 SenseVoice，提示切换
+          promptAction.showDialog({
+            title: '语音模型不匹配',
+            message: `源设备使用 ${sourceModelName} 模型，本设备当前使用 ${localModelName} 模型。\n\n是否切换到 ${sourceModelName} 模型后继续录音？`,
+            buttons: [
+              { text: '仅查看字幕', color: '#666666' },
+              { text: '切换并录音', color: THEMES[this.themeColorIndex].primaryColor }
+            ]
+          }).then(async (result) => {
+            if (result.index === 1) {
+              // 切换模型后开始录音
+              await this.handleAsrModelChange(AsrModelType.SENSE_VOICE_MULTI);
+              this.startMicCaptioning();
+              promptAction.showToast({ message: '已切换到 SenseVoice 并开始录音' });
+            } else {
+              promptAction.showToast({ message: '已接续字幕，可随时点击麦克风开始录音' });
+            }
+          }).catch((err: BusinessError) => {
+            console.error('[Index] handleContinuityRecordingState dialog error: ' + JSON.stringify(err));
+            promptAction.showToast({ message: '已从其他设备接续' });
+          });
+        } else {
+          // 本地未下载 SenseVoice，提示下载
+          promptAction.showDialog({
+            title: '需要下载语音模型',
+            message: `源设备使用 ${sourceModelName} 多语言模型，但本设备尚未下载。\n请前往设置页面下载 SenseVoice 模型后再继续录音。`,
+            buttons: [
+              { text: '仅查看字幕', color: '#666666' },
+              { text: '前往设置', color: THEMES[this.themeColorIndex].primaryColor }
+            ]
+          }).then((result) => {
+            if (result.index === 1) {
+              // 切换到设置页面
+              this.currentTab = 4;
+              this.switchToTab(2);
+            }
+            promptAction.showToast({ message: '已接续字幕' });
+          }).catch((err: BusinessError) => {
+            console.error('[Index] handleContinuityRecordingState dialog error: ' + JSON.stringify(err));
+            promptAction.showToast({ message: '已从其他设备接续' });
+          });
+        }
+      } else {
+        // 源设备使用 Moonshine（内置模型），本地使用 SenseVoice
+        promptAction.showDialog({
+          title: '语音模型不匹配',
+          message: `源设备使用 ${sourceModelName} 模型，本设备当前使用 ${localModelName} 模型。\n是否切换到 ${sourceModelName} 模型后继续录音？`,
+          buttons: [
+            { text: '仅查看字幕', color: '#666666' },
+            { text: '切换并录音', color: THEMES[this.themeColorIndex].primaryColor }
+          ]
+        }).then(async (result) => {
+          if (result.index === 1) {
+            // 切换模型后开始录音
+            await this.handleAsrModelChange(AsrModelType.MOONSHINE_EN);
+            this.startMicCaptioning();
+            promptAction.showToast({ message: '已切换到 Moonshine 并开始录音' });
+          } else {
+            promptAction.showToast({ message: '已接续字幕，可随时点击麦克风开始录音' });
+          }
+        }).catch((err: BusinessError) => {
+          console.error('[Index] handleContinuityRecordingState dialog error: ' + JSON.stringify(err));
+          promptAction.showToast({ message: '已从其他设备接续' });
+        });
+      }
     }
   }
 
@@ -1199,14 +1322,110 @@ struct Index {
     try {
       const ctx = getContext(this) as common.UIAbilityContext;
 
+      // 加载 ASR 模型配置
+      this.asrModelConfig = await AsrModelStorage.loadConfig(ctx);
+      
+      // 更新原始语言选项
+      this.updateSourceLanguageOptions();
+
       if (!this.micService) {
         this.micService = new SherpaWhisperMicService();
       }
-      await this.micService.init(ctx);
+
+      // 设置 SenseVoice 语言（如果使用多语言模型）
+      if (this.asrModelConfig.currentModel === AsrModelType.SENSE_VOICE_MULTI) {
+        this.micService.setSenseVoiceLanguage(this.asrModelConfig.selectedSourceLanguage || 'auto');
+      }
+
+      await this.micService.init(ctx, this.asrModelConfig.currentModel);
       this.isAsrReady = true;
+      console.info(`[Index] ASR initialized with model: ${this.asrModelConfig.currentModel}`);
     } catch (e) {
       console.error('initSherpaAsr error: ' + JSON.stringify(e));
       this.isAsrReady = false;
+    }
+  }
+
+  /**
+   * 更新原始语言选项（根据当前 ASR 模型）
+   */
+  private updateSourceLanguageOptions(): void {
+    const langs = getAvailableSourceLanguages(this.asrModelConfig);
+    this.sourceLanguageOptions = langs.codes;
+    this.sourceLanguageDisplayOptions = langs.displays;
+    
+    // 确保当前选择的索引有效
+    const currentLang = this.asrModelConfig.selectedSourceLanguage;
+    const langIndex = this.sourceLanguageOptions.indexOf(currentLang);
+    this.selectedSourceLanguageIndex = langIndex >= 0 ? langIndex : 0;
+    
+    console.info(`[Index] Source language options updated: ${JSON.stringify(this.sourceLanguageOptions)}`);
+  }
+
+  /**
+   * 切换 ASR 模型
+   */
+  private async handleAsrModelChange(modelType: AsrModelType): Promise<void> {
+    try {
+      const ctx = getContext(this) as common.UIAbilityContext;
+      
+      // 如果正在录音，先停止
+      if (this.isListening) {
+        this.stopMicCaptioning();
+      }
+
+      // 重新加载配置以获取最新的 senseVoiceDownloaded 状态
+      this.asrModelConfig = await AsrModelStorage.loadConfig(ctx);
+      
+      // 更新配置（只更新 currentModel，保留刚加载的 senseVoiceDownloaded）
+      this.asrModelConfig.currentModel = modelType;
+      await AsrModelStorage.saveConfig(ctx, this.asrModelConfig);
+
+      // 更新语言选项
+      this.updateSourceLanguageOptions();
+
+      // 重新初始化 ASR
+      if (this.micService) {
+        await this.micService.switchModel(modelType);
+      } else {
+        await this.initSherpaAsr();
+      }
+
+      console.info(`[Index] ASR model switched to: ${modelType}`);
+    } catch (e) {
+      console.error('[Index] Failed to switch ASR model: ' + JSON.stringify(e));
+      promptAction.showToast({ message: '切换模型失败' });
+    }
+  }
+
+  /**
+   * 切换原始语言（ASR 识别语言）
+   */
+  private async handleSourceLanguageChange(langCode: string): Promise<void> {
+    try {
+      const ctx = getContext(this) as common.UIAbilityContext;
+      
+      // 更新配置
+      this.asrModelConfig.selectedSourceLanguage = langCode;
+      await AsrModelStorage.saveConfig(ctx, this.asrModelConfig);
+
+      // 更新选中索引
+      const langIndex = this.sourceLanguageOptions.indexOf(langCode);
+      this.selectedSourceLanguageIndex = langIndex >= 0 ? langIndex : 0;
+
+      // 如果使用 SenseVoice 模型，更新语言设置
+      if (this.asrModelConfig.currentModel === AsrModelType.SENSE_VOICE_MULTI && this.micService) {
+        this.micService.setSenseVoiceLanguage(langCode);
+        
+        // 如果正在录音，需要重新初始化
+        if (this.isListening) {
+          promptAction.showToast({ message: '语言设置将在下次录音时生效' });
+        }
+      }
+
+      console.info(`[Index] Source language changed to: ${langCode}`);
+    } catch (e) {
+      console.error('[Index] Failed to change source language: ' + JSON.stringify(e));
     }
   }
 
@@ -1414,6 +1633,9 @@ struct Index {
     if (snapshot.openAiKeySlots && snapshot.openAiKeySlots.slots.length > 0) {
       this.openAiKeySlots = snapshot.openAiKeySlots;
     }
+    if (snapshot.geminiKeySlots && snapshot.geminiKeySlots.slots.length > 0) {
+      this.geminiKeySlots = snapshot.geminiKeySlots;
+    }
     if (snapshot.deepLKeySlots && snapshot.deepLKeySlots.slots.length > 0) {
       this.deepLKeySlots = snapshot.deepLKeySlots;
     }
@@ -1422,6 +1644,9 @@ struct Index {
     }
     if (snapshot.doubaoKeySlots && snapshot.doubaoKeySlots.slots.length > 0) {
       this.doubaoKeySlots = snapshot.doubaoKeySlots;
+    }
+    if (snapshot.huaweiKeySlots && snapshot.huaweiKeySlots.slots.length > 0) {
+      this.huaweiKeySlots = snapshot.huaweiKeySlots;
     }
     
     // 同步兼容字段（从当前槽位）
@@ -1456,6 +1681,13 @@ struct Index {
       this.openAiModel = openAiSlot.model;
     }
     
+    const geminiSlot = this.geminiKeySlots.slots[this.geminiKeySlots.currentSlotIndex];
+    if (geminiSlot) {
+      this.geminiApiUrl = geminiSlot.apiUrl;
+      this.geminiApiKey = geminiSlot.apiKey;
+      this.geminiModel = geminiSlot.model;
+    }
+    
     const deepLSlot = this.deepLKeySlots.slots[this.deepLKeySlots.currentSlotIndex];
     if (deepLSlot) {
       this.deepLApiUrl = deepLSlot.apiUrl;
@@ -1474,15 +1706,24 @@ struct Index {
       this.doubaoApiKey = doubaoSlot.apiKey;
       this.doubaoModel = doubaoSlot.model;
     }
+    
+    const huaweiSlot = this.huaweiKeySlots.slots[this.huaweiKeySlots.currentSlotIndex];
+    if (huaweiSlot) {
+      this.huaweiApiUrl = huaweiSlot.apiUrl;
+      this.huaweiApiKey = huaweiSlot.apiKey;
+      this.huaweiModel = huaweiSlot.model;
+    }
   }
 
   // 保存当前选择状态（进入 ApiConfigPage 前调用）
   private saveCurrentSelectionState(): void {
     this.savedSelectedApiIndex = this.selectedApiIndex;
     this.savedOpenAiSlotIndex = this.openAiKeySlots.currentSlotIndex;
+    this.savedGeminiSlotIndex = this.geminiKeySlots.currentSlotIndex;
     this.savedDeepLSlotIndex = this.deepLKeySlots.currentSlotIndex;
     this.savedOllamaSlotIndex = this.ollamaKeySlots.currentSlotIndex;
     this.savedDoubaoSlotIndex = this.doubaoKeySlots.currentSlotIndex;
+    this.savedHuaweiSlotIndex = this.huaweiKeySlots.currentSlotIndex;
   }
 
   // 恢复选择状态（退出 ApiConfigPage 时调用）
@@ -1491,6 +1732,10 @@ struct Index {
     this.openAiKeySlots = {
       slots: this.openAiKeySlots.slots,
       currentSlotIndex: this.savedOpenAiSlotIndex
+    };
+    this.geminiKeySlots = {
+      slots: this.geminiKeySlots.slots,
+      currentSlotIndex: this.savedGeminiSlotIndex
     };
     this.deepLKeySlots = {
       slots: this.deepLKeySlots.slots,
@@ -1504,6 +1749,10 @@ struct Index {
       slots: this.doubaoKeySlots.slots,
       currentSlotIndex: this.savedDoubaoSlotIndex
     };
+    this.huaweiKeySlots = {
+      slots: this.huaweiKeySlots.slots,
+      currentSlotIndex: this.savedHuaweiSlotIndex
+    };
     this.syncCurrentSlotToCompatFields();
   }
 
@@ -1514,16 +1763,24 @@ struct Index {
         const slot = this.openAiKeySlots.slots[slotIndex];
         return !!(slot && slot.apiUrl && slot.apiKey && slot.model);
       }
-      case 1: { // DeepL
+      case 1: { // Gemini
+        const slot = this.geminiKeySlots.slots[slotIndex];
+        return !!(slot && slot.apiUrl && slot.apiKey && slot.model);
+      }
+      case 2: { // DeepL
         const slot = this.deepLKeySlots.slots[slotIndex];
         return !!(slot && slot.apiUrl && slot.apiKey);
       }
-      case 2: { // Ollama
+      case 3: { // Ollama
         const slot = this.ollamaKeySlots.slots[slotIndex];
         return !!(slot && slot.apiUrl && slot.model);
       }
-      case 3: { // Doubao
+      case 4: { // Doubao
         const slot = this.doubaoKeySlots.slots[slotIndex];
+        return !!(slot && slot.apiUrl && slot.apiKey && slot.model);
+      }
+      case 5: { // Huawei
+        const slot = this.huaweiKeySlots.slots[slotIndex];
         return !!(slot && slot.apiUrl && slot.apiKey && slot.model);
       }
       default:
@@ -1556,9 +1813,11 @@ struct Index {
     let currentSlotIndex = 0;
     switch (apiIndex) {
       case 0: currentSlotIndex = this.openAiKeySlots.currentSlotIndex; break;
-      case 1: currentSlotIndex = this.deepLKeySlots.currentSlotIndex; break;
-      case 2: currentSlotIndex = this.ollamaKeySlots.currentSlotIndex; break;
-      case 3: currentSlotIndex = this.doubaoKeySlots.currentSlotIndex; break;
+      case 1: currentSlotIndex = this.geminiKeySlots.currentSlotIndex; break;
+      case 2: currentSlotIndex = this.deepLKeySlots.currentSlotIndex; break;
+      case 3: currentSlotIndex = this.ollamaKeySlots.currentSlotIndex; break;
+      case 4: currentSlotIndex = this.doubaoKeySlots.currentSlotIndex; break;
+      case 5: currentSlotIndex = this.huaweiKeySlots.currentSlotIndex; break;
     }
     
     // 统计该供应商有多少个已验证的槽位
@@ -1591,16 +1850,24 @@ struct Index {
         const slot = this.openAiKeySlots.slots[this.openAiKeySlots.currentSlotIndex];
         return !!(slot && slot.apiUrl && slot.apiKey && slot.model);
       }
-      case 1: { // DeepL
+      case 1: { // Gemini
+        const slot = this.geminiKeySlots.slots[this.geminiKeySlots.currentSlotIndex];
+        return !!(slot && slot.apiUrl && slot.apiKey && slot.model);
+      }
+      case 2: { // DeepL
         const slot = this.deepLKeySlots.slots[this.deepLKeySlots.currentSlotIndex];
         return !!(slot && slot.apiUrl && slot.apiKey);
       }
-      case 2: { // Ollama
+      case 3: { // Ollama
         const slot = this.ollamaKeySlots.slots[this.ollamaKeySlots.currentSlotIndex];
         return !!(slot && slot.apiUrl && slot.model);
       }
-      case 3: { // Doubao
+      case 4: { // Doubao
         const slot = this.doubaoKeySlots.slots[this.doubaoKeySlots.currentSlotIndex];
+        return !!(slot && slot.apiUrl && slot.apiKey && slot.model);
+      }
+      case 5: { // Huawei
+        const slot = this.huaweiKeySlots.slots[this.huaweiKeySlots.currentSlotIndex];
         return !!(slot && slot.apiUrl && slot.apiKey && slot.model);
       }
       default:
@@ -1640,21 +1907,33 @@ struct Index {
           currentSlotIndex: slotIndex
         };
         break;
-      case 1: // DeepL
+      case 1: // Gemini
+        this.geminiKeySlots = {
+          slots: this.geminiKeySlots.slots,
+          currentSlotIndex: slotIndex
+        };
+        break;
+      case 2: // DeepL
         this.deepLKeySlots = {
           slots: this.deepLKeySlots.slots,
           currentSlotIndex: slotIndex
         };
         break;
-      case 2: // Ollama
+      case 3: // Ollama
         this.ollamaKeySlots = {
           slots: this.ollamaKeySlots.slots,
           currentSlotIndex: slotIndex
         };
         break;
-      case 3: // Doubao
+      case 4: // Doubao
         this.doubaoKeySlots = {
           slots: this.doubaoKeySlots.slots,
+          currentSlotIndex: slotIndex
+        };
+        break;
+      case 5: // Huawei
+        this.huaweiKeySlots = {
+          slots: this.huaweiKeySlots.slots,
           currentSlotIndex: slotIndex
         };
         break;
@@ -1663,7 +1942,7 @@ struct Index {
 
   // 获取当前选中 API 的别名（用于 ConfigurationPage 显示）
   private getCurrentApiAlias(): string {
-    const defaultNames: string[] = ['OpenAI', 'DeepL', 'Ollama', 'Doubao'];
+    const defaultNames: string[] = ['OpenAI', 'Gemini', 'DeepL', 'Ollama', 'Doubao', 'Huawei'];
     
     // 首先检查当前选中的槽位是否已验证
     const currentSlotIndex = this.getCurrentSlotIndex();
@@ -1683,14 +1962,20 @@ struct Index {
       case 0: // OpenAI
         currentSlot = this.openAiKeySlots.slots[this.openAiKeySlots.currentSlotIndex];
         break;
-      case 1: // DeepL
+      case 1: // Gemini
+        currentSlot = this.geminiKeySlots.slots[this.geminiKeySlots.currentSlotIndex];
+        break;
+      case 2: // DeepL
         currentSlot = this.deepLKeySlots.slots[this.deepLKeySlots.currentSlotIndex];
         break;
-      case 2: // Ollama
+      case 3: // Ollama
         currentSlot = this.ollamaKeySlots.slots[this.ollamaKeySlots.currentSlotIndex];
         break;
-      case 3: // Doubao
+      case 4: // Doubao
         currentSlot = this.doubaoKeySlots.slots[this.doubaoKeySlots.currentSlotIndex];
+        break;
+      case 5: // Huawei
+        currentSlot = this.huaweiKeySlots.slots[this.huaweiKeySlots.currentSlotIndex];
         break;
     }
     
@@ -1705,12 +1990,14 @@ struct Index {
   // 获取所有已验证的 API 槽位列表（用于 ApiSelectorSheet）
   private getValidatedApiSlots(): ValidatedApiSlot[] {
     const result: ValidatedApiSlot[] = [];
-    const providerNames: string[] = ['OpenAI', 'DeepL', 'Ollama', 'Doubao'];
+    const providerNames: string[] = ['OpenAI', 'Gemini', 'DeepL', 'Ollama', 'Doubao', 'Huawei'];
     const allSlots: MultiKeySlots[] = [
       this.openAiKeySlots,
+      this.geminiKeySlots,
       this.deepLKeySlots,
       this.ollamaKeySlots,
-      this.doubaoKeySlots
+      this.doubaoKeySlots,
+      this.huaweiKeySlots
     ];
 
     for (let apiIndex = 0; apiIndex < allSlots.length; apiIndex++) {
@@ -1740,9 +2027,11 @@ struct Index {
   private getCurrentSlotIndex(): number {
     switch (this.selectedApiIndex) {
       case 0: return this.openAiKeySlots.currentSlotIndex;
-      case 1: return this.deepLKeySlots.currentSlotIndex;
-      case 2: return this.ollamaKeySlots.currentSlotIndex;
-      case 3: return this.doubaoKeySlots.currentSlotIndex;
+      case 1: return this.geminiKeySlots.currentSlotIndex;
+      case 2: return this.deepLKeySlots.currentSlotIndex;
+      case 3: return this.ollamaKeySlots.currentSlotIndex;
+      case 4: return this.doubaoKeySlots.currentSlotIndex;
+      case 5: return this.huaweiKeySlots.currentSlotIndex;
       default: return 0;
     }
   }
@@ -1781,6 +2070,23 @@ struct Index {
         }
         const result: MultiKeySlots = { slots: newSlots, currentSlotIndex: idx };
         this.openAiKeySlots = result;
+        break;
+      }
+      case 'gemini': {
+        const idx = this.geminiKeySlots.currentSlotIndex;
+        const newSlots: ApiKeySlot[] = [];
+        for (let i = 0; i < this.geminiKeySlots.slots.length; i++) {
+          const cloned = this.cloneSlot(this.geminiKeySlots.slots[i]);
+          if (i === idx) {
+            if (field === 'apiUrl') cloned.apiUrl = value;
+            else if (field === 'apiKey') cloned.apiKey = value;
+            else if (field === 'model') cloned.model = value;
+            else if (field === 'alias') cloned.alias = value;
+          }
+          newSlots.push(cloned);
+        }
+        const result: MultiKeySlots = { slots: newSlots, currentSlotIndex: idx };
+        this.geminiKeySlots = result;
         break;
       }
       case 'deepl': {
@@ -1832,6 +2138,23 @@ struct Index {
         this.doubaoKeySlots = result;
         break;
       }
+      case 'huawei': {
+        const idx = this.huaweiKeySlots.currentSlotIndex;
+        const newSlots: ApiKeySlot[] = [];
+        for (let i = 0; i < this.huaweiKeySlots.slots.length; i++) {
+          const cloned = this.cloneSlot(this.huaweiKeySlots.slots[i]);
+          if (i === idx) {
+            if (field === 'apiUrl') cloned.apiUrl = value;
+            else if (field === 'apiKey') cloned.apiKey = value;
+            else if (field === 'model') cloned.model = value;
+            else if (field === 'alias') cloned.alias = value;
+          }
+          newSlots.push(cloned);
+        }
+        const result: MultiKeySlots = { slots: newSlots, currentSlotIndex: idx };
+        this.huaweiKeySlots = result;
+        break;
+      }
     }
   }
 
@@ -1841,13 +2164,18 @@ struct Index {
       polishPromptText: this.polishPromptText,
       // 多密钥槽位
       openAiKeySlots: this.openAiKeySlots,
+      geminiKeySlots: this.geminiKeySlots,
       deepLKeySlots: this.deepLKeySlots,
       ollamaKeySlots: this.ollamaKeySlots,
       doubaoKeySlots: this.doubaoKeySlots,
+      huaweiKeySlots: this.huaweiKeySlots,
       // 兼容字段
       openAiApiUrl: this.openAiApiUrl,
       openAiApiKey: this.openAiApiKey,
       openAiModel: this.openAiModel,
+      geminiApiUrl: this.geminiApiUrl,
+      geminiApiKey: this.geminiApiKey,
+      geminiModel: this.geminiModel,
       deepLApiUrl: this.deepLApiUrl,
       deepLApiKey: this.deepLApiKey,
       ollamaApiUrl: this.ollamaApiUrl,
@@ -1855,6 +2183,9 @@ struct Index {
       doubaoApiUrl: this.doubaoApiUrl,
       doubaoApiKey: this.doubaoApiKey,
       doubaoModel: this.doubaoModel,
+      huaweiApiUrl: this.huaweiApiUrl,
+      huaweiApiKey: this.huaweiApiKey,
+      huaweiModel: this.huaweiModel,
       selectedApiIndex: this.selectedApiIndex,
       selectedLanguageIndex: this.selectedLanguageIndex,
       intervalIndex: this.intervalIndex,
@@ -2196,13 +2527,18 @@ struct Index {
                 promptText: this.promptText,
                 // 多密钥槽位
                 openAiKeySlots: this.openAiKeySlots,
+                geminiKeySlots: this.geminiKeySlots,
                 deepLKeySlots: this.deepLKeySlots,
                 ollamaKeySlots: this.ollamaKeySlots,
                 doubaoKeySlots: this.doubaoKeySlots,
+                huaweiKeySlots: this.huaweiKeySlots,
                 // 兼容字段
                 openAiApiUrl: this.openAiApiUrl,
                 openAiApiKey: this.openAiApiKey,
                 openAiModel: this.openAiModel,
+                geminiApiUrl: this.geminiApiUrl,
+                geminiApiKey: this.geminiApiKey,
+                geminiModel: this.geminiModel,
                 deepLApiUrl: this.deepLApiUrl,
                 deepLApiKey: this.deepLApiKey,
                 ollamaApiUrl: this.ollamaApiUrl,
@@ -2210,11 +2546,16 @@ struct Index {
                 doubaoApiUrl: this.doubaoApiUrl,
                 doubaoApiKey: this.doubaoApiKey,
                 doubaoModel: this.doubaoModel,
+                huaweiApiUrl: this.huaweiApiUrl,
+                huaweiApiKey: this.huaweiApiKey,
+                huaweiModel: this.huaweiModel,
                 // Alias 字段
                 openAiAlias: this.openAiKeySlots.slots[this.openAiKeySlots.currentSlotIndex]?.alias ?? '',
+                geminiAlias: this.geminiKeySlots.slots[this.geminiKeySlots.currentSlotIndex]?.alias ?? '',
                 deepLAlias: this.deepLKeySlots.slots[this.deepLKeySlots.currentSlotIndex]?.alias ?? '',
                 ollamaAlias: this.ollamaKeySlots.slots[this.ollamaKeySlots.currentSlotIndex]?.alias ?? '',
                 doubaoAlias: this.doubaoKeySlots.slots[this.doubaoKeySlots.currentSlotIndex]?.alias ?? '',
+                huaweiAlias: this.huaweiKeySlots.slots[this.huaweiKeySlots.currentSlotIndex]?.alias ?? '',
                 glossary: this.glossary,
                 isLightEffectBright: this.isLightEffectBright,
                 isDarkMode: this.isDarkMode,
@@ -2235,6 +2576,13 @@ struct Index {
                     currentSlotIndex: index
                   };
                   // 仅更新兼容字段用于显示，不持久化（用户只是在浏览）
+                  this.syncCurrentSlotToCompatFields();
+                },
+                onSwitchGeminiSlot: (index: number) => {
+                  this.geminiKeySlots = {
+                    slots: this.geminiKeySlots.slots,
+                    currentSlotIndex: index
+                  };
                   this.syncCurrentSlotToCompatFields();
                 },
                 onSwitchDeepLSlot: (index: number) => {
@@ -2261,6 +2609,13 @@ struct Index {
                   // 仅更新兼容字段用于显示，不持久化（用户只是在浏览）
                   this.syncCurrentSlotToCompatFields();
                 },
+                onSwitchHuaweiSlot: (index: number) => {
+                  this.huaweiKeySlots = {
+                    slots: this.huaweiKeySlots.slots,
+                    currentSlotIndex: index
+                  };
+                  this.syncCurrentSlotToCompatFields();
+                },
                 // 更新内容回调（同时更新槽位和兼容字段）
                 onUpdateOpenAiApiUrl: (value: string) => {
                   this.openAiApiUrl = value;
@@ -2275,6 +2630,21 @@ struct Index {
                 onUpdateOpenAiModel: (value: string) => {
                   this.openAiModel = value;
                   this.updateCurrentSlot('openai', 'model', value);
+                  this.persistApiConfigSnapshot();
+                },
+                onUpdateGeminiApiUrl: (value: string) => {
+                  this.geminiApiUrl = value;
+                  this.updateCurrentSlot('gemini', 'apiUrl', value);
+                  this.persistApiConfigSnapshot();
+                },
+                onUpdateGeminiApiKey: (value: string) => {
+                  this.geminiApiKey = value;
+                  this.updateCurrentSlot('gemini', 'apiKey', value);
+                  this.persistApiConfigSnapshot();
+                },
+                onUpdateGeminiModel: (value: string) => {
+                  this.geminiModel = value;
+                  this.updateCurrentSlot('gemini', 'model', value);
                   this.persistApiConfigSnapshot();
                 },
                 onUpdateDeepLApiUrl: (value: string) => {
@@ -2312,9 +2682,28 @@ struct Index {
                   this.updateCurrentSlot('doubao', 'model', value);
                   this.persistApiConfigSnapshot();
                 },
+                onUpdateHuaweiApiUrl: (value: string) => {
+                  this.huaweiApiUrl = value;
+                  this.updateCurrentSlot('huawei', 'apiUrl', value);
+                  this.persistApiConfigSnapshot();
+                },
+                onUpdateHuaweiApiKey: (value: string) => {
+                  this.huaweiApiKey = value;
+                  this.updateCurrentSlot('huawei', 'apiKey', value);
+                  this.persistApiConfigSnapshot();
+                },
+                onUpdateHuaweiModel: (value: string) => {
+                  this.huaweiModel = value;
+                  this.updateCurrentSlot('huawei', 'model', value);
+                  this.persistApiConfigSnapshot();
+                },
                 // Alias 更新回调
                 onUpdateOpenAiAlias: (value: string) => {
                   this.updateCurrentSlot('openai', 'alias', value);
+                  this.persistApiConfigSnapshot();
+                },
+                onUpdateGeminiAlias: (value: string) => {
+                  this.updateCurrentSlot('gemini', 'alias', value);
                   this.persistApiConfigSnapshot();
                 },
                 onUpdateDeepLAlias: (value: string) => {
@@ -2327,6 +2716,10 @@ struct Index {
                 },
                 onUpdateDoubaoAlias: (value: string) => {
                   this.updateCurrentSlot('doubao', 'alias', value);
+                  this.persistApiConfigSnapshot();
+                },
+                onUpdateHuaweiAlias: (value: string) => {
+                  this.updateCurrentSlot('huawei', 'alias', value);
                   this.persistApiConfigSnapshot();
                 },
                 onUpdateGlossary: (value: string) => {
@@ -2354,6 +2747,11 @@ struct Index {
                 languageOptions: this.languageOptions,
                 languageDisplayOptions: this.languageDisplayOptions,
                 selectedLanguageIndex: this.selectedLanguageIndex,
+                sourceLanguageOptions: this.sourceLanguageOptions,
+                sourceLanguageDisplayOptions: this.sourceLanguageDisplayOptions,
+                selectedSourceLanguageIndex: this.selectedSourceLanguageIndex,
+                isSenseVoiceAvailable: this.asrModelConfig.senseVoiceDownloaded,
+                isUsingSenseVoice: this.asrModelConfig.currentModel === AsrModelType.SENSE_VOICE_MULTI,
                 intervalOptions: this.intervalOptions,
                 selectedIntervalIndex: this.intervalIndex,
                 maxTokensOptions: this.maxTokensOptions,
@@ -2453,6 +2851,10 @@ struct Index {
                 onSelectMinMatchLen: (index: number) => {
                   this.selectedMinMatchLenIndex = index;
                   this.persistApiConfigSnapshot();
+                },
+                onSelectSourceLanguage: (index: number) => {
+                  const langCode = this.sourceLanguageOptions[index] ?? 'en';
+                  this.handleSourceLanguageChange(langCode);
                 }
               })
             }
@@ -2661,6 +3063,12 @@ struct Index {
               onThemeModeChange: (mode: number) => {
                 this.updateThemeMode(mode);
               },
+              onAsrModelChange: (modelType: AsrModelType) => {
+                this.handleAsrModelChange(modelType);
+              },
+              onSourceLanguageChange: (langCode: string) => {
+                this.handleSourceLanguageChange(langCode);
+              },
               onStyleChange: () => {
                 this.persistApiConfigSnapshot();
                 AppStorage.setOrCreate('subtitleFontSize', this.subtitleFontSize);
@@ -2715,10 +3123,21 @@ struct Index {
           : this.getThemeColorWithAlpha('33'),
         maskHeight: 70
       })
-      .onChange((index: number) => {
+      .onChange(async (index: number) => {
         this.currentTab = index;
         if (index !== 0 && this.showApiSettings) {
           this.showApiSettings = false;
+        }
+        // 切换到配置页面时，刷新 ASR 模型配置以同步最新的下载状态
+        if (index === 0) {
+          try {
+            const ctx = getContext(this) as common.UIAbilityContext;
+            this.asrModelConfig = await AsrModelStorage.loadConfig(ctx);
+            this.updateSourceLanguageOptions();
+            console.info(`[Index] Refreshed ASR config on tab change, senseVoiceDownloaded: ${this.asrModelConfig.senseVoiceDownloaded}`);
+          } catch (e) {
+            console.error('[Index] Failed to refresh ASR config: ' + JSON.stringify(e));
+          }
         }
       });
       }
@@ -2914,12 +3333,18 @@ struct Index {
       return ApiMenuType.OpenAI;
     }
     if (index === 1) {
-      return ApiMenuType.DeepL;
+      return ApiMenuType.Gemini;
     }
     if (index === 2) {
+      return ApiMenuType.DeepL;
+    }
+    if (index === 3) {
       return ApiMenuType.Ollama;
     }
-    return ApiMenuType.Doubao;
+    if (index === 4) {
+      return ApiMenuType.Doubao;
+    }
+    return ApiMenuType.Huawei;
   }
 
   private getConfigTextAreaHeight(lines: number = 3): number {
@@ -3053,12 +3478,16 @@ struct Index {
     try {
       if (selectedApiName === 'OpenAI') {
         await this.translateWithOpenAI(text);
+      } else if (selectedApiName === 'Gemini') {
+        await this.translateWithGemini(text);
       } else if (selectedApiName === 'DeepL') {
         await this.translateWithDeepL(text);
       } else if (selectedApiName === 'Ollama') {
         await this.translateWithOllama(text);
       } else if (selectedApiName === 'Doubao') {
         await this.translateWithDoubao(text);
+      } else if (selectedApiName === 'Huawei') {
+        await this.translateWithHuawei(text);
       }
     } catch (e) {
       console.error('doTranslate error: ' + JSON.stringify(e));
@@ -3424,6 +3853,125 @@ struct Index {
     }
   }
 
+  // --- Gemini implementation (OpenAI compatible) ---
+  private async translateWithGemini(text: string): Promise<void> {
+    const httpRequest: http.HttpRequest = http.createHttp();
+    const systemPrompt: string = this.buildSystemPromptWithSource(text);
+
+    const messages: ChatMessage[] = [
+      { role: 'user', content: systemPrompt }
+    ];
+
+    const requestBody: string = JSON.stringify({
+      model: this.geminiModel,
+      messages: messages,
+      max_tokens: parseInt(this.maxTokensOptions[this.maxTokensIndex]),
+      temperature: parseFloat(this.temperatureOptions[this.temperatureIndex])
+    });
+
+    try {
+      const response: http.HttpResponse = await httpRequest.request(this.geminiApiUrl, {
+        method: http.RequestMethod.POST,
+        header: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + this.geminiApiKey
+        },
+        extraData: requestBody,
+        connectTimeout: 15000,
+        readTimeout: 30000
+      });
+
+      const resultStr: string = response.result as string;
+      let translated: string = '';
+
+      const parsed: ChatCompletionResponse = JSON.parse(resultStr) as ChatCompletionResponse;
+      if (parsed.choices && parsed.choices.length > 0) {
+        translated = parsed.choices[0].message.content ?? '';
+      } else {
+        translated = '[Gemini: 响应为空]';
+      }
+
+      // Token 统计
+      if (parsed.usage && parsed.usage.total_tokens) {
+        TokenUsageStorage.getInstance().addTokenUsage(this.getTokenTrackingKey(), parsed.usage.total_tokens);
+      }
+
+      this.updateTranslationField(translated);
+    } catch (e) {
+      const errMsg = JSON.stringify(e);
+      console.error('translateWithGemini error: ' + errMsg);
+      if (errMsg.includes('timeout') || errMsg.includes('Timeout')) {
+        this.updateTranslationField('[Gemini: 请求超时]');
+      } else if (errMsg.includes('network') || errMsg.includes('Network')) {
+        this.updateTranslationField('[Gemini: 网络错误]');
+      } else {
+        this.updateTranslationField('[Gemini: ' + errMsg.substring(0, 50) + ']');
+      }
+    } finally {
+      httpRequest.destroy();
+    }
+  }
+
+  // --- Huawei Cloud ModelArts implementation (OpenAI compatible) ---
+  private async translateWithHuawei(text: string): Promise<void> {
+    const httpRequest: http.HttpRequest = http.createHttp();
+    const systemPrompt: string = this.buildSystemPromptWithSource(text);
+
+    const messages: ChatMessage[] = [
+      { role: 'system', content: 'You are a helpful assistant.' },
+      { role: 'user', content: systemPrompt }
+    ];
+
+    const requestBody: string = JSON.stringify({
+      model: this.huaweiModel,
+      messages: messages,
+      max_tokens: parseInt(this.maxTokensOptions[this.maxTokensIndex]),
+      temperature: parseFloat(this.temperatureOptions[this.temperatureIndex])
+    });
+
+    try {
+      const response: http.HttpResponse = await httpRequest.request(this.huaweiApiUrl, {
+        method: http.RequestMethod.POST,
+        header: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + this.huaweiApiKey
+        },
+        extraData: requestBody,
+        connectTimeout: 15000,
+        readTimeout: 30000
+      });
+
+      const resultStr: string = response.result as string;
+      let translated: string = '';
+
+      const parsed: ChatCompletionResponse = JSON.parse(resultStr) as ChatCompletionResponse;
+      if (parsed.choices && parsed.choices.length > 0) {
+        translated = parsed.choices[0].message.content ?? '';
+      } else {
+        translated = '[Huawei: 响应为空]';
+      }
+
+      // Token 统计
+      if (parsed.usage && parsed.usage.total_tokens) {
+        TokenUsageStorage.getInstance().addTokenUsage(this.getTokenTrackingKey(), parsed.usage.total_tokens);
+      }
+
+      this.updateTranslationField(translated);
+    } catch (e) {
+      const errMsg = JSON.stringify(e);
+      console.error('translateWithHuawei error: ' + errMsg);
+      if (errMsg.includes('timeout') || errMsg.includes('Timeout')) {
+        this.updateTranslationField('[Huawei: 请求超时]');
+      } else if (errMsg.includes('network') || errMsg.includes('Network')) {
+        this.updateTranslationField('[Huawei: 网络错误]');
+      } else {
+        this.updateTranslationField('[Huawei: ' + errMsg.substring(0, 50) + ']');
+      }
+    } finally {
+      httpRequest.destroy();
+    }
+  }
+
   // =======================
   // Mic
   // =======================
@@ -3546,12 +4094,17 @@ struct Index {
         promptText: this.promptText,
         polishPromptText: this.polishPromptText,
         openAiKeySlots: this.openAiKeySlots,
+        geminiKeySlots: this.geminiKeySlots,
         deepLKeySlots: this.deepLKeySlots,
         ollamaKeySlots: this.ollamaKeySlots,
         doubaoKeySlots: this.doubaoKeySlots,
+        huaweiKeySlots: this.huaweiKeySlots,
         openAiApiUrl: this.openAiApiUrl,
         openAiApiKey: this.openAiApiKey,
         openAiModel: this.openAiModel,
+        geminiApiUrl: this.geminiApiUrl,
+        geminiApiKey: this.geminiApiKey,
+        geminiModel: this.geminiModel,
         deepLApiUrl: this.deepLApiUrl,
         deepLApiKey: this.deepLApiKey,
         ollamaApiUrl: this.ollamaApiUrl,
@@ -3559,6 +4112,9 @@ struct Index {
         doubaoApiUrl: this.doubaoApiUrl,
         doubaoApiKey: this.doubaoApiKey,
         doubaoModel: this.doubaoModel,
+        huaweiApiUrl: this.huaweiApiUrl,
+        huaweiApiKey: this.huaweiApiKey,
+        huaweiModel: this.huaweiModel,
         selectedApiIndex: this.selectedApiIndex,
         selectedLanguageIndex: this.selectedLanguageIndex,
         intervalIndex: this.intervalIndex,
@@ -3591,7 +4147,9 @@ struct Index {
         isRealtimeReading: this.isRealtimeReadingEnabled,
         isPipEnabled: this.isPipSubtitleEnabled,
         // 新增：字幕样式配置
-        subtitleConfig: this.buildSubtitleStyleConfig()
+        subtitleConfig: this.buildSubtitleStyleConfig(),
+        // 新增：ASR 模型类型
+        asrModelType: this.asrModelConfig.currentModel
       };
 
       // 构建 want parameters，按文档使用字符串键以避免 ArkTS 限制

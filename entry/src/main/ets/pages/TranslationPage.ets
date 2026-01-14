@@ -1125,7 +1125,7 @@ struct ContinuityHelpDialog {
           .backgroundColor($r('sys.color.confirm'))
           .justifyContent(FlexAlign.Center)
 
-          Text('同意连接后，字幕与翻译将无缝流转到目标设备')
+          Text('同意连接后，API、配置、字幕与翻译将无缝流转到目标设备')
             .fontSize(14)
             .fontColor('#333333')
             .layoutWeight(1)

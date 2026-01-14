@@ -14,6 +14,7 @@ import formProvider from '@ohos.app.form.formProvider';
 import formInfo from '@ohos.app.form.formInfo';
 import { TokenUsageStorage } from '../storage/TokenUsageStorage';
 import { OnboardingStorage } from '../storage/OnboardingStorage';
+import { ApiConfigStorage } from '../storage/ApiConfigStorage';
 import { ContinuityState, CONTINUITY_KEY, SubtitleStyleConfig } from '../services/ContinuityService';
 
 // 扩展流转状态，包含翻译状态与当前Tab信息
@@ -371,7 +372,6 @@ export default class EntryAbility extends UIAbility {
       const sessionId = AppStorage.get<number>('voot_session_id') || -1;
       const fullOriginalText = AppStorage.get<string>('voot_full_original_text') || '';
       const fullTranslatedText = AppStorage.get<string>('voot_full_translated_text') || '';
-      const apiConfig = AppStorage.get<string>('voot_api_config_json') || '{}';
       const currentTab = AppStorage.get<number>('voot_current_tab') ?? 1;
       // 获取实时朗读和 PiP 状态
       const isRealtimeReading = AppStorage.get<boolean>('voot_is_realtime_reading') || false;
@@ -386,6 +386,25 @@ export default class EntryAbility extends UIAbility {
         }
       } catch (e) {
         console.warn('[EntryAbility] Failed to parse subtitle config');
+      }
+
+      // 优先从持久化存储读取 API 配置，确保密钥信息完整
+      // 由于 onContinue 是同步方法，使用同步读取
+      let apiConfig = '{}';
+      try {
+        const snapshotJson = ApiConfigStorage.loadSnapshotSync(this.context);
+        if (snapshotJson && snapshotJson !== '{}') {
+          apiConfig = snapshotJson;
+          console.info('[EntryAbility] onContinue: Loaded API config from persistent storage');
+        } else {
+          // 回退到 AppStorage
+          apiConfig = AppStorage.get<string>('voot_api_config_json') || '{}';
+          console.info('[EntryAbility] onContinue: Fallback to AppStorage for API config');
+        }
+      } catch (e) {
+        // 回退到 AppStorage
+        apiConfig = AppStorage.get<string>('voot_api_config_json') || '{}';
+        console.warn('[EntryAbility] onContinue: Failed to load from storage, using AppStorage');
       }
 
       // 构建流转状态

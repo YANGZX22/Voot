@@ -6,6 +6,8 @@ import router from '@ohos.router';
 import { ColorMetrics, curves } from '@kit.ArkUI';
 import { THEMES } from '../model/Theme';
 import window from '@ohos.window';
+import common from '@ohos.app.ability.common';
+import { Want } from '@kit.AbilityKit';
 
 const TITLE_BAR_HEIGHT_MINI: number = 84;
 
@@ -25,9 +27,11 @@ export enum ApiMenuType {
   PolishPrompt,
   Glossary,
   OpenAI,
+  Gemini,
   DeepL,
   Ollama,
-  Doubao
+  Doubao,
+  Huawei
 }
 
 // 定义 SlotInfo 类
@@ -256,7 +260,7 @@ struct KeySlotSwitcher {
           hoverTips: '下一个槽位'
         })],
         primaryButton: new ActionBarButton({
-          baseIcon: this.hasApiKey ? $r('sys.symbol.pencil_waveform') : $r('sys.symbol.plus'),
+          baseIcon: this.hasApiKey ? $r('sys.symbol.square_and_pencil') : $r('sys.symbol.plus'),
           onClick: () => {
             this.isExpand = !this.isExpand;
             this.onEditSlot();
@@ -282,13 +286,18 @@ export interface ApiConfigPageProps {
   promptText: string;
   // 多密钥槽位
   openAiKeySlots: MultiKeySlots;
+  geminiKeySlots: MultiKeySlots;
   deepLKeySlots: MultiKeySlots;
   ollamaKeySlots: MultiKeySlots;
   doubaoKeySlots: MultiKeySlots;
+  huaweiKeySlots: MultiKeySlots;
   // 兼容旧版单密钥字段
   openAiApiUrl: string;
   openAiApiKey: string;
   openAiModel: string;
+  geminiApiUrl: string;
+  geminiApiKey: string;
+  geminiModel: string;
   deepLApiUrl: string;
   deepLApiKey: string;
   ollamaApiUrl: string;
@@ -296,19 +305,27 @@ export interface ApiConfigPageProps {
   doubaoApiUrl: string;
   doubaoApiKey: string;
   doubaoModel: string;
+  huaweiApiUrl: string;
+  huaweiApiKey: string;
+  huaweiModel: string;
   glossary: string;
   onBack: () => void;
   onSelectMenu: (menu: ApiMenuType) => void;
   onUpdatePrompt: (value: string) => void;
   // 槽位切换回调
   onSwitchOpenAiSlot: (index: number) => void;
+  onSwitchGeminiSlot: (index: number) => void;
   onSwitchDeepLSlot: (index: number) => void;
   onSwitchOllamaSlot: (index: number) => void;
   onSwitchDoubaoSlot: (index: number) => void;
+  onSwitchHuaweiSlot: (index: number) => void;
   // 更新槽位内容回调
   onUpdateOpenAiApiUrl: (value: string) => void;
   onUpdateOpenAiApiKey: (value: string) => void;
   onUpdateOpenAiModel: (value: string) => void;
+  onUpdateGeminiApiUrl: (value: string) => void;
+  onUpdateGeminiApiKey: (value: string) => void;
+  onUpdateGeminiModel: (value: string) => void;
   onUpdateDeepLApiUrl: (value: string) => void;
   onUpdateDeepLApiKey: (value: string) => void;
   onUpdateOllamaApiUrl: (value: string) => void;
@@ -316,6 +333,9 @@ export interface ApiConfigPageProps {
   onUpdateDoubaoApiUrl: (value: string) => void;
   onUpdateDoubaoApiKey: (value: string) => void;
   onUpdateDoubaoModel: (value: string) => void;
+  onUpdateHuaweiApiUrl: (value: string) => void;
+  onUpdateHuaweiApiKey: (value: string) => void;
+  onUpdateHuaweiModel: (value: string) => void;
   onUpdateGlossary: (value: string) => void;
   getConfigTextAreaHeight: (rows: number) => number;
   themeColorIndex: number;
@@ -396,13 +416,18 @@ export struct ApiConfigPage {
   @Prop polishPromptText: string = ""; // 润色提示词
   // 多密钥槽位
   @Prop openAiKeySlots: MultiKeySlots = { slots: [], currentSlotIndex: 0 };
+  @Prop geminiKeySlots: MultiKeySlots = { slots: [], currentSlotIndex: 0 };
   @Prop deepLKeySlots: MultiKeySlots = { slots: [], currentSlotIndex: 0 };
   @Prop ollamaKeySlots: MultiKeySlots = { slots: [], currentSlotIndex: 0 };
   @Prop doubaoKeySlots: MultiKeySlots = { slots: [], currentSlotIndex: 0 };
+  @Prop huaweiKeySlots: MultiKeySlots = { slots: [], currentSlotIndex: 0 };
   // 兼容旧版字段
   @Prop openAiApiUrl: string = "";
   @Prop openAiApiKey: string = "";
   @Prop openAiModel: string = "";
+  @Prop geminiApiUrl: string = "";
+  @Prop geminiApiKey: string = "";
+  @Prop geminiModel: string = "";
   @Prop deepLApiUrl: string = "";
   @Prop deepLApiKey: string = "";
   @Prop ollamaApiUrl: string = "";
@@ -410,11 +435,16 @@ export struct ApiConfigPage {
   @Prop doubaoApiUrl: string = "";
   @Prop doubaoApiKey: string = "";
   @Prop doubaoModel: string = "";
+  @Prop huaweiApiUrl: string = "";
+  @Prop huaweiApiKey: string = "";
+  @Prop huaweiModel: string = "";
   // Alias 字段（用于显示用户自定义别名）
   @Prop openAiAlias: string = "";
+  @Prop geminiAlias: string = "";
   @Prop deepLAlias: string = "";
   @Prop ollamaAlias: string = "";
   @Prop doubaoAlias: string = "";
+  @Prop huaweiAlias: string = "";
   @Prop glossary: string = "";
   @Prop isLightEffectBright: boolean = true;
   @Prop isDarkMode: boolean = true;
@@ -434,13 +464,18 @@ export struct ApiConfigPage {
   onUpdatePolishPrompt: (value: string) => void = () => {}; // 润色提示词更新回调
   // 槽位切换回调
   onSwitchOpenAiSlot: (index: number) => void = () => {};
+  onSwitchGeminiSlot: (index: number) => void = () => {};
   onSwitchDeepLSlot: (index: number) => void = () => {};
   onSwitchOllamaSlot: (index: number) => void = () => {};
   onSwitchDoubaoSlot: (index: number) => void = () => {};
+  onSwitchHuaweiSlot: (index: number) => void = () => {};
   // 更新内容回调
   onUpdateOpenAiApiUrl: (value: string) => void = () => {};
   onUpdateOpenAiApiKey: (value: string) => void = () => {};
   onUpdateOpenAiModel: (value: string) => void = () => {};
+  onUpdateGeminiApiUrl: (value: string) => void = () => {};
+  onUpdateGeminiApiKey: (value: string) => void = () => {};
+  onUpdateGeminiModel: (value: string) => void = () => {};
   onUpdateDeepLApiUrl: (value: string) => void = () => {};
   onUpdateDeepLApiKey: (value: string) => void = () => {};
   onUpdateOllamaApiUrl: (value: string) => void = () => {};
@@ -448,11 +483,16 @@ export struct ApiConfigPage {
   onUpdateDoubaoApiUrl: (value: string) => void = () => {};
   onUpdateDoubaoApiKey: (value: string) => void = () => {};
   onUpdateDoubaoModel: (value: string) => void = () => {};
+  onUpdateHuaweiApiUrl: (value: string) => void = () => {};
+  onUpdateHuaweiApiKey: (value: string) => void = () => {};
+  onUpdateHuaweiModel: (value: string) => void = () => {};
   // Alias 更新回调
   onUpdateOpenAiAlias: (value: string) => void = () => {};
+  onUpdateGeminiAlias: (value: string) => void = () => {};
   onUpdateDeepLAlias: (value: string) => void = () => {};
   onUpdateOllamaAlias: (value: string) => void = () => {};
   onUpdateDoubaoAlias: (value: string) => void = () => {};
+  onUpdateHuaweiAlias: (value: string) => void = () => {};
   onUpdateGlossary: (value: string) => void = () => {};
   // Helper for TextArea height
   getConfigTextAreaHeight: (rows: number) => number = (rows: number) => rows * 20;
@@ -560,18 +600,36 @@ export struct ApiConfigPage {
       items.push(item);
     }
 
-    // "如何填写" 帮助
-    if (this.selectedMenu === ApiMenuType.OpenAI ||
-        this.selectedMenu === ApiMenuType.DeepL ||
-        this.selectedMenu === ApiMenuType.Ollama ||
-        this.selectedMenu === ApiMenuType.Doubao) {
+    // Gemini 警告 (仅在 Gemini 页面显示)
+    if (this.selectedMenu === ApiMenuType.Gemini) {
       let item: NavMenuItem = {
         content: {
-          label: '如何填写',
-          icon: $r('sys.symbol.book'),
+          label: '服务可用性警告',
+          icon: $r('sys.symbol.exclamationmark_circle'),
           isEnabled: true,
           action: () => {
-            router.pushUrl({ url: 'pages/ApiExplanationPage' });
+            this.showGeminiWarningPopup = true;
+          }
+        }
+      };
+      items.push(item);
+    }
+
+    // "更多"菜单 (仅在 API 提供商页面显示)
+    if (this.selectedMenu === ApiMenuType.OpenAI ||
+        this.selectedMenu === ApiMenuType.Gemini ||
+        this.selectedMenu === ApiMenuType.DeepL ||
+        this.selectedMenu === ApiMenuType.Ollama ||
+        this.selectedMenu === ApiMenuType.Doubao ||
+        this.selectedMenu === ApiMenuType.Huawei) {
+      let item: NavMenuItem = {
+        content: {
+          label: '更多',
+          icon: $r('sys.symbol.dot_grid_2x2'),
+          isEnabled: true,
+          action: () => {
+            this.sheetType = 'moreMenu';
+            this.isSheetOpen = true;
           }
         }
       };
@@ -600,8 +658,9 @@ export struct ApiConfigPage {
   }
 
 
-  // --- 半模态弹窗状态 ---
-  @State isKeyEditSheetOpen: boolean = false;
+  // 半模态弹窗
+  @State sheetType: 'keyEdit' | 'moreMenu' | 'editConsoleUrl' | 'none' = 'none';
+  @State isSheetOpen: boolean = false;
   @State editingApiUrl: string = '';
   @State editingApiKey: string = '';
   @State editingModel: string = '';
@@ -611,18 +670,101 @@ export struct ApiConfigPage {
 
   // OpenAI 警告弹窗状态
   @State showOpenAIWarningPopup: boolean = false;
+  // Gemini 警告弹窗状态
+  @State showGeminiWarningPopup: boolean = false;
+
+  // 控制台URL编辑状态
+  @State editingConsoleUrl: string = '';
+
+  // 各API提供商的默认控制台URL
+  private static readonly DEFAULT_CONSOLE_URLS: Record<string, string> = {
+    'OpenAI': 'https://platform.openai.com/',
+    'Gemini': 'https://aistudio.google.com/',
+    'DeepL': 'https://www.deepl.com/your-account/keys',
+    'Ollama': 'http://localhost:11434',
+    'Doubao': 'https://console.volcengine.com/ark',
+    'Huawei': 'https://console.huaweicloud.com/modelarts/'
+  };
+
+  // 用户自定义的控制台URL
+  @StorageLink('consoleUrl_OpenAI') consoleUrlOpenAI: string = 'https://platform.openai.com/';
+  @StorageLink('consoleUrl_Gemini') consoleUrlGemini: string = 'https://aistudio.google.com/';
+  @StorageLink('consoleUrl_DeepL') consoleUrlDeepL: string = 'https://www.deepl.com/your-account/keys';
+  @StorageLink('consoleUrl_Ollama') consoleUrlOllama: string = 'http://localhost:11434';
+  @StorageLink('consoleUrl_Doubao') consoleUrlDoubao: string = 'https://console.volcengine.com/ark';
+  @StorageLink('consoleUrl_Huawei') consoleUrlHuawei: string = 'https://console.huaweicloud.com/modelarts/';
+
+  // 获取当前API提供商名称
+  private getCurrentProviderName(): string {
+    switch (this.selectedMenu) {
+      case ApiMenuType.OpenAI: return 'OpenAI';
+      case ApiMenuType.Gemini: return 'Gemini';
+      case ApiMenuType.DeepL: return 'DeepL';
+      case ApiMenuType.Ollama: return 'Ollama';
+      case ApiMenuType.Doubao: return 'Doubao';
+      case ApiMenuType.Huawei: return 'Huawei';
+      default: return '';
+    }
+  }
+
+  // 获取当前API提供商的控制台URL
+  private getCurrentConsoleUrl(): string {
+    switch (this.selectedMenu) {
+      case ApiMenuType.OpenAI: return this.consoleUrlOpenAI;
+      case ApiMenuType.Gemini: return this.consoleUrlGemini;
+      case ApiMenuType.DeepL: return this.consoleUrlDeepL;
+      case ApiMenuType.Ollama: return this.consoleUrlOllama;
+      case ApiMenuType.Doubao: return this.consoleUrlDoubao;
+      case ApiMenuType.Huawei: return this.consoleUrlHuawei;
+      default: return '';
+    }
+  }
+
+  // 设置当前API提供商的控制台URL
+  private setCurrentConsoleUrl(url: string): void {
+    switch (this.selectedMenu) {
+      case ApiMenuType.OpenAI: this.consoleUrlOpenAI = url; break;
+      case ApiMenuType.Gemini: this.consoleUrlGemini = url; break;
+      case ApiMenuType.DeepL: this.consoleUrlDeepL = url; break;
+      case ApiMenuType.Ollama: this.consoleUrlOllama = url; break;
+      case ApiMenuType.Doubao: this.consoleUrlDoubao = url; break;
+      case ApiMenuType.Huawei: this.consoleUrlHuawei = url; break;
+    }
+  }
+
+  // 打开控制台
+  private openConsoleInBrowser(): void {
+    const consoleUrl = this.getCurrentConsoleUrl();
+    if (consoleUrl.length > 0) {
+      try {
+        const context = getContext(this) as common.UIAbilityContext;
+        const want: Want = {
+          action: 'ohos.want.action.viewData',
+          uri: consoleUrl
+        };
+        context.startAbility(want);
+      } catch (err) {
+        console.error('Failed to open console URL:', JSON.stringify(err));
+        promptAction.showToast({ message: '无法打开浏览器' });
+      }
+    }
+  }
 
   // 检查当前槽位是否有密钥
   private getCurrentSlotHasKey(): boolean {
     switch (this.selectedMenu) {
       case ApiMenuType.OpenAI:
         return this.openAiApiKey.length > 0;
+      case ApiMenuType.Gemini:
+        return this.geminiApiKey.length > 0;
       case ApiMenuType.DeepL:
         return this.deepLApiKey.length > 0;
       case ApiMenuType.Ollama:
         return this.ollamaApiUrl.length > 0;
       case ApiMenuType.Doubao:
         return this.doubaoApiKey.length > 0;
+      case ApiMenuType.Huawei:
+        return this.huaweiApiKey.length > 0;
       default:
         return false;
     }
@@ -637,6 +779,12 @@ export struct ApiConfigPage {
         this.editingApiKey = this.openAiApiKey;
         this.editingModel = this.openAiModel;
         this.editingAlias = this.openAiKeySlots.slots[this.openAiKeySlots.currentSlotIndex]?.alias || `OpenAI ${this.openAiKeySlots.currentSlotIndex + 1}`;
+        break;
+      case ApiMenuType.Gemini:
+        this.editingApiUrl = this.geminiApiUrl;
+        this.editingApiKey = this.geminiApiKey;
+        this.editingModel = this.geminiModel;
+        this.editingAlias = this.geminiKeySlots.slots[this.geminiKeySlots.currentSlotIndex]?.alias || `Gemini ${this.geminiKeySlots.currentSlotIndex + 1}`;
         break;
       case ApiMenuType.DeepL:
         this.editingApiUrl = this.deepLApiUrl;
@@ -656,9 +804,16 @@ export struct ApiConfigPage {
         this.editingModel = this.doubaoModel;
         this.editingAlias = this.doubaoKeySlots.slots[this.doubaoKeySlots.currentSlotIndex]?.alias || `Doubao ${this.doubaoKeySlots.currentSlotIndex + 1}`;
         break;
+      case ApiMenuType.Huawei:
+        this.editingApiUrl = this.huaweiApiUrl;
+        this.editingApiKey = this.huaweiApiKey;
+        this.editingModel = this.huaweiModel;
+        this.editingAlias = this.huaweiKeySlots.slots[this.huaweiKeySlots.currentSlotIndex]?.alias || `Huawei ${this.huaweiKeySlots.currentSlotIndex + 1}`;
+        break;
     }
     this.validateEditingConfig();
-    this.isKeyEditSheetOpen = true;
+    this.sheetType = 'keyEdit';
+    this.isSheetOpen = true;
   }
 
   // 验证编辑中的配置
@@ -668,7 +823,9 @@ export struct ApiConfigPage {
 
     switch (this.selectedMenu) {
       case ApiMenuType.OpenAI:
+      case ApiMenuType.Gemini:
       case ApiMenuType.Doubao:
+      case ApiMenuType.Huawei:
         if (!this.editingApiKey) isValid = false;
         if (!this.editingModel) isValid = false;
         break;
@@ -696,7 +853,10 @@ export struct ApiConfigPage {
 
       const isResponsesEndpoint: boolean = url.includes('/v1/responses') || url.endsWith('/responses');
 
-      if (this.selectedMenu === ApiMenuType.OpenAI || this.selectedMenu === ApiMenuType.Doubao) {
+      if (this.selectedMenu === ApiMenuType.OpenAI ||
+          this.selectedMenu === ApiMenuType.Gemini ||
+          this.selectedMenu === ApiMenuType.Doubao ||
+          this.selectedMenu === ApiMenuType.Huawei) {
         headers['Authorization'] = `Bearer ${this.editingApiKey}`;
 
         if (isResponsesEndpoint) {
@@ -740,7 +900,10 @@ export struct ApiConfigPage {
       });
 
       // OpenAI 兼容：部分模型在 chat/completions 下不支持 max_tokens，要求 max_completion_tokens
-      if ((this.selectedMenu === ApiMenuType.OpenAI || this.selectedMenu === ApiMenuType.Doubao) &&
+      if ((this.selectedMenu === ApiMenuType.OpenAI ||
+           this.selectedMenu === ApiMenuType.Gemini ||
+           this.selectedMenu === ApiMenuType.Doubao ||
+           this.selectedMenu === ApiMenuType.Huawei) &&
         !isResponsesEndpoint &&
         response.responseCode === 400) {
         const resultStr: string = typeof response.result === 'string' ? (response.result as string) : JSON.stringify(response.result);
@@ -812,6 +975,12 @@ export struct ApiConfigPage {
         this.onUpdateOpenAiModel(this.editingModel);
         this.onUpdateOpenAiAlias(this.editingAlias);
         break;
+      case ApiMenuType.Gemini:
+        this.onUpdateGeminiApiUrl(this.editingApiUrl);
+        this.onUpdateGeminiApiKey(this.editingApiKey);
+        this.onUpdateGeminiModel(this.editingModel);
+        this.onUpdateGeminiAlias(this.editingAlias);
+        break;
       case ApiMenuType.DeepL:
         this.onUpdateDeepLApiUrl(this.editingApiUrl);
         this.onUpdateDeepLApiKey(this.editingApiKey);
@@ -828,9 +997,15 @@ export struct ApiConfigPage {
         this.onUpdateDoubaoModel(this.editingModel);
         this.onUpdateDoubaoAlias(this.editingAlias);
         break;
+      case ApiMenuType.Huawei:
+        this.onUpdateHuaweiApiUrl(this.editingApiUrl);
+        this.onUpdateHuaweiApiKey(this.editingApiKey);
+        this.onUpdateHuaweiModel(this.editingModel);
+        this.onUpdateHuaweiAlias(this.editingAlias);
+        break;
     }
 
-    this.isKeyEditSheetOpen = false;
+    this.isSheetOpen = false;
     promptAction.showToast({
       message: '密钥配置已保存',
       duration: 2000
@@ -841,9 +1016,11 @@ export struct ApiConfigPage {
   private getCurrentApiName(): string {
     switch (this.selectedMenu) {
       case ApiMenuType.OpenAI: return 'OpenAI';
+      case ApiMenuType.Gemini: return 'Gemini';
       case ApiMenuType.DeepL: return 'DeepL';
       case ApiMenuType.Ollama: return 'Ollama';
       case ApiMenuType.Doubao: return 'Doubao';
+      case ApiMenuType.Huawei: return 'Huawei';
       default: return '';
     }
   }
@@ -859,6 +1036,10 @@ export struct ApiConfigPage {
         slotIndex = this.openAiKeySlots.currentSlotIndex;
         alias = this.openAiKeySlots.slots[slotIndex]?.alias || '';
         break;
+      case ApiMenuType.Gemini:
+        slotIndex = this.geminiKeySlots.currentSlotIndex;
+        alias = this.geminiKeySlots.slots[slotIndex]?.alias || '';
+        break;
       case ApiMenuType.DeepL:
         slotIndex = this.deepLKeySlots.currentSlotIndex;
         alias = this.deepLKeySlots.slots[slotIndex]?.alias || '';
@@ -870,6 +1051,10 @@ export struct ApiConfigPage {
       case ApiMenuType.Doubao:
         slotIndex = this.doubaoKeySlots.currentSlotIndex;
         alias = this.doubaoKeySlots.slots[slotIndex]?.alias || '';
+        break;
+      case ApiMenuType.Huawei:
+        slotIndex = this.huaweiKeySlots.currentSlotIndex;
+        alias = this.huaweiKeySlots.slots[slotIndex]?.alias || '';
         break;
       default:
         return '';
@@ -885,15 +1070,19 @@ export struct ApiConfigPage {
   // 是否需要 API Key
   private needsApiKey(): boolean {
     return this.selectedMenu === ApiMenuType.OpenAI ||
+           this.selectedMenu === ApiMenuType.Gemini ||
            this.selectedMenu === ApiMenuType.DeepL ||
-           this.selectedMenu === ApiMenuType.Doubao;
+           this.selectedMenu === ApiMenuType.Doubao ||
+           this.selectedMenu === ApiMenuType.Huawei;
   }
 
   // 是否需要 Model
   private needsModel(): boolean {
     return this.selectedMenu === ApiMenuType.OpenAI ||
+           this.selectedMenu === ApiMenuType.Gemini ||
            this.selectedMenu === ApiMenuType.Ollama ||
-           this.selectedMenu === ApiMenuType.Doubao;
+           this.selectedMenu === ApiMenuType.Doubao ||
+           this.selectedMenu === ApiMenuType.Huawei;
   }
 
   // 密钥编辑弹窗内容
@@ -1023,7 +1212,7 @@ export struct ApiConfigPage {
         .fontSize(16)
         .margin({ top: 12 })
         .onClick(() => {
-          this.isKeyEditSheetOpen = false;
+          this.isSheetOpen = false;
         })
     }
     .width('100%')
@@ -1171,7 +1360,22 @@ export struct ApiConfigPage {
                 onClickAction: () => { this.animateIndicator(ApiMenuType.OpenAI); this.onSelectMenu(ApiMenuType.OpenAI); }
               });
 
-              // Menu Item 3: DeepL
+              // Menu Item: Gemini
+              MenuButton({
+                label: 'Gemini',
+                iconName: 'Gemini',
+                menuType: ApiMenuType.Gemini,
+                isSelected: this.selectedMenu === ApiMenuType.Gemini,
+                isLightEffectBright: this.isLightEffectBright,
+                isDarkMode: this.isDarkMode,
+                isSource: this.activeMenuId === ApiMenuType.Gemini,
+                isIlluminated: this.activeMenuId !== -1,
+                onTouchStart: () => { animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeMenuId = ApiMenuType.Gemini; }) },
+                onTouchEnd: () => { animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeMenuId = -1; }) },
+                onClickAction: () => { this.animateIndicator(ApiMenuType.Gemini); this.onSelectMenu(ApiMenuType.Gemini); }
+              });
+
+              // Menu Item: DeepL
               MenuButton({
                 label: 'DeepL',
                 iconName: 'DeepL',
@@ -1186,7 +1390,7 @@ export struct ApiConfigPage {
                 onClickAction: () => { this.animateIndicator(ApiMenuType.DeepL); this.onSelectMenu(ApiMenuType.DeepL); }
               });
 
-              // Menu Item 4: Ollama
+              // Menu Item: Ollama
               MenuButton({
                 label: 'Ollama',
                 iconName: 'Ollama',
@@ -1201,7 +1405,7 @@ export struct ApiConfigPage {
                 onClickAction: () => { this.animateIndicator(ApiMenuType.Ollama); this.onSelectMenu(ApiMenuType.Ollama); }
               });
 
-              // Menu Item 5: Doubao
+              // Menu Item: Doubao
               MenuButton({
                 label: 'Doubao',
                 iconName: 'Doubao',
@@ -1214,6 +1418,21 @@ export struct ApiConfigPage {
                 onTouchStart: () => { animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeMenuId = ApiMenuType.Doubao; }) },
                 onTouchEnd: () => { animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeMenuId = -1; }) },
                 onClickAction: () => { this.animateIndicator(ApiMenuType.Doubao); this.onSelectMenu(ApiMenuType.Doubao); }
+              });
+
+              // Menu Item: Huawei
+              MenuButton({
+                label: 'Huawei',
+                iconName: 'Huawei',
+                menuType: ApiMenuType.Huawei,
+                isSelected: this.selectedMenu === ApiMenuType.Huawei,
+                isLightEffectBright: this.isLightEffectBright,
+                isDarkMode: this.isDarkMode,
+                isSource: this.activeMenuId === ApiMenuType.Huawei,
+                isIlluminated: this.activeMenuId !== -1,
+                onTouchStart: () => { animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeMenuId = ApiMenuType.Huawei; }) },
+                onTouchEnd: () => { animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeMenuId = -1; }) },
+                onClickAction: () => { this.animateIndicator(ApiMenuType.Huawei); this.onSelectMenu(ApiMenuType.Huawei); }
               });
 
               Blank().height(16);
@@ -1253,6 +1472,31 @@ export struct ApiConfigPage {
               onStateChange: (e) => {
                 if (!e.isVisible) {
                   this.showOpenAIWarningPopup = false;
+                }
+              },
+              messageOptions: {
+                textColor: Color.White
+              },
+              enableArrow: false,
+              backgroundBlurStyle: BlurStyle.BACKGROUND_THIN,
+              transition: TransitionEffect.OPACITY.animation({ duration: 300, curve: Curve.FastOutSlowIn })
+            })
+        }
+
+        // Gemini Popup Anchor (Invisible)
+        if (this.selectedMenu === ApiMenuType.Gemini) {
+          Row()
+            .width(48)
+            .height(48)
+            .position({ right: 108, top: 38 })
+            .hitTestBehavior(HitTestMode.None)
+            .bindPopup(this.showGeminiWarningPopup, {
+              message: 'Gemini 在中国大陆、中国香港特别行政区和中国澳门特别行政区似乎不提供服务。请确认您能够访问该服务，并仔细阅读和遵守服务提供商的使用条款。',
+              placementOnTop: false,
+              showInSubWindow: false,
+              onStateChange: (e) => {
+                if (!e.isVisible) {
+                  this.showGeminiWarningPopup = false;
                 }
               },
               messageOptions: {
@@ -1321,15 +1565,180 @@ export struct ApiConfigPage {
       },
       avoidLayoutSafeArea: true
     })
-    .bindSheet($$this.isKeyEditSheetOpen, this.KeyEditSheetContent(), {
+    .bindSheet($$this.isSheetOpen, this.UnifiedSheetContent(), {
       height: SheetSize.FIT_CONTENT,
       dragBar: true,
       showClose: true,
-      title: { title: this.getCurrentSlotHasKey() ? '编辑密钥' : '添加密钥' },
+      title: { title: this.getSheetTitle() },
       onDisappear: () => {
-        this.isKeyEditSheetOpen = false;
+        this.isSheetOpen = false;
+        this.sheetType = 'none';
       }
     })
+  }
+
+  // 获取sheet标题
+  private getSheetTitle(): string {
+    switch (this.sheetType) {
+      case 'keyEdit':
+        return this.getCurrentSlotHasKey() ? '编辑密钥' : '添加密钥';
+      case 'moreMenu':
+        return '更多选项';
+      case 'editConsoleUrl':
+        return '编辑控制台网页';
+      default:
+        return '';
+    }
+  }
+
+  // 统一Sheet内容
+  @Builder
+  UnifiedSheetContent() {
+    if (this.sheetType === 'keyEdit') {
+      this.KeyEditSheetContent()
+    } else if (this.sheetType === 'moreMenu') {
+      this.MoreMenuSheetContent()
+    } else if (this.sheetType === 'editConsoleUrl') {
+      this.ConsoleUrlEditSheetContent()
+    }
+  }
+
+  // "更多"菜单内容
+  @Builder
+  MoreMenuSheetContent() {
+    Column() {
+      // 打开控制台
+      Row() {
+        SymbolGlyph($r('sys.symbol.worldclock'))
+          .fontSize(22)
+          .fontColor([$r('sys.color.icon_primary')])
+        Text('打开控制台网页')
+          .fontSize(16)
+          .fontColor($r('sys.color.font_primary'))
+          .margin({ left: 12 })
+        Blank()
+        SymbolGlyph($r('sys.symbol.chevron_right'))
+          .fontSize(16)
+          .fontColor([$r('sys.color.icon_tertiary')])
+      }
+      .width('100%')
+      .height(56)
+      .padding({ left: 16, right: 16 })
+      .onClick(() => {
+        this.isSheetOpen = false;
+        this.openConsoleInBrowser();
+      })
+
+      Divider()
+        .width('90%')
+        .height(0.5)
+        .color($r('sys.color.comp_divider'))
+
+      // 编辑控制台网页
+      Row() {
+        SymbolGlyph($r('sys.symbol.square_and_pencil'))
+          .fontSize(22)
+          .fontColor([$r('sys.color.icon_primary')])
+        Text('编辑控制台网页')
+          .fontSize(16)
+          .fontColor($r('sys.color.font_primary'))
+          .margin({ left: 12 })
+        Blank()
+        SymbolGlyph($r('sys.symbol.chevron_right'))
+          .fontSize(16)
+          .fontColor([$r('sys.color.icon_tertiary')])
+      }
+      .width('100%')
+      .height(56)
+      .padding({ left: 16, right: 16 })
+      .onClick(() => {
+        this.editingConsoleUrl = this.getCurrentConsoleUrl();
+        this.sheetType = 'editConsoleUrl';
+      })
+
+      Divider()
+        .width('90%')
+        .height(0.5)
+        .color($r('sys.color.comp_divider'))
+
+      // 如何填写
+      Row() {
+        SymbolGlyph($r('sys.symbol.key_induction'))
+          .fontSize(22)
+          .fontColor([$r('sys.color.icon_primary')])
+        Text('如何填写')
+          .fontSize(16)
+          .fontColor($r('sys.color.font_primary'))
+          .margin({ left: 12 })
+        Blank()
+        SymbolGlyph($r('sys.symbol.chevron_right'))
+          .fontSize(16)
+          .fontColor([$r('sys.color.icon_tertiary')])
+      }
+      .width('100%')
+      .height(56)
+      .padding({ left: 16, right: 16 })
+      .onClick(() => {
+        this.isSheetOpen = false;
+        router.pushUrl({ url: 'pages/ApiExplanationPage' });
+      })
+    }
+    .width('100%')
+    .padding({ top: 8, bottom: 24 })
+  }
+
+  // 编辑控制台网页的Sheet内容
+  @Builder
+  ConsoleUrlEditSheetContent() {
+    Column() {
+      Text(`${this.getCurrentProviderName()} 控制台网页地址`)
+        .fontSize(14)
+        .fontColor($r('sys.color.font_secondary'))
+        .alignSelf(ItemAlign.Start)
+        .margin({ left: 16, top: 16, bottom: 8 })
+
+      TextInput({ text: this.editingConsoleUrl, placeholder: '请输入控制台网页地址' })
+        .type(InputType.URL)
+        .onChange((value: string) => {
+          this.editingConsoleUrl = value;
+        })
+        .width('90%')
+        .height(48)
+        .borderRadius(20)
+        .margin({ left: 16, right: 16 })
+        .padding({ left: 16, right: 16 })
+
+      Row() {
+        Button('取消')
+          .type(ButtonType.Normal)
+          .fontColor($r('sys.color.font_primary'))
+          .backgroundColor($r('sys.color.comp_background_tertiary'))
+          .borderRadius(20)
+          .height(40)
+          .layoutWeight(1)
+          .margin({ right: 8 })
+          .onClick(() => {
+            this.sheetType = 'moreMenu';
+          })
+
+        Button('保存')
+          .type(ButtonType.Normal)
+          .fontColor(Color.White)
+          .backgroundColor(THEMES[this.themeColorIndex].primaryColor)
+          .borderRadius(20)
+          .height(40)
+          .layoutWeight(1)
+          .margin({ left: 8 })
+          .onClick(() => {
+            this.setCurrentConsoleUrl(this.editingConsoleUrl);
+            this.isSheetOpen = false;
+            promptAction.showToast({ message: '控制台网页已保存' });
+          })
+      }
+      .width('100%')
+      .padding({ left: 16, right: 16, top: 24, bottom: 24 })
+    }
+    .width('100%')
   }
 
   // Helper Builder for the content panel to keep build() clean
@@ -1360,6 +1769,9 @@ export struct ApiConfigPage {
               if (this.selectedMenu === ApiMenuType.OpenAI) {
                 this.RenderProviderHeader('OpenAI', this.getCurrentSlotAlias(), $r('app.media.OpenAI'));
                 this.RenderOpenAiConfig();
+              } else if (this.selectedMenu === ApiMenuType.Gemini) {
+                this.RenderProviderHeader('Gemini', this.getCurrentSlotAlias(), $r('app.media.Gemini'));
+                this.RenderGeminiConfig();
               } else if (this.selectedMenu === ApiMenuType.DeepL) {
                 this.RenderProviderHeader('DeepL', this.getCurrentSlotAlias(), $r('app.media.DeepL'));
                 this.RenderDeepLConfig();
@@ -1369,6 +1781,9 @@ export struct ApiConfigPage {
               } else if (this.selectedMenu === ApiMenuType.Doubao) {
                 this.RenderProviderHeader('Doubao', this.getCurrentSlotAlias(), $r('app.media.Doubao'));
                 this.RenderDoubaoConfig();
+              } else if (this.selectedMenu === ApiMenuType.Huawei) {
+                this.RenderProviderHeader('Huawei', this.getCurrentSlotAlias(), $r('app.media.Huawei'));
+                this.RenderHuaweiConfig();
               } else if (this.selectedMenu === ApiMenuType.Glossary) {
                 this.RenderGlossaryConfig();
               }
@@ -1388,9 +1803,11 @@ export struct ApiConfigPage {
 
         // 悬浮的密钥槽位切换器（仅在 API 配置页面显示）
         if (this.selectedMenu === ApiMenuType.OpenAI ||
+            this.selectedMenu === ApiMenuType.Gemini ||
             this.selectedMenu === ApiMenuType.DeepL ||
             this.selectedMenu === ApiMenuType.Ollama ||
-            this.selectedMenu === ApiMenuType.Doubao) {
+            this.selectedMenu === ApiMenuType.Doubao ||
+            this.selectedMenu === ApiMenuType.Huawei) {
           Column() {
             this.RenderFloatingKeySlotSwitcher()
           }
@@ -1433,6 +1850,20 @@ export struct ApiConfigPage {
         onSwitchSlot: (index: number) => this.onSwitchOpenAiSlot(index),
         onEditSlot: () => this.openKeyEditSheet()
       })
+    } else if (this.selectedMenu === ApiMenuType.Gemini) {
+      KeySlotSwitcher({
+        currentSlotIndex: this.geminiKeySlots.currentSlotIndex,
+        totalSlots: MAX_KEY_SLOTS,
+        hasApiKey: this.geminiApiKey.length > 0,
+        providerName: 'Gemini',
+        aliases: [
+          this.geminiKeySlots.slots[0]?.alias || '',
+          this.geminiKeySlots.slots[1]?.alias || '',
+          this.geminiKeySlots.slots[2]?.alias || ''
+        ],
+        onSwitchSlot: (index: number) => this.onSwitchGeminiSlot(index),
+        onEditSlot: () => this.openKeyEditSheet()
+      })
     } else if (this.selectedMenu === ApiMenuType.DeepL) {
       KeySlotSwitcher({
         currentSlotIndex: this.deepLKeySlots.currentSlotIndex,
@@ -1473,6 +1904,20 @@ export struct ApiConfigPage {
           this.doubaoKeySlots.slots[2]?.alias || ''
         ],
         onSwitchSlot: (index: number) => this.onSwitchDoubaoSlot(index),
+        onEditSlot: () => this.openKeyEditSheet()
+      })
+    } else if (this.selectedMenu === ApiMenuType.Huawei) {
+      KeySlotSwitcher({
+        currentSlotIndex: this.huaweiKeySlots.currentSlotIndex,
+        totalSlots: MAX_KEY_SLOTS,
+        hasApiKey: this.huaweiApiKey.length > 0,
+        providerName: 'Huawei',
+        aliases: [
+          this.huaweiKeySlots.slots[0]?.alias || '',
+          this.huaweiKeySlots.slots[1]?.alias || '',
+          this.huaweiKeySlots.slots[2]?.alias || ''
+        ],
+        onSwitchSlot: (index: number) => this.onSwitchHuaweiSlot(index),
         onEditSlot: () => this.openKeyEditSheet()
       })
     }
@@ -1526,6 +1971,46 @@ export struct ApiConfigPage {
 
       Text('Model').fontSize(14).margin({ bottom: 4 }).fontColor(Color.White);
       TextArea({ text: this.openAiModel || '未配置' })
+        .backgroundColor(Color.Transparent)
+        .fontColor(Color.White)
+        .width('100%')
+        .height(this.getConfigTextAreaHeight(3))
+        .maxLines(4)
+        .textAlign(TextAlign.Start)
+        .enabled(false);
+    }
+    .width('100%')
+    .padding(12)
+    .borderRadius(12)
+  }
+
+  @Builder
+  RenderGeminiConfig() {
+    Column() {
+      Text('API Url').fontSize(14).margin({ bottom: 4 }).fontColor(Color.White);
+      TextArea({ text: this.geminiApiUrl })
+        .fontColor(Color.White)
+        .backgroundColor(Color.Transparent)
+        .width('100%')
+        .height(this.getConfigTextAreaHeight(4))
+        .maxLines(6)
+        .textAlign(TextAlign.Start)
+        .enabled(false)
+        .margin({ bottom: 12 });
+
+      Text('API Key').fontSize(14).margin({ bottom: 4 }).fontColor(Color.White);
+      TextArea({ text: this.geminiApiKey ? '••••••••••••' : '未配置' })
+        .backgroundColor(Color.Transparent)
+        .fontColor(Color.White)
+        .width('100%')
+        .height(this.getConfigTextAreaHeight(4))
+        .maxLines(6)
+        .textAlign(TextAlign.Start)
+        .enabled(false)
+        .margin({ bottom: 12 });
+
+      Text('Model').fontSize(14).margin({ bottom: 4 }).fontColor(Color.White);
+      TextArea({ text: this.geminiModel || '未配置' })
         .backgroundColor(Color.Transparent)
         .fontColor(Color.White)
         .width('100%')
@@ -1624,6 +2109,46 @@ export struct ApiConfigPage {
 
       Text('Model').fontSize(14).margin({ bottom: 4 }).fontColor(Color.White);
       TextArea({ text: this.doubaoModel || '未配置' })
+        .backgroundColor(Color.Transparent)
+        .fontColor(Color.White)
+        .width('100%')
+        .height(this.getConfigTextAreaHeight(3))
+        .maxLines(4)
+        .textAlign(TextAlign.Start)
+        .enabled(false);
+    }
+    .width('100%')
+    .padding(12)
+    .borderRadius(12)
+  }
+
+  @Builder
+  RenderHuaweiConfig() {
+    Column() {
+      Text('API Url').fontSize(14).margin({ bottom: 4 }).fontColor(Color.White);
+      TextArea({ text: this.huaweiApiUrl })
+        .backgroundColor(Color.Transparent)
+        .fontColor(Color.White)
+        .width('100%')
+        .height(this.getConfigTextAreaHeight(4))
+        .maxLines(6)
+        .textAlign(TextAlign.Start)
+        .enabled(false)
+        .margin({ bottom: 12 });
+
+      Text('API Key').fontSize(14).margin({ bottom: 4 }).fontColor(Color.White);
+      TextArea({ text: this.huaweiApiKey ? '••••••••••••' : '未配置' })
+        .backgroundColor(Color.Transparent)
+        .fontColor(Color.White)
+        .width('100%')
+        .height(this.getConfigTextAreaHeight(4))
+        .maxLines(6)
+        .textAlign(TextAlign.Start)
+        .enabled(false)
+        .margin({ bottom: 12 });
+
+      Text('Model').fontSize(14).margin({ bottom: 4 }).fontColor(Color.White);
+      TextArea({ text: this.huaweiModel || '未配置' })
         .backgroundColor(Color.Transparent)
         .fontColor(Color.White)
         .width('100%')

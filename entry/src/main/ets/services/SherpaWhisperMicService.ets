@@ -13,6 +13,7 @@
  */
 import audio from '@ohos.multimedia.audio';
 import common from '@ohos.app.ability.common';
+import fs from '@ohos.file.fs';
 
 import {
   OfflineRecognizer,
@@ -21,6 +22,7 @@ import {
   OfflineStream,
   Samples
 } from '../sherpa/NonStreamingAsr';
+import { AsrModelType, ASR_MODELS, AsrModelStorage } from '../storage/AsrModelStorage';
 
 // ====== Result types for UI ======
 
@@ -46,7 +48,7 @@ interface DecodePlan {
   maxSamples?: number;
 }
 
-// ====== Main service: mic + Moonshine ASR (NO worker) ======
+// ====== Main service: mic + ASR (NO worker) ======
 
 export class SherpaWhisperMicService {
   private ctx?: common.UIAbilityContext;
@@ -70,6 +72,24 @@ export class SherpaWhisperMicService {
   private partialIntervalMs: number = 800; // default ~0.8s for faster responsiveness
   private partialWindowSeconds: number = 4; // default ~4s window
   private isDecodingPartial: boolean = false;
+
+  // SenseVoice 模型的默认参数（需要更长的音频段才能获得好的识别效果）
+  private static readonly SENSE_VOICE_INTERVAL_MS = 2000; // 2秒解码一次，给模型更多上下文
+  private static readonly SENSE_VOICE_WINDOW_SECONDS = 8; // 8秒窗口，提高准确率
+  private static readonly MOONSHINE_INTERVAL_MS = 800; // 0.8秒
+  private static readonly MOONSHINE_WINDOW_SECONDS = 4; // 4秒
+
+  // 当前加载的模型类型
+  private currentModelType: AsrModelType = AsrModelType.MOONSHINE_EN;
+  // SenseVoice 语言配置
+  private senseVoiceLanguage: string = 'auto';
+
+  /**
+   * 获取当前加载的模型类型
+   */
+  getCurrentModelType(): AsrModelType {
+    return this.currentModelType;
+  }
 
   /**
    * Configure ASR decode timing for real-time performance.
@@ -95,11 +115,24 @@ export class SherpaWhisperMicService {
   }
 
   /**
-   * Initialize Moonshine tiny EN model from rawfile using the app's resourceManager.
-   * Must be called once before start().
+   * 设置 SenseVoice 模型的语言
+   * @param language 语言代码: 'zh', 'en', 'ja', 'ko', 'yue', 或 'auto'
    */
-  async init(ctx: common.UIAbilityContext): Promise<void> {
+  setSenseVoiceLanguage(language: string): void {
+    this.senseVoiceLanguage = language;
+    if (this.enableDebugLogs) {
+      console.info(`[SherpaMic] SenseVoice language set to ${language}`);
+    }
+  }
+
+  /**
+   * Initialize ASR model from rawfile using the app's resourceManager.
+   * Must be called once before start().
+   * @param modelType 模型类型，默认为 Moonshine EN
+   */
+  async init(ctx: common.UIAbilityContext, modelType: AsrModelType = AsrModelType.MOONSHINE_EN): Promise<void> {
     this.ctx = ctx;
+    this.currentModelType = modelType;
 
     const cfg = new OfflineRecognizerConfig();
 
@@ -107,23 +140,61 @@ export class SherpaWhisperMicService {
     cfg.featConfig.sampleRate = this.sampleRate;
     cfg.featConfig.featureDim = 80;
 
-    // Model files in rawfile, as in the docs:
-    // entry/src/main/resources/rawfile/sherpa-onnx-moonshine-tiny-en-int8/
-    const base: string = 'rawfile/sherpa-onnx-moonshine-tiny-en-int8';
+    // 是否使用下载的模型（需要绝对路径，不传 resourceManager）
+    let useDownloadedModel = false;
 
-    cfg.modelConfig.moonshine.preprocessor = `${base}/preprocess.onnx`;
-    cfg.modelConfig.moonshine.encoder = `${base}/encode.int8.onnx`;
-    cfg.modelConfig.moonshine.uncachedDecoder = `${base}/uncached_decode.int8.onnx`;
-    cfg.modelConfig.moonshine.cachedDecoder = `${base}/cached_decode.int8.onnx`;
-    cfg.modelConfig.tokens = `${base}/tokens.txt`;
+    if (modelType === AsrModelType.SENSE_VOICE_MULTI) {
+      // SenseVoice 多语言模型配置
+      const modelInfo = ASR_MODELS[AsrModelType.SENSE_VOICE_MULTI];
+      
+      // 优先检查下载目录
+      const downloadedPath = AsrModelStorage.getDownloadedModelPath(ctx);
+      let base: string;
+      
+      if (downloadedPath && downloadedPath.length > 0) {
+        // 使用下载的模型（绝对路径，不传递 resourceManager）
+        base = downloadedPath;
+        useDownloadedModel = true;
+        console.info(`[SherpaMic] Using downloaded SenseVoice model from: ${base}`);
+      } else {
+        // 回退到 rawfile（开发时内置的模型）
+        base = `rawfile/${modelInfo.folderName}`;
+        console.info(`[SherpaMic] Using rawfile SenseVoice model`);
+      }
 
-    // Important: tell sherpa-onnx what model family we use
-    cfg.modelConfig.modelType = 'moonshine';
-    cfg.modelConfig.modelingUnit = 'bpe';
-    cfg.modelConfig.debug = true;
+      cfg.modelConfig.senseVoice.model = `${base}/model.int8.onnx`;
+      cfg.modelConfig.senseVoice.language = this.senseVoiceLanguage;
+      cfg.modelConfig.senseVoice.useItn = true;
+      cfg.modelConfig.tokens = `${base}/tokens.txt`;
 
-    // Threads / provider / decoding
-    cfg.modelConfig.numThreads = 2;
+      // SenseVoice 模型类型
+      cfg.modelConfig.modelType = 'sense_voice';
+      cfg.modelConfig.modelingUnit = 'cjkchar';
+      cfg.modelConfig.numThreads = 4; // SenseVoice 使用更多线程提高性能
+      cfg.modelConfig.debug = false; // 关闭调试减少开销
+
+      console.info(`[SherpaMic] Initializing SenseVoice model with language: ${this.senseVoiceLanguage}`);
+    } else {
+      // Moonshine 英语模型配置（默认）
+      const modelInfo = ASR_MODELS[AsrModelType.MOONSHINE_EN];
+      const base: string = `rawfile/${modelInfo.folderName}`;
+
+      cfg.modelConfig.moonshine.preprocessor = `${base}/preprocess.onnx`;
+      cfg.modelConfig.moonshine.encoder = `${base}/encode.int8.onnx`;
+      cfg.modelConfig.moonshine.uncachedDecoder = `${base}/uncached_decode.int8.onnx`;
+      cfg.modelConfig.moonshine.cachedDecoder = `${base}/cached_decode.int8.onnx`;
+      cfg.modelConfig.tokens = `${base}/tokens.txt`;
+
+      // Moonshine 模型类型
+      cfg.modelConfig.modelType = 'moonshine';
+      cfg.modelConfig.modelingUnit = 'bpe';
+      cfg.modelConfig.numThreads = 2; // Moonshine 使用 2 线程足够
+      cfg.modelConfig.debug = false;
+
+      console.info('[SherpaMic] Initializing Moonshine EN model');
+    }
+
+    // 通用配置
     cfg.modelConfig.provider = 'cpu';
     cfg.decodingMethod = 'greedy_search';
 
@@ -131,8 +202,55 @@ export class SherpaWhisperMicService {
       throw new Error('SherpaWhisperMicService.init: ctx is undefined');
     }
 
-    // Pass resourceManager so rawfile paths work
-    this.recognizer = new OfflineRecognizer(cfg, this.ctx.resourceManager);
+    // 根据模型来源选择是否传递 resourceManager
+    // - 下载的模型使用绝对路径，不传递 resourceManager
+    // - rawfile 中的模型需要传递 resourceManager
+    if (useDownloadedModel) {
+      // 使用绝对路径，不传递 resourceManager
+      this.recognizer = new OfflineRecognizer(cfg, undefined);
+      console.info(`[SherpaMic] Model initialized with absolute path (no resourceManager)`);
+    } else {
+      // 使用 rawfile 路径，传递 resourceManager
+      this.recognizer = new OfflineRecognizer(cfg, this.ctx.resourceManager);
+      console.info(`[SherpaMic] Model initialized with resourceManager`);
+    }
+
+    // 根据模型类型自动调整解码参数
+    // SenseVoice 多语言模型需要更长的音频段才能获得好的识别效果
+    if (modelType === AsrModelType.SENSE_VOICE_MULTI) {
+      this.partialIntervalMs = SherpaWhisperMicService.SENSE_VOICE_INTERVAL_MS;
+      this.partialWindowSeconds = SherpaWhisperMicService.SENSE_VOICE_WINDOW_SECONDS;
+      console.info(`[SherpaMic] Using SenseVoice decode params: interval=${this.partialIntervalMs}ms, window=${this.partialWindowSeconds}s`);
+    } else {
+      this.partialIntervalMs = SherpaWhisperMicService.MOONSHINE_INTERVAL_MS;
+      this.partialWindowSeconds = SherpaWhisperMicService.MOONSHINE_WINDOW_SECONDS;
+      console.info(`[SherpaMic] Using Moonshine decode params: interval=${this.partialIntervalMs}ms, window=${this.partialWindowSeconds}s`);
+    }
+
+    console.info(`[SherpaMic] Model initialized: ${modelType}`);
+  }
+
+  /**
+   * 重新初始化为不同的模型
+   * @param modelType 新的模型类型
+   */
+  async switchModel(modelType: AsrModelType): Promise<void> {
+    if (!this.ctx) {
+      throw new Error('SherpaWhisperMicService.switchModel: ctx is undefined, call init first');
+    }
+
+    // 如果正在录音，先停止
+    if (this.capturing) {
+      this.stop();
+      // 等待停止完成
+      await new Promise<void>(resolve => setTimeout(resolve, 200));
+    }
+
+    // 释放当前识别器
+    this.recognizer = undefined;
+
+    // 重新初始化
+    await this.init(this.ctx, modelType);
   }
 
   private async ensureCapturer(): Promise<void> {
@@ -365,9 +483,13 @@ export class SherpaWhisperMicService {
 
     if (plan.enforceMinSamples) {
       const bufferedSamples: number = this.getBufferedSampleCount();
-      if (bufferedSamples < this.sampleRate / 2) {
+      // SenseVoice 需要更长的音频（至少1.5秒）才能获得准确识别
+      const minSamples = this.currentModelType === AsrModelType.SENSE_VOICE_MULTI 
+        ? this.sampleRate * 1.5  // 1.5秒
+        : this.sampleRate / 2;   // 0.5秒
+      if (bufferedSamples < minSamples) {
         if (this.enableDebugLogs) {
-          console.info(`[SherpaMic] skip ${plan.label} decode, samples=${bufferedSamples}`);
+          console.info(`[SherpaMic] skip ${plan.label} decode, samples=${bufferedSamples}, need=${minSamples}`);
         }
         return;
       }
