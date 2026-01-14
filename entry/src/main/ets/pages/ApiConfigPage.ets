@@ -1573,6 +1573,16 @@ export struct ApiConfigPage {
       onDisappear: () => {
         this.isSheetOpen = false;
         this.sheetType = 'none';
+      },
+      enableOutsideInteractive: false,
+      onWillDismiss: (dismissAction: DismissSheetAction) => {
+        // 只允许下拉和关闭按钮关闭，阻止点击遮罩层关闭
+        if (dismissAction.reason === DismissReason.PRESS_BACK ||
+            dismissAction.reason === DismissReason.SLIDE_DOWN ||
+            dismissAction.reason === DismissReason.CLOSE_BUTTON) {
+          dismissAction.dismiss();
+        }
+        // 点击遮罩层 (TOUCH_OUTSIDE) 不关闭
       }
     })
   }
@@ -1682,6 +1692,19 @@ export struct ApiConfigPage {
         this.isSheetOpen = false;
         router.pushUrl({ url: 'pages/ApiExplanationPage' });
       })
+
+      // 取消按钮
+      Button('取消')
+        .type(ButtonType.Normal)
+        .fontColor($r('sys.color.font_primary'))
+        .backgroundColor($r('sys.color.comp_background_tertiary'))
+        .borderRadius(20)
+        .width('90%')
+        .height(44)
+        .margin({ top: 16 })
+        .onClick(() => {
+          this.isSheetOpen = false;
+        })
     }
     .width('100%')
     .padding({ top: 8, bottom: 24 })
