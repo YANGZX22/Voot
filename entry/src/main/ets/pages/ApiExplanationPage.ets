@@ -110,7 +110,7 @@ struct ApiExplanationPage {
         Scroll() {
           Column({ space: 24 }) {
             // Intro Text
-            Text('大部分 API 提供商都会提供类似以下的 cURL 调用示例，您可以根据该示例填写 Voot 的配置。')
+            Text('大部分 API 提供商都会提供类似以下的 cURL （OpenAI 兼容性 REST 请求）调用示例，您可以根据该示例填写 Voot 的配置。')
               .fontSize(16)
               .fontColor('#CCFFFFFF') // Lighter white/gray for dark background
               .lineHeight(24)

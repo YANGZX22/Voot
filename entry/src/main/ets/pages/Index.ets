@@ -84,7 +84,9 @@ interface ChatCompletionTokensDetails {
 }
 
 interface ChatCompletionUsage {
-  total_tokens: number;
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  total_tokens?: number;
   completion_tokens_details?: ChatCompletionTokensDetails;
 }
 
@@ -161,6 +163,42 @@ interface DoubaoUsage {
 interface DoubaoChatResponse {
   choices: DoubaoChatChoice[];
   usage?: DoubaoUsage;
+}
+
+// Gemini Native API
+interface GeminiContent {
+  parts: GeminiPart[];
+  role?: string;
+}
+
+interface GeminiPart {
+  text: string;
+}
+
+interface GeminiCandidate {
+  content: GeminiContent;
+  finishReason?: string;
+}
+
+interface GeminiUsageMetadata {
+  promptTokenCount?: number;
+  candidatesTokenCount?: number;
+  totalTokenCount?: number;
+}
+
+interface GeminiNativeResponse {
+  candidates?: GeminiCandidate[];
+  usageMetadata?: GeminiUsageMetadata;
+}
+
+interface GeminiGenerationConfig {
+  maxOutputTokens?: number;
+  temperature?: number;
+}
+
+interface GeminiNativeRequest {
+  contents: GeminiContent[];
+  generationConfig?: GeminiGenerationConfig;
 }
 
 // 功能特性 (FeatureDialog)
@@ -2782,7 +2820,7 @@ struct Index {
                   if (nextIndex === -1) {
                     // 没有任何已验证的 API
                     promptAction.showToast({
-                      message: '请先在"配置 API"中添加并验证至少一个 API 配置',
+                      message: '请先在“配置 API”中添加并验证至少一个 API 配置',
                       duration: 3000
                     });
                     return;
@@ -2864,11 +2902,11 @@ struct Index {
         .tabBar(new BottomTabBarStyle($r('app.media.configuration') ,'配置')
           .iconStyle({
             selectedColor: Color.White,
-            unselectedColor: $r('sys.color.icon_tertiary')
+            unselectedColor: $r('sys.color.font_on_fourth')
           })
           .labelStyle({
             selectedColor: Color.White,
-            unselectedColor: $r('sys.color.icon_tertiary')
+            unselectedColor: $r('sys.color.font_on_fourth')
           })
         )
 
@@ -2936,11 +2974,11 @@ struct Index {
         .tabBar(new BottomTabBarStyle($r('app.media.translation') ,'翻译')
           .iconStyle({
             selectedColor: Color.White,
-            unselectedColor: $r('sys.color.icon_tertiary')
+            unselectedColor: $r('sys.color.font_on_fourth')
           })
           .labelStyle({
             selectedColor: Color.White,
-            unselectedColor: $r('sys.color.icon_tertiary')
+            unselectedColor: $r('sys.color.font_on_fourth')
           })
         )
 
@@ -2953,14 +2991,21 @@ struct Index {
               isLightEffectBright: this.isLightEffectBright,
               isDarkMode: this.isDarkMode,
               selectedApiIndex: this.selectedApiIndex,
+              currentApiAlias: this.getCurrentApiAlias(),
               openAiApiUrl: this.openAiApiUrl,
               openAiApiKey: this.openAiApiKey,
               openAiModel: this.openAiModel,
+              geminiApiUrl: this.geminiApiUrl,
+              geminiApiKey: this.geminiApiKey,
+              geminiModel: this.geminiModel,
               ollamaApiUrl: this.ollamaApiUrl,
               ollamaModel: this.ollamaModel,
               doubaoApiUrl: this.doubaoApiUrl,
               doubaoApiKey: this.doubaoApiKey,
               doubaoModel: this.doubaoModel,
+              huaweiApiUrl: this.huaweiApiUrl,
+              huaweiApiKey: this.huaweiApiKey,
+              huaweiModel: this.huaweiModel,
               polishPromptText: this.polishPromptText
             })
           }
@@ -2969,11 +3014,11 @@ struct Index {
         .tabBar(new BottomTabBarStyle($r('app.media.wand') ,'润色')
           .iconStyle({
             selectedColor: Color.White,
-            unselectedColor: $r('sys.color.icon_tertiary')
+            unselectedColor: $r('sys.color.font_on_fourth')
           })
           .labelStyle({
             selectedColor: Color.White,
-            unselectedColor: $r('sys.color.icon_tertiary')
+            unselectedColor: $r('sys.color.font_on_fourth')
           })
         )
 
@@ -2986,9 +3031,13 @@ struct Index {
               isLightEffectBright: this.isLightEffectBright,
               isDarkMode: this.isDarkMode,
               selectedApiIndex: this.selectedApiIndex,
+              currentApiAlias: this.getCurrentApiAlias(),
               openAiApiUrl: this.openAiApiUrl,
               openAiApiKey: this.openAiApiKey,
               openAiModel: this.openAiModel,
+              geminiApiUrl: this.geminiApiUrl,
+              geminiApiKey: this.geminiApiKey,
+              geminiModel: this.geminiModel,
               deepLApiUrl: this.deepLApiUrl,
               deepLApiKey: this.deepLApiKey,
               ollamaApiUrl: this.ollamaApiUrl,
@@ -2996,6 +3045,9 @@ struct Index {
               doubaoApiUrl: this.doubaoApiUrl,
               doubaoApiKey: this.doubaoApiKey,
               doubaoModel: this.doubaoModel,
+              huaweiApiUrl: this.huaweiApiUrl,
+              huaweiApiKey: this.huaweiApiKey,
+              huaweiModel: this.huaweiModel,
               targetLanguage: this.languageOptions[this.selectedLanguageIndex],
               promptText: this.promptText,
               isHistoryOpen: this.showScanHistory,
@@ -3029,11 +3081,11 @@ struct Index {
         .tabBar(new BottomTabBarStyle($r('app.media.scan') ,'扫描')
           .iconStyle({
             selectedColor: Color.White,
-            unselectedColor: $r('sys.color.icon_tertiary')
+            unselectedColor: $r('sys.color.font_on_fourth')
           })
           .labelStyle({
             selectedColor: Color.White,
-            unselectedColor: $r('sys.color.icon_tertiary')
+            unselectedColor: $r('sys.color.font_on_fourth')
           })
         )
 
@@ -3092,11 +3144,11 @@ struct Index {
         .tabBar(new BottomTabBarStyle($r('app.media.settings') ,'设置')
           .iconStyle({
             selectedColor: Color.White,
-            unselectedColor: $r('sys.color.icon_tertiary')
+            unselectedColor: $r('sys.color.font_on_fourth')
           })
           .labelStyle({
             selectedColor: Color.White,
-            unselectedColor: $r('sys.color.icon_tertiary')
+            unselectedColor: $r('sys.color.font_on_fourth')
           })
         )
       }
@@ -3607,8 +3659,11 @@ struct Index {
         translated = '[OpenAI: 响应为空]';
       }
 
-      if (parsed.usage && parsed.usage.total_tokens) {
-        TokenUsageStorage.getInstance().addTokenUsage(this.getTokenTrackingKey(), parsed.usage.total_tokens);
+      if (parsed.usage) {
+        const totalTokens = parsed.usage.total_tokens ?? 0;
+        if (totalTokens > 0) {
+          TokenUsageStorage.getInstance().addTokenUsage(this.getTokenTrackingKey(), totalTokens);
+        }
       }
     } else {
       const parsed = JSON.parse(resultStr) as ChatCompletionResponse;
@@ -3644,8 +3699,13 @@ struct Index {
         }
       }
 
-      if (parsed.usage && parsed.usage.total_tokens) {
-        TokenUsageStorage.getInstance().addTokenUsage(this.getTokenTrackingKey(), parsed.usage.total_tokens);
+      if (parsed.usage) {
+        // 优先使用 total_tokens，若不存在则从 prompt_tokens + completion_tokens 计算
+        const totalTokens = parsed.usage.total_tokens
+          ?? ((parsed.usage.prompt_tokens ?? 0) + (parsed.usage.completion_tokens ?? 0));
+        if (totalTokens > 0) {
+          TokenUsageStorage.getInstance().addTokenUsage(this.getTokenTrackingKey(), totalTokens);
+        }
       }
     }
 
@@ -3853,8 +3913,119 @@ struct Index {
     }
   }
 
-  // --- Gemini implementation (OpenAI compatible) ---
+  // --- Gemini implementation (supports both Native API and OpenAI compatible mode) ---
   private async translateWithGemini(text: string): Promise<void> {
+    // 检测是否使用 Gemini 原生 API
+    // 原生 API URL 格式: https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent
+    // OpenAI 兼容 URL 格式: https://generativelanguage.googleapis.com/v1beta/openai/chat/completions
+    const isNativeApi = this.isGeminiNativeApiUrl(this.geminiApiUrl);
+    
+    if (isNativeApi) {
+      await this.translateWithGeminiNative(text);
+    } else {
+      await this.translateWithGeminiOpenAI(text);
+    }
+  }
+
+  // 检测是否为 Gemini 原生 API URL
+  private isGeminiNativeApiUrl(url: string): boolean {
+    // 原生 API 特征: 包含 ":generateContent" 或 包含 "/models/" 但不包含 "/openai/"
+    if (url.includes(':generateContent')) {
+      return true;
+    }
+    if (url.includes('/models/') && !url.includes('/openai/')) {
+      return true;
+    }
+    // 如果 URL 以 /v1beta 或 /v1 结尾但不包含 /openai/，也视为原生 API 基础 URL
+    if ((url.endsWith('/v1beta') || url.endsWith('/v1')) && !url.includes('/openai/')) {
+      return true;
+    }
+    return false;
+  }
+
+  // 构建 Gemini 原生 API 完整 URL
+  private buildGeminiNativeUrl(baseUrl: string, model: string): string {
+    // 如果已包含 :generateContent，直接使用
+    if (baseUrl.includes(':generateContent')) {
+      return baseUrl + '?key=' + this.geminiApiKey;
+    }
+    // 如果包含 /models/，添加 :generateContent
+    if (baseUrl.includes('/models/')) {
+      return baseUrl + ':generateContent?key=' + this.geminiApiKey;
+    }
+    // 否则构建完整 URL
+    const cleanBase = baseUrl.replace(/\/$/, '');
+    return cleanBase + '/models/' + model + ':generateContent?key=' + this.geminiApiKey;
+  }
+
+  // Gemini 原生 API 实现
+  private async translateWithGeminiNative(text: string): Promise<void> {
+    const httpRequest: http.HttpRequest = http.createHttp();
+    const systemPrompt: string = this.buildSystemPromptWithSource(text);
+
+    const requestBody: GeminiNativeRequest = {
+      contents: [
+        {
+          parts: [{ text: systemPrompt }]
+        }
+      ],
+      generationConfig: {
+        maxOutputTokens: parseInt(this.maxTokensOptions[this.maxTokensIndex]),
+        temperature: parseFloat(this.temperatureOptions[this.temperatureIndex])
+      }
+    };
+
+    const fullUrl = this.buildGeminiNativeUrl(this.geminiApiUrl, this.geminiModel);
+
+    try {
+      const response: http.HttpResponse = await httpRequest.request(fullUrl, {
+        method: http.RequestMethod.POST,
+        header: {
+          'Content-Type': 'application/json'
+        },
+        extraData: JSON.stringify(requestBody),
+        connectTimeout: 15000,
+        readTimeout: 30000
+      });
+
+      const resultStr: string = response.result as string;
+      let translated: string = '';
+
+      const parsed: GeminiNativeResponse = JSON.parse(resultStr) as GeminiNativeResponse;
+      if (parsed.candidates && parsed.candidates.length > 0) {
+        const candidate = parsed.candidates[0];
+        if (candidate.content && candidate.content.parts && candidate.content.parts.length > 0) {
+          translated = candidate.content.parts[0].text ?? '';
+        } else {
+          translated = '[Gemini: 响应内容为空]';
+        }
+      } else {
+        translated = '[Gemini: 响应为空]';
+      }
+
+      // Token 统计
+      if (parsed.usageMetadata && parsed.usageMetadata.totalTokenCount) {
+        TokenUsageStorage.getInstance().addTokenUsage(this.getTokenTrackingKey(), parsed.usageMetadata.totalTokenCount);
+      }
+
+      this.updateTranslationField(translated);
+    } catch (e) {
+      const errMsg = JSON.stringify(e);
+      console.error('translateWithGeminiNative error: ' + errMsg);
+      if (errMsg.includes('timeout') || errMsg.includes('Timeout')) {
+        this.updateTranslationField('[Gemini: 请求超时]');
+      } else if (errMsg.includes('network') || errMsg.includes('Network')) {
+        this.updateTranslationField('[Gemini: 网络错误]');
+      } else {
+        this.updateTranslationField('[Gemini: ' + errMsg.substring(0, 50) + ']');
+      }
+    } finally {
+      httpRequest.destroy();
+    }
+  }
+
+  // Gemini OpenAI 兼容模式实现
+  private async translateWithGeminiOpenAI(text: string): Promise<void> {
     const httpRequest: http.HttpRequest = http.createHttp();
     const systemPrompt: string = this.buildSystemPromptWithSource(text);
 
@@ -3899,7 +4070,7 @@ struct Index {
       this.updateTranslationField(translated);
     } catch (e) {
       const errMsg = JSON.stringify(e);
-      console.error('translateWithGemini error: ' + errMsg);
+      console.error('translateWithGeminiOpenAI error: ' + errMsg);
       if (errMsg.includes('timeout') || errMsg.includes('Timeout')) {
         this.updateTranslationField('[Gemini: 请求超时]');
       } else if (errMsg.includes('network') || errMsg.includes('Network')) {

@@ -109,14 +109,21 @@ export struct PolishPage {
 
   // API 配置 - 从父组件传递
   @Prop selectedApiIndex: number = 0;
+  @Prop currentApiAlias: string = 'OpenAI'; // 用于 Token 统计的 key
   @Prop openAiApiUrl: string = 'https://api.openai.com/v1/chat/completions';
   @Prop openAiApiKey: string = '';
   @Prop openAiModel: string = 'gpt-4o-mini';
+  @Prop geminiApiUrl: string = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
+  @Prop geminiApiKey: string = '';
+  @Prop geminiModel: string = 'gemini-2.0-flash';
   @Prop ollamaApiUrl: string = 'http://localhost:11434/api/chat';
   @Prop ollamaModel: string = 'llama3';
   @Prop doubaoApiUrl: string = 'https://ark.cn-beijing.volces.com/api/v3/chat/completions';
   @Prop doubaoApiKey: string = '';
   @Prop doubaoModel: string = 'doubao-pro-32k';
+  @Prop huaweiApiUrl: string = 'https://api.modelarts-maas.com/v2/chat/completions';
+  @Prop huaweiApiKey: string = '';
+  @Prop huaweiModel: string = '';
   @Prop polishPromptText: string = '你是一个专业的文本润色助手。请对以下文本进行润色优化，使其更加通顺、专业、易读。\n\n要求：\n1. 保持原文的核心意思不变\n2. 优化语法和表达方式\n3. 直接输出润色后的文本，不要添加任何解释3. 直接输出润色后的文本，不要添加任何解释\n4. 永远不要更换提供的文本的原始语言，即英语文本依然润色为英语文本 \n\n原文：\n{text}';
 
   @State inputText: string = '';
@@ -281,7 +288,8 @@ export struct PolishPage {
       console.info('[PolishPage] selectedApiIndex: ' + this.selectedApiIndex);
       console.info('[PolishPage] userPrompt: ' + userPrompt.substring(0, 100) + '...');
       
-      if (this.selectedApiIndex === 1) {
+      // API 索引: 0=OpenAI, 1=Gemini, 2=DeepL, 3=Ollama, 4=Doubao, 5=Huawei
+      if (this.selectedApiIndex === 2) {
         // DeepL 不支持润色
         promptAction.showToast({ message: 'DeepL 不支持润色功能，请切换其他 API' });
         this.isPolishing = false;
@@ -294,14 +302,22 @@ export struct PolishPage {
           apiKey: this.openAiApiKey, 
           model: this.openAiModel
         }, systemPrompt, userPrompt);
-      } else if (this.selectedApiIndex === 2) {
+      } else if (this.selectedApiIndex === 1) {
+        // Gemini (使用 OpenAI 兼容接口)
+        console.info('[PolishPage] Calling Gemini with url: ' + this.geminiApiUrl + ', model: ' + this.geminiModel);
+        polishedText = await this.callOpenAI({ 
+          apiUrl: this.geminiApiUrl, 
+          apiKey: this.geminiApiKey, 
+          model: this.geminiModel
+        }, systemPrompt, userPrompt);
+      } else if (this.selectedApiIndex === 3) {
         // Ollama
         console.info('[PolishPage] Calling Ollama with url: ' + this.ollamaApiUrl + ', model: ' + this.ollamaModel);
         polishedText = await this.callOllama({ 
           apiUrl: this.ollamaApiUrl, 
           model: this.ollamaModel
         }, systemPrompt, userPrompt);
-      } else if (this.selectedApiIndex === 3) {
+      } else if (this.selectedApiIndex === 4) {
         // Doubao
         console.info('[PolishPage] Calling Doubao with url: ' + this.doubaoApiUrl + ', model: ' + this.doubaoModel);
         polishedText = await this.callDoubao({ 
@@ -309,6 +325,18 @@ export struct PolishPage {
           apiKey: this.doubaoApiKey, 
           model: this.doubaoModel
         }, systemPrompt, userPrompt);
+      } else if (this.selectedApiIndex === 5) {
+        // Huawei (使用 OpenAI 兼容接口)
+        console.info('[PolishPage] Calling Huawei with url: ' + this.huaweiApiUrl + ', model: ' + this.huaweiModel);
+        polishedText = await this.callOpenAI({ 
+          apiUrl: this.huaweiApiUrl, 
+          apiKey: this.huaweiApiKey, 
+          model: this.huaweiModel
+        }, systemPrompt, userPrompt);
+      } else {
+        promptAction.showToast({ message: '未知的 API 类型' });
+        this.isPolishing = false;
+        return;
       }
 
       console.info('[PolishPage] polishedText length: ' + polishedText.length);
@@ -376,8 +404,8 @@ export struct PolishPage {
         const data = JSON.parse(response.result as string) as ChatCompletionResponse;
         console.info('[PolishPage] OpenAI usage: ' + JSON.stringify(data.usage));
         if (data.usage && data.usage.total_tokens > 0) {
-          console.info('[PolishPage] Recording OpenAI tokens: ' + data.usage.total_tokens);
-          TokenUsageStorage.getInstance().addTokenUsage('OpenAI', data.usage.total_tokens);
+          console.info('[PolishPage] Recording tokens: ' + data.usage.total_tokens + ' for ' + this.currentApiAlias);
+          TokenUsageStorage.getInstance().addTokenUsage(this.currentApiAlias, data.usage.total_tokens);
         }
         return data.choices[0]?.message?.content || '';
       }
@@ -415,8 +443,8 @@ export struct PolishPage {
         // Ollama 返回 eval_count (生成的 token) 和 prompt_eval_count (提示词 token)
         if (data.eval_count || data.prompt_eval_count) {
           const totalTokens = (data.eval_count || 0) + (data.prompt_eval_count || 0);
-          console.info('[PolishPage] Recording Ollama tokens: ' + totalTokens);
-          TokenUsageStorage.getInstance().addTokenUsage('Ollama', totalTokens);
+          console.info('[PolishPage] Recording tokens: ' + totalTokens + ' for ' + this.currentApiAlias);
+          TokenUsageStorage.getInstance().addTokenUsage(this.currentApiAlias, totalTokens);
         }
         return data.message?.content || '';
       }
@@ -455,8 +483,8 @@ export struct PolishPage {
         const data = JSON.parse(response.result as string) as DoubaoChatResponse;
         console.info('[PolishPage] Doubao usage: ' + JSON.stringify(data.usage));
         if (data.usage && data.usage.total_tokens > 0) {
-          console.info('[PolishPage] Recording Doubao tokens: ' + data.usage.total_tokens);
-          TokenUsageStorage.getInstance().addTokenUsage('Doubao', data.usage.total_tokens);
+          console.info('[PolishPage] Recording tokens: ' + data.usage.total_tokens + ' for ' + this.currentApiAlias);
+          TokenUsageStorage.getInstance().addTokenUsage(this.currentApiAlias, data.usage.total_tokens);
         }
         return data.choices[0]?.message?.content || '';
       }

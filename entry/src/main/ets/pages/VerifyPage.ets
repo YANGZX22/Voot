@@ -1,6 +1,7 @@
 import { router, promptAction } from '@kit.ArkUI'
 import util from '@ohos.util';
 import http from '@ohos.net.http';
+import { cryptoFramework } from '@kit.CryptoArchitectureKit';
 import { OnboardingStorage } from '../storage/OnboardingStorage';
 import common from '@ohos.app.ability.common';
 
@@ -275,7 +276,11 @@ struct VerifyPage {
 
   private generateCode(): string {
     // 生成6位随机验证码
-    return Math.floor(100000 + Math.random() * 900000).toString()
+    const random = cryptoFramework.createRandom();
+    const randomData = random.generateRandomSync(4);
+    const view = new DataView(randomData.data.buffer);
+    const num = (view.getUint32(0) % 900000) + 100000;
+    return num.toString();
   }
 
   private async sendVerifyCode(): Promise<void> {

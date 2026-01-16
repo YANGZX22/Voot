@@ -1050,7 +1050,7 @@ struct WelcomePage {
                   .margin({ bottom: 4 })
                 Text('接收短信验证码验证')
                   .fontSize(14)
-                  .fontColor('#AAFFFFFF')
+                  .fontColor($r('sys.color.font_on_secondary'))
               }
               .alignItems(HorizontalAlign.Start)
               .layoutWeight(1)
@@ -1106,12 +1106,13 @@ struct WelcomePage {
       Button() {
         SymbolGlyph($r('sys.symbol.book'))
           .fontSize(24)
+          .fontWeight(FontWeight.Bold)
           .fontColor([Color.White])
       }
       .width(48)
       .height(48)
       .type(ButtonType.Circle)
-      .backgroundColor($r('sys.color.comp_background_tertiary'))
+      .backgroundColor($r('sys.color.comp_background_secondary'))
       .margin({ top: 128, right: 24 }) // Align with PageHeader title (top: 128) and padding (left: 24 -> right: 24)
       .zIndex(999)
       .onClick(() => {
@@ -1253,7 +1254,7 @@ struct WelcomePage {
   SetupSheetContent() {
     Column() {
       // Header
-      Text('配置翻译引擎')
+      Text('配置 AI 模型引擎')
         .fontSize(24)
         .fontWeight(FontWeight.Bold)
         .fontColor('#333333')
@@ -1363,6 +1364,7 @@ struct WelcomePage {
                 ForEach(PROVIDERS, (provider: ProviderInfo) => {
                   Column() {
                     Image(provider.icon)
+                      .fillColor(this.selectedProvider === provider.id ? '#3c1464' : '#666666')
                       .width(32)
                       .height(32)
                       .objectFit(ImageFit.Contain)
@@ -1371,7 +1373,7 @@ struct WelcomePage {
                     Text(provider.name)
                       .fontSize(12)
                       .fontColor(this.selectedProvider === provider.id ? '#3c1464' : '#666666')
-                      .fontWeight(this.selectedProvider === provider.id ? FontWeight.Bold : FontWeight.Normal)
+                      .fontWeight(FontWeight.Bold)
                   }
                   .width(72)
                   .height(80)
@@ -1638,7 +1640,7 @@ struct WelcomePage {
         
         Text(desc)
           .fontSize(13)
-          .fontColor('#AAFFFFFF')
+          .fontColor($r('sys.color.font_on_secondary'))
       }
       .alignItems(HorizontalAlign.Start)
     }
@@ -2026,7 +2028,7 @@ struct WelcomePage {
                   })
               }
               .fontSize(12)
-              .fontColor('#AAFFFFFF')
+              .fontColor($r('sys.color.font_on_secondary'))
             }
           }
         }

@@ -143,30 +143,10 @@ struct ModelDownloadDialog {
           .width(32)
           .height(32)
           .borderRadius(16)
-          .backgroundColor('#FFB800')
+          .backgroundColor($r('sys.color.confirm'))
           .justifyContent(FlexAlign.Center)
 
           Text(`文件大小：约 ${this.modelSizeMB} MB`)
-            .fontSize(14)
-            .fontColor('#333333')
-            .layoutWeight(1)
-        }
-        .width('100%')
-        .alignItems(VerticalAlign.Center)
-
-        Row({ space: 8 }) {
-          Column() {
-            SymbolGlyph($r('sys.symbol.cloud_and_arrow_down'))
-              .fontSize(18)
-              .fontColor([Color.White])
-          }
-          .width(32)
-          .height(32)
-          .borderRadius(16)
-          .backgroundColor($r('sys.color.brand'))
-          .justifyContent(FlexAlign.Center)
-
-          Text('下载源：HuggingFace 镜像')
             .fontSize(14)
             .fontColor('#333333')
             .layoutWeight(1)
@@ -691,6 +671,57 @@ struct ExitVerificationDialog {
   }
 }
 
+@CustomDialog
+struct PoseDetectionGuideDialog {
+  controller: CustomDialogController
+  onConfirm: () => void = () => {}
+  @StorageLink('themeColorIndex') themeColorIndex: number = 0;
+
+  build() {
+    Column() {
+      Text('查看智感握姿指南')
+        .fontSize(20)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('sys.color.font_primary'))
+        .margin({ bottom: 12 })
+      
+      Text('您将跳转到华为消费者网站查看关于智感握姿的详细说明，是否继续？')
+        .fontSize(15)
+        .fontColor($r('sys.color.font_secondary'))
+        .textAlign(TextAlign.Center)
+        .margin({ bottom: 24 })
+        .lineHeight(24)
+
+      Row() {
+        Button('取消')
+          .type(ButtonType.Capsule)
+          .backgroundColor($r('sys.color.comp_background_tertiary'))
+          .fontColor($r('sys.color.font_secondary'))
+          .layoutWeight(1)
+          .margin({ right: 12 })
+          .onClick(() => {
+            this.controller.close()
+          })
+
+        Button('确认')
+          .type(ButtonType.Capsule)
+          .backgroundColor(THEMES[this.themeColorIndex].primaryColor)
+          .fontColor($r('sys.color.font_on_primary'))
+          .layoutWeight(1)
+          .onClick(() => {
+            this.controller.close()
+            this.onConfirm()
+          })
+      }
+      .width('100%')
+    }
+    .width(300)
+    .padding(24)
+    .backgroundColor(Color.White)
+    .borderRadius(24)
+  }
+}
+
 @Component
 export struct SettingsPage {
   // Props
@@ -797,6 +828,23 @@ export struct SettingsPage {
           url: 'pages/WelcomePage',
           params: { targetStep: 3 }
         });
+      }
+    }),
+    autoCancel: true,
+    alignment: DialogAlignment.Center,
+    customStyle: true,
+    backgroundColor: 'transparent'
+  })
+
+  poseDetectionGuideDialogController: CustomDialogController = new CustomDialogController({
+    builder: PoseDetectionGuideDialog({
+      onConfirm: () => {
+        const context = getContext(this) as common.UIAbilityContext;
+        const want: Want = {
+          action: 'ohos.want.action.viewData',
+          uri: 'https://consumer.huawei.com/cn/support/content/zh-cn16075323/'
+        };
+        context.startAbility(want);
       }
     }),
     autoCancel: true,
@@ -1220,9 +1268,16 @@ export struct SettingsPage {
     if (this.isPoseDetectionSupported) {
       SettingsItem({
         title: '智感握姿',
-        subtitle: '根据左右手握机姿势弹出快捷按钮'
+        subtitle: '根据左右握机姿势弹出快捷按钮'
       }) {
         Row({ space: 8 }) {
+          SymbolGlyph($r('sys.symbol.doc_text'))
+            .fontSize(18)
+            .fontColor([$r('sys.color.font_on_secondary')])
+            .onClick(() => {
+              this.poseDetectionGuideDialogController.open();
+            })
+
           SymbolGlyph($r('sys.symbol.info_circle'))
             .fontSize(18)
             .fontColor([$r('sys.color.font_on_secondary')])
@@ -1711,7 +1766,7 @@ export struct SettingsPage {
               }) {
                 SettingsItem({
                   title: '为什么 Voot 备案了服务器？',
-                  subtitle: '应部分国家或地区的监管要求，联网类应用可能需要进行服务器备案。但 Voot 不部署面向用户的集中式数据服务器；备案仅用于满足合规或者上架要求。应用的数据处理仍在本地完成，或仅在您发起请求时与您配置的第三方 API 直接通信。'
+                  subtitle: '应部分国家或地区的监管要求，联网类应用可能需要进行服务器备案。但 Voot 不部署面向用户的集中式数据服务器。应用的数据处理仍在本地完成，或仅在您发起请求时与您配置的第三方 API 直接通信。'
                 })
                 SettingsItem({
                   title: '在 Voot 保存的密钥怎么保证安全？',
@@ -1719,7 +1774,7 @@ export struct SettingsPage {
                 })
                 SettingsItem({
                   title: '我们如何接受政府组织对 AI 的监管？',
-                  subtitle: 'Voot 严格遵守当地法律法规。作为工具提供方，我们不提供内置的 AI 模型服务，用户需自行确保所使用的第三方 API 服务符合相关监管要求。'
+                  subtitle: 'Voot 严格遵守当地法律法规。作为工具提供方，我们不提供内置的 AI 模型服务，用户需自行确保所使用的第三方 API 服务符合提供商的使用条款和相关监管要求。'
                 })
               }
             }
@@ -1787,7 +1842,7 @@ export struct SettingsPage {
           this.closePolicySheet();
         }, getContext(this) as common.UIAbilityContext, this.themeColorIndex), {
         detents: [SheetSize.FIT_CONTENT, SheetSize.MEDIUM, SheetSize.LARGE],
-        dragBar: true,
+        dragBar: false,
         backgroundColor: Color.Transparent,
         blurStyle: BlurStyle.BACKGROUND_THIN,
         enableOutsideInteractive: true,

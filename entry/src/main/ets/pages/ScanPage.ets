@@ -107,9 +107,13 @@ export struct ScanPage {
 
   // API 配置 - 从父组件传递
   @Prop selectedApiIndex: number = 0;
+  @Prop currentApiAlias: string = 'OpenAI'; // 用于 Token 统计的 key
   @Prop openAiApiUrl: string = 'https://api.openai.com/v1/chat/completions';
   @Prop openAiApiKey: string = '';
   @Prop openAiModel: string = 'gpt-4o-mini';
+  @Prop geminiApiUrl: string = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
+  @Prop geminiApiKey: string = '';
+  @Prop geminiModel: string = 'gemini-2.0-flash';
   @Prop deepLApiUrl: string = 'https://api-free.deepl.com/v2/translate';
   @Prop deepLApiKey: string = '';
   @Prop ollamaApiUrl: string = 'http://localhost:11434/api/chat';
@@ -117,6 +121,9 @@ export struct ScanPage {
   @Prop doubaoApiUrl: string = 'https://ark.cn-beijing.volces.com/api/v3/chat/completions';
   @Prop doubaoApiKey: string = '';
   @Prop doubaoModel: string = 'doubao-pro-32k';
+  @Prop huaweiApiUrl: string = 'https://api.modelarts-maas.com/v2/chat/completions';
+  @Prop huaweiApiKey: string = '';
+  @Prop huaweiModel: string = '';
   @Prop targetLanguage: string = 'Chinese';
   @Prop promptText: string = '';
   @Prop isHistoryOpen: boolean = false;
@@ -305,7 +312,8 @@ export struct ScanPage {
 
       let translatedResult = '';
 
-      if (this.selectedApiIndex === 1) {
+      // API 索引: 0=OpenAI, 1=Gemini, 2=DeepL, 3=Ollama, 4=Doubao, 5=Huawei
+      if (this.selectedApiIndex === 2) {
         // DeepL
         translatedResult = await this.callDeepL(this.recognizedText);
       } else if (this.selectedApiIndex === 0) {
@@ -315,18 +323,32 @@ export struct ScanPage {
           apiKey: this.openAiApiKey,
           model: this.openAiModel
         }, systemPrompt, this.recognizedText);
-      } else if (this.selectedApiIndex === 2) {
+      } else if (this.selectedApiIndex === 1) {
+        // Gemini (使用 OpenAI 兼容接口)
+        translatedResult = await this.callOpenAI({
+          apiUrl: this.geminiApiUrl,
+          apiKey: this.geminiApiKey,
+          model: this.geminiModel
+        }, systemPrompt, this.recognizedText);
+      } else if (this.selectedApiIndex === 3) {
         // Ollama
         translatedResult = await this.callOllama({
           apiUrl: this.ollamaApiUrl,
           model: this.ollamaModel
         }, systemPrompt, this.recognizedText);
-      } else if (this.selectedApiIndex === 3) {
+      } else if (this.selectedApiIndex === 4) {
         // Doubao
         translatedResult = await this.callDoubao({
           apiUrl: this.doubaoApiUrl,
           apiKey: this.doubaoApiKey,
           model: this.doubaoModel
+        }, systemPrompt, this.recognizedText);
+      } else if (this.selectedApiIndex === 5) {
+        // Huawei (使用 OpenAI 兼容接口)
+        translatedResult = await this.callOpenAI({
+          apiUrl: this.huaweiApiUrl,
+          apiKey: this.huaweiApiKey,
+          model: this.huaweiModel
         }, systemPrompt, this.recognizedText);
       }
 
@@ -482,7 +504,7 @@ export struct ScanPage {
       if (response.responseCode === 200) {
         const data = JSON.parse(response.result as string) as ChatCompletionResponse;
         if (data.usage && data.usage.total_tokens > 0) {
-          TokenUsageStorage.getInstance().addTokenUsage('OpenAI', data.usage.total_tokens);
+          TokenUsageStorage.getInstance().addTokenUsage(this.currentApiAlias, data.usage.total_tokens);
         }
         return data.choices[0]?.message?.content || '';
       }
@@ -518,7 +540,7 @@ export struct ScanPage {
         const data = JSON.parse(response.result as string) as OllamaChatResponse;
         if (data.eval_count || data.prompt_eval_count) {
           const totalTokens = (data.eval_count || 0) + (data.prompt_eval_count || 0);
-          TokenUsageStorage.getInstance().addTokenUsage('Ollama', totalTokens);
+          TokenUsageStorage.getInstance().addTokenUsage(this.currentApiAlias, totalTokens);
         }
         return data.message?.content || '';
       }
@@ -556,7 +578,7 @@ export struct ScanPage {
       if (response.responseCode === 200) {
         const data = JSON.parse(response.result as string) as DoubaoChatResponse;
         if (data.usage && data.usage.total_tokens > 0) {
-          TokenUsageStorage.getInstance().addTokenUsage('Doubao', data.usage.total_tokens);
+          TokenUsageStorage.getInstance().addTokenUsage(this.currentApiAlias, data.usage.total_tokens);
         }
         return data.choices[0]?.message?.content || '';
       }

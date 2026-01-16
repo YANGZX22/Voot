@@ -262,7 +262,6 @@ struct KeySlotSwitcher {
         primaryButton: new ActionBarButton({
           baseIcon: this.hasApiKey ? $r('sys.symbol.square_and_pencil') : $r('sys.symbol.plus'),
           onClick: () => {
-            this.isExpand = !this.isExpand;
             this.onEditSlot();
           },
           backgroundColor: ColorMetrics.resourceColor(THEMES[this.themeColorIndex].primaryColor),
@@ -271,7 +270,8 @@ struct KeySlotSwitcher {
         actionBarStyle: new ActionBarStyle({
           isPrimaryIconChanged: false
         }),
-        isExpand: this.isExpand!
+        isExpand: true,
+        $isExpand: () => { /* 不折叠 */ }
       })
     }
     .width('100%')
@@ -585,7 +585,7 @@ export struct ApiConfigPage {
   private getNavigationMenuItems(): NavMenuItem[] {
     let items: NavMenuItem[] = [];
     
-    // OpenAI 警告 (仅在 OpenAI 页面显示)
+    // OpenAI 警告
     if (this.selectedMenu === ApiMenuType.OpenAI) {
       let item: NavMenuItem = {
         content: {
@@ -600,7 +600,7 @@ export struct ApiConfigPage {
       items.push(item);
     }
 
-    // Gemini 警告 (仅在 Gemini 页面显示)
+    // Gemini 警告
     if (this.selectedMenu === ApiMenuType.Gemini) {
       let item: NavMenuItem = {
         content: {
@@ -609,6 +609,21 @@ export struct ApiConfigPage {
           isEnabled: true,
           action: () => {
             this.showGeminiWarningPopup = true;
+          }
+        }
+      };
+      items.push(item);
+    }
+
+    // DeepL 警告
+    if (this.selectedMenu === ApiMenuType.DeepL) {
+      let item: NavMenuItem = {
+        content: {
+          label: '服务可用性警告',
+          icon: $r('sys.symbol.exclamationmark_circle'),
+          isEnabled: true,
+          action: () => {
+            this.showDeepLWarningPopup = true;
           }
         }
       };
@@ -628,8 +643,7 @@ export struct ApiConfigPage {
           icon: $r('sys.symbol.dot_grid_2x2'),
           isEnabled: true,
           action: () => {
-            this.sheetType = 'moreMenu';
-            this.isSheetOpen = true;
+            this.openSheet('moreMenu');
           }
         }
       };
@@ -661,6 +675,7 @@ export struct ApiConfigPage {
   // 半模态弹窗
   @State sheetType: 'keyEdit' | 'moreMenu' | 'editConsoleUrl' | 'none' = 'none';
   @State isSheetOpen: boolean = false;
+  private isSheetTransitioning: boolean = false; // 防止快速切换导致的竞态条件
   @State editingApiUrl: string = '';
   @State editingApiKey: string = '';
   @State editingModel: string = '';
@@ -668,10 +683,49 @@ export struct ApiConfigPage {
   @State isTestingConnection: boolean = false;
   @State isConfigValid: boolean = false;
 
+  // 安全地打开 sheet
+  private openSheet(type: 'keyEdit' | 'moreMenu' | 'editConsoleUrl'): void {
+    if (this.isSheetTransitioning) {
+      return; // 正在切换中，忽略请求
+    }
+    
+    if (this.isSheetOpen) {
+      // 如果已经打开，先关闭再打开新的
+      this.isSheetTransitioning = true;
+      this.isSheetOpen = false;
+      setTimeout(() => {
+        this.sheetType = type;
+        this.isSheetOpen = true;
+        this.isSheetTransitioning = false;
+      }, 350); // 等待关闭动画完成
+    } else {
+      this.sheetType = type;
+      this.isSheetOpen = true;
+    }
+  }
+
+  // 安全地关闭 sheet
+  private closeSheet(): void {
+    if (this.isSheetTransitioning) {
+      return;
+    }
+    this.isSheetOpen = false;
+  }
+
+  // 安全地切换 sheet 类型（不关闭 sheet）
+  private switchSheetType(type: 'keyEdit' | 'moreMenu' | 'editConsoleUrl'): void {
+    if (this.isSheetTransitioning) {
+      return;
+    }
+    this.sheetType = type;
+  }
+
   // OpenAI 警告弹窗状态
   @State showOpenAIWarningPopup: boolean = false;
   // Gemini 警告弹窗状态
   @State showGeminiWarningPopup: boolean = false;
+  // DeepL 警告弹窗状态
+  @State showDeepLWarningPopup: boolean = false;
 
   // 控制台URL编辑状态
   @State editingConsoleUrl: string = '';
@@ -812,8 +866,7 @@ export struct ApiConfigPage {
         break;
     }
     this.validateEditingConfig();
-    this.sheetType = 'keyEdit';
-    this.isSheetOpen = true;
+    this.openSheet('keyEdit');
   }
 
   // 验证编辑中的配置
@@ -1005,7 +1058,7 @@ export struct ApiConfigPage {
         break;
     }
 
-    this.isSheetOpen = false;
+    this.closeSheet();
     promptAction.showToast({
       message: '密钥配置已保存',
       duration: 2000
@@ -1093,20 +1146,22 @@ export struct ApiConfigPage {
       Text(this.getCurrentSlotHasKey() ? '编辑 ' + this.getCurrentApiName() + ' 密钥' : '添加 ' + this.getCurrentApiName() + ' 密钥')
         .fontSize(20)
         .fontWeight(FontWeight.Bold)
-        .fontColor('#333333')
+        .fontColor($r('sys.color.font_on_primary'))
         .margin({ bottom: 8 })
 
       // API URL
       Column({ space: 8 }) {
         Text('API 链接')
           .fontSize(14)
-          .fontColor('#666666')
+          .fontColor($r('sys.color.font_on_secondary'))
           .fontWeight(FontWeight.Medium)
           .alignSelf(ItemAlign.Start)
 
         TextInput({ placeholder: '请输入 API URL', text: this.editingApiUrl })
           .height(48)
-          .backgroundColor('#F5F5F5')
+          .backgroundColor($r('sys.color.comp_background_secondary'))
+          .fontColor($r('sys.color.font_on_primary'))
+          .placeholderColor($r('sys.color.font_on_tertiary'))
           .borderRadius(12)
           .padding({ left: 16, right: 16 })
           .onChange((value: string) => {
@@ -1122,13 +1177,15 @@ export struct ApiConfigPage {
         Column({ space: 8 }) {
           Text('API 密钥')
             .fontSize(14)
-            .fontColor('#666666')
+            .fontColor($r('sys.color.font_on_secondary'))
             .fontWeight(FontWeight.Medium)
             .alignSelf(ItemAlign.Start)
 
           TextInput({ placeholder: '请输入 API Key', text: this.editingApiKey })
             .height(48)
-            .backgroundColor('#F5F5F5')
+            .backgroundColor($r('sys.color.comp_background_secondary'))
+            .fontColor($r('sys.color.font_on_primary'))
+            .placeholderColor($r('sys.color.font_on_tertiary'))
             .borderRadius(12)
             .padding({ left: 16, right: 16 })
             .type(InputType.Password)
@@ -1146,13 +1203,15 @@ export struct ApiConfigPage {
         Column({ space: 8 }) {
           Text('模型名称')
             .fontSize(14)
-            .fontColor('#666666')
+            .fontColor($r('sys.color.font_on_secondary'))
             .fontWeight(FontWeight.Medium)
             .alignSelf(ItemAlign.Start)
 
           TextInput({ placeholder: '请输入模型名称', text: this.editingModel })
             .height(48)
-            .backgroundColor('#F5F5F5')
+            .backgroundColor($r('sys.color.comp_background_secondary'))
+            .fontColor($r('sys.color.font_on_primary'))
+            .placeholderColor($r('sys.color.font_on_tertiary'))
             .borderRadius(12)
             .padding({ left: 16, right: 16 })
             .onChange((value: string) => {
@@ -1164,17 +1223,19 @@ export struct ApiConfigPage {
         .margin({ bottom: 16 })
       }
 
-      // Alias (别名) - 所有 API 都支持
+      // Alias (别名)
       Column({ space: 8 }) {
         Text('别名')
           .fontSize(14)
-          .fontColor('#666666')
+          .fontColor($r('sys.color.font_on_secondary'))
           .fontWeight(FontWeight.Medium)
           .alignSelf(ItemAlign.Start)
 
         TextInput({ placeholder: '自定义显示名称（可选）', text: this.editingAlias })
           .height(48)
-          .backgroundColor('#F5F5F5')
+          .backgroundColor($r('sys.color.comp_background_secondary'))
+          .fontColor($r('sys.color.font_on_primary'))
+          .placeholderColor($r('sys.color.font_on_tertiary'))
           .borderRadius(12)
           .padding({ left: 16, right: 16 })
           .onChange((value: string) => {
@@ -1206,13 +1267,13 @@ export struct ApiConfigPage {
       Button('取消')
         .width('100%')
         .height(44)
-        .backgroundColor(Color.Transparent)
-        .fontColor('#666666')
+        .backgroundColor($r('sys.color.comp_background_secondary'))
+        .fontColor($r('sys.color.font_on_primary'))
         .type(ButtonType.Capsule)
         .fontSize(16)
         .margin({ top: 12 })
         .onClick(() => {
-          this.isSheetOpen = false;
+          this.closeSheet();
         })
     }
     .width('100%')
@@ -1507,6 +1568,31 @@ export struct ApiConfigPage {
               transition: TransitionEffect.OPACITY.animation({ duration: 300, curve: Curve.FastOutSlowIn })
             })
         }
+
+        // DeepL Popup Anchor (Invisible)
+        if (this.selectedMenu === ApiMenuType.DeepL) {
+          Row()
+            .width(48)
+            .height(48)
+            .position({ right: 108, top: 38 })
+            .hitTestBehavior(HitTestMode.None)
+            .bindPopup(this.showDeepLWarningPopup, {
+              message: 'DeepL 在中国大陆可能存在网络限制。请确认您能够访问该服务，并仔细阅读和遵守服务提供商的使用条款。',
+              placementOnTop: false,
+              showInSubWindow: false,
+              onStateChange: (e) => {
+                if (!e.isVisible) {
+                  this.showDeepLWarningPopup = false;
+                }
+              },
+              messageOptions: {
+                textColor: Color.White
+              },
+              enableArrow: false,
+              backgroundBlurStyle: BlurStyle.BACKGROUND_THIN,
+              transition: TransitionEffect.OPACITY.animation({ duration: 300, curve: Curve.FastOutSlowIn })
+            })
+        }
       }
     }
     .mode(NavigationMode.Stack)
@@ -1568,13 +1654,15 @@ export struct ApiConfigPage {
     .bindSheet($$this.isSheetOpen, this.UnifiedSheetContent(), {
       height: SheetSize.FIT_CONTENT,
       dragBar: true,
-      showClose: true,
-      title: { title: this.getSheetTitle() },
+      showClose: false,
+      title: (): void => this.SheetTitleBuilder(),
       onDisappear: () => {
         this.isSheetOpen = false;
-        this.sheetType = 'none';
+        // Don't reset sheetType to avoid race condition with rapid re-open
       },
       enableOutsideInteractive: false,
+      backgroundColor: Color.Transparent,
+      blurStyle: BlurStyle.BACKGROUND_THIN,
       onWillDismiss: (dismissAction: DismissSheetAction) => {
         // 只允许下拉和关闭按钮关闭，阻止点击遮罩层关闭
         if (dismissAction.reason === DismissReason.PRESS_BACK ||
@@ -1601,6 +1689,44 @@ export struct ApiConfigPage {
     }
   }
 
+  // 自定义 Sheet 标题 Builder
+  @Builder
+  SheetTitleBuilder() {
+    Row() {
+      // 左侧占位，保持标题居中
+      Blank()
+        .layoutWeight(1)
+      
+      // 居中标题
+      Text(this.getSheetTitle())
+        .fontSize(20)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(Color.White)
+        .textAlign(TextAlign.Center)
+      
+      // 右侧关闭按钮区域
+      Row() {
+        Blank()
+        Button() {
+          SymbolGlyph($r('sys.symbol.xmark'))
+            .fontSize(20)
+            .fontColor([Color.White])
+        }
+        .type(ButtonType.Circle)
+        .width(40)
+        .height(40)
+        .backgroundColor($r('sys.color.comp_background_tertiary'))
+        .onClick(() => {
+          this.closeSheet();
+        })
+      }
+      .layoutWeight(1)
+      .justifyContent(FlexAlign.End)
+    }
+    .width('100%')
+    .padding({ left: 16, right: 16, top: 16, bottom: 8 })
+  }
+
   // 统一Sheet内容
   @Builder
   UnifiedSheetContent() {
@@ -1610,6 +1736,9 @@ export struct ApiConfigPage {
       this.MoreMenuSheetContent()
     } else if (this.sheetType === 'editConsoleUrl') {
       this.ConsoleUrlEditSheetContent()
+    } else {
+      // Fallback content to ensure sheet has size even if type is none (shouldn't happen with fix)
+      Column().height(100).width('100%')
     }
   }
 
@@ -1621,21 +1750,21 @@ export struct ApiConfigPage {
       Row() {
         SymbolGlyph($r('sys.symbol.worldclock'))
           .fontSize(22)
-          .fontColor([$r('sys.color.icon_primary')])
+          .fontColor([$r('sys.color.icon_on_primary')])
         Text('打开控制台网页')
           .fontSize(16)
-          .fontColor($r('sys.color.font_primary'))
+          .fontColor($r('sys.color.font_on_primary'))
           .margin({ left: 12 })
         Blank()
         SymbolGlyph($r('sys.symbol.chevron_right'))
           .fontSize(16)
-          .fontColor([$r('sys.color.icon_tertiary')])
+          .fontColor([$r('sys.color.icon_on_tertiary')])
       }
-      .width('100%')
+      .width('90%')
       .height(56)
       .padding({ left: 16, right: 16 })
       .onClick(() => {
-        this.isSheetOpen = false;
+        this.closeSheet();
         this.openConsoleInBrowser();
       })
 
@@ -1648,22 +1777,22 @@ export struct ApiConfigPage {
       Row() {
         SymbolGlyph($r('sys.symbol.square_and_pencil'))
           .fontSize(22)
-          .fontColor([$r('sys.color.icon_primary')])
+          .fontColor([$r('sys.color.icon_on_primary')])
         Text('编辑控制台网页')
           .fontSize(16)
-          .fontColor($r('sys.color.font_primary'))
+          .fontColor($r('sys.color.font_on_primary'))
           .margin({ left: 12 })
         Blank()
         SymbolGlyph($r('sys.symbol.chevron_right'))
           .fontSize(16)
-          .fontColor([$r('sys.color.icon_tertiary')])
+          .fontColor([$r('sys.color.icon_on_tertiary')])
       }
-      .width('100%')
+      .width('90%')
       .height(56)
       .padding({ left: 16, right: 16 })
       .onClick(() => {
         this.editingConsoleUrl = this.getCurrentConsoleUrl();
-        this.sheetType = 'editConsoleUrl';
+        this.switchSheetType('editConsoleUrl');
       })
 
       Divider()
@@ -1675,35 +1804,35 @@ export struct ApiConfigPage {
       Row() {
         SymbolGlyph($r('sys.symbol.key_induction'))
           .fontSize(22)
-          .fontColor([$r('sys.color.icon_primary')])
-        Text('如何填写')
+          .fontColor([$r('sys.color.icon_on_primary')])
+        Text('如何填写该页面')
           .fontSize(16)
-          .fontColor($r('sys.color.font_primary'))
+          .fontColor($r('sys.color.font_on_primary'))
           .margin({ left: 12 })
         Blank()
         SymbolGlyph($r('sys.symbol.chevron_right'))
           .fontSize(16)
-          .fontColor([$r('sys.color.icon_tertiary')])
+          .fontColor([$r('sys.color.icon_on_tertiary')])
       }
-      .width('100%')
+      .width('90%')
       .height(56)
       .padding({ left: 16, right: 16 })
       .onClick(() => {
-        this.isSheetOpen = false;
+        this.closeSheet();
         router.pushUrl({ url: 'pages/ApiExplanationPage' });
       })
 
       // 取消按钮
       Button('取消')
         .type(ButtonType.Normal)
-        .fontColor($r('sys.color.font_primary'))
+        .fontColor($r('sys.color.font_on_primary'))
         .backgroundColor($r('sys.color.comp_background_tertiary'))
         .borderRadius(20)
         .width('90%')
         .height(44)
         .margin({ top: 16 })
         .onClick(() => {
-          this.isSheetOpen = false;
+          this.closeSheet();
         })
     }
     .width('100%')
@@ -1716,12 +1845,13 @@ export struct ApiConfigPage {
     Column() {
       Text(`${this.getCurrentProviderName()} 控制台网页地址`)
         .fontSize(14)
-        .fontColor($r('sys.color.font_secondary'))
+        .fontColor($r('sys.color.font_on_secondary'))
         .alignSelf(ItemAlign.Start)
         .margin({ left: 16, top: 16, bottom: 8 })
 
       TextInput({ text: this.editingConsoleUrl, placeholder: '请输入控制台网页地址' })
         .type(InputType.URL)
+        .fontColor($r('sys.color.font_on_primary'))
         .onChange((value: string) => {
           this.editingConsoleUrl = value;
         })
@@ -1734,14 +1864,14 @@ export struct ApiConfigPage {
       Row() {
         Button('取消')
           .type(ButtonType.Normal)
-          .fontColor($r('sys.color.font_primary'))
+          .fontColor($r('sys.color.font_on_primary'))
           .backgroundColor($r('sys.color.comp_background_tertiary'))
           .borderRadius(20)
           .height(40)
           .layoutWeight(1)
           .margin({ right: 8 })
           .onClick(() => {
-            this.sheetType = 'moreMenu';
+            this.switchSheetType('moreMenu');
           })
 
         Button('保存')
@@ -1754,7 +1884,7 @@ export struct ApiConfigPage {
           .margin({ left: 8 })
           .onClick(() => {
             this.setCurrentConsoleUrl(this.editingConsoleUrl);
-            this.isSheetOpen = false;
+            this.closeSheet();
             promptAction.showToast({ message: '控制台网页已保存' });
           })
       }

@@ -288,10 +288,11 @@ export struct TokenUsageChart {
           this.drawChart();
         })
     }
-    .width('calc(100% - 48vp)')
+    .width('calc(100% - 32vp)')
+    .shadow({ radius: 10, color: $r('sys.color.comp_background_tertiary')})
     .height(160)
     .backgroundColor(this.bgColor)
-    .borderRadius(30)
+    .borderRadius(26)
     .margin({ bottom: 10 })
     .alignItems(HorizontalAlign.Center)
     .scale({ x: this.scaleValue, y: this.scaleValue })

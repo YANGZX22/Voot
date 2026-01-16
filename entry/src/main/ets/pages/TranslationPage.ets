@@ -209,20 +209,19 @@ export struct TranslationPage {
   @Builder
   private DeviceSelectionDialog() {
     Column() {
-      Text('选择流转设备')
-        .fontSize(20)
-        .fontWeight(FontWeight.Bold)
-        .fontColor(Color.White)
-        .margin({ bottom: 8, top: 16 })
-        .width('100%')
-        .textAlign(TextAlign.Center)
+      Column() {
+        Text('选择流转设备')
+          .fontSize(24)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(Color.White)
+          .margin({ bottom: 8 })
 
-      Text('暂仅支持 HarmonyOS 6 及以上的手机与平板流转')
-        .fontSize(12)
-        .fontColor($r('sys.color.font_on_secondary'))
-        .margin({ bottom: 16 })
-        .width('100%')
-        .textAlign(TextAlign.Center)
+        Text('暂仅支持 HarmonyOS 6 及以上的手机与平板流转')
+          .fontSize(12)
+          .fontColor($r('sys.color.font_on_secondary'))
+      }
+      .offset({ y: -20 })
+      .margin({ top: 24, bottom: 10 })
 
       if (this.deviceList.length === 0) {
         Column() {
@@ -286,6 +285,7 @@ export struct TranslationPage {
           ContinuityService.getInstance().stopDiscovering();
         })
     }
+    .margin({ top: 24 })
     .width('100%')
     .backgroundColor(Color.Transparent)
     .borderRadius({ topLeft: 16, topRight: 16 })
@@ -786,7 +786,7 @@ export struct TranslationPage {
       this.DeviceSelectionDialog(),
       {
         detents: [SheetSize.FIT_CONTENT, SheetSize.MEDIUM, SheetSize.LARGE],
-        dragBar: true,
+        dragBar: false,
         backgroundColor: Color.Transparent,
         blurStyle: BlurStyle.BACKGROUND_THIN,
         enableOutsideInteractive: true,
@@ -891,7 +891,7 @@ export struct TranslationPage {
       .width('100%')
       .padding({ left: 16, right: 16, top: 12, bottom: 8 })
 
-      TextArea({ text: this.originalDemoText, placeholder: '请输入或录入需要翻译的文本...' })
+      TextArea({ text: this.originalDemoText, placeholder: '请开启麦克风开始录入需要翻译的文本...' })
         .width('100%')
         .height('100%')
         .fontColor(Color.White)

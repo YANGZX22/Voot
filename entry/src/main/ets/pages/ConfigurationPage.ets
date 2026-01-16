@@ -39,7 +39,9 @@ struct ApiSelectorSheet {
   @State headerOffsetY: number = -20;
   @State pickerOpacity: number = 0;
   @State pickerScale: number = 0.9;
+  @State listWidth: number = 0; // List 宽度，用于计算居中偏移
   private scroller: Scroller = new Scroller();
+  private readonly cardWidth: number = 146; // 卡片宽度 130 + margin 8*2
 
   aboutToAppear() {
     // 找到当前选中项在列表中的索引
@@ -73,14 +75,6 @@ struct ApiSelectorSheet {
 
   build() {
     Column() {
-      // 顶部拖动指示条
-      Row()
-        .width(40)
-        .height(4)
-        .borderRadius(2)
-        .backgroundColor('#50FFFFFF')
-        .margin({ top: 12, bottom: 24 })
-
       // 标题区域
       Column() {
         Text('选择 API')
@@ -91,11 +85,11 @@ struct ApiSelectorSheet {
 
         Text('左右滑动选择已配置的翻译 / LLM 服务')
           .fontSize(14)
-          .fontColor('#AAFFFFFF')
+          .fontColor($r('sys.color.font_on_secondary'))
       }
       .opacity(this.headerOpacity)
       .offset({ y: this.headerOffsetY })
-      .margin({ bottom: 32 })
+      .margin({ top: 24, bottom: 32 })
 
       // 水平滚动 Picker
       if (this.validatedSlots.length === 0) {
@@ -130,10 +124,13 @@ struct ApiSelectorSheet {
         .height(200)
         .padding({ top: 10, bottom: 10 })
         .clip(false)
-        .contentStartOffset(60)
-        .contentEndOffset(60)
+        .contentStartOffset(Math.max(60, (this.listWidth - this.cardWidth) / 2))
+        .contentEndOffset(Math.max(60, (this.listWidth - this.cardWidth) / 2))
         .opacity(this.pickerOpacity)
         .scale({ x: this.pickerScale, y: this.pickerScale })
+        .onAreaChange((_oldValue: Area, newValue: Area) => {
+          this.listWidth = newValue.width as number;
+        })
       }
 
       // 确认按钮
@@ -157,14 +154,7 @@ struct ApiSelectorSheet {
     .width('100%')
     .padding({ bottom: 16 })
     .backgroundColor(Color.Transparent)
-    .backgroundBlurStyle(BlurStyle.BACKGROUND_ULTRA_THICK)
     .borderRadius({ topLeft: 28, topRight: 28 })
-    .linearGradient({
-      angle: 180,
-      colors: this.isDarkMode
-        ? [['#FF000000', 0.0], ['#FF000000', 1.0]]
-        : [[THEMES[this.themeColorIndex].primaryColor.replace('#', '#E0'), 0.0], [THEMES[this.themeColorIndex].primaryColor.replace('#', '#F0'), 1.0]]
-    })
   }
 
   @Builder
@@ -334,14 +324,6 @@ struct OptionSelectorSheet {
 
   build() {
     Column() {
-      // 顶部拖动指示条
-      Row()
-        .width(40)
-        .height(4)
-        .borderRadius(2)
-        .backgroundColor('#50FFFFFF')
-        .margin({ top: 12, bottom: 20 })
-
       // 标题区域
       Column() {
         Text(this.title)
@@ -362,7 +344,7 @@ struct OptionSelectorSheet {
       }
       .opacity(this.headerOpacity)
       .offset({ y: this.headerOffsetY })
-      .margin({ bottom: 20, left: 24, right: 24 })
+      .margin({ top: 24, bottom: 20, left: 24, right: 24 })
 
       // 选项网格
       Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Center }) {
@@ -388,14 +370,7 @@ struct OptionSelectorSheet {
     .width('100%')
     .padding({ bottom: 16 })
     .backgroundColor(Color.Transparent)
-    .backgroundBlurStyle(BlurStyle.BACKGROUND_ULTRA_THICK)
     .borderRadius({ topLeft: 28, topRight: 28 })
-    .linearGradient({
-      angle: 180,
-      colors: this.isDarkMode
-        ? [['#FF000000', 0.0], ['#FF000000', 1.0]]
-        : [[THEMES[this.themeColorIndex].primaryColor.replace('#', '#E0'), 0.0], [THEMES[this.themeColorIndex].primaryColor.replace('#', '#F0'), 1.0]]
-    })
   }
 
   @Builder
@@ -529,14 +504,6 @@ struct LanguageSelectorSheet {
 
   build() {
     Column() {
-      // 顶部拖动指示条
-      Row()
-        .width(40)
-        .height(4)
-        .borderRadius(2)
-        .backgroundColor('#50FFFFFF')
-        .margin({ top: 12, bottom: 20 })
-
       // 标题区域
       Column() {
         Text(this.title)
@@ -557,7 +524,7 @@ struct LanguageSelectorSheet {
       }
       .opacity(this.headerOpacity)
       .offset({ y: this.headerOffsetY })
-      .margin({ bottom: 20, left: 24, right: 24 })
+      .margin({ top: 24, bottom: 20, left: 24, right: 24 })
 
       // 语言列表（垂直排列，每个语言单独一行）
       Column({ space: 8 }) {
@@ -582,14 +549,7 @@ struct LanguageSelectorSheet {
     .width('100%')
     .padding({ bottom: 16 })
     .backgroundColor(Color.Transparent)
-    .backgroundBlurStyle(BlurStyle.BACKGROUND_ULTRA_THICK)
     .borderRadius({ topLeft: 28, topRight: 28 })
-    .linearGradient({
-      angle: 180,
-      colors: this.isDarkMode
-        ? [['#FF000000', 0.0], ['#FF000000', 1.0]]
-        : [[THEMES[this.themeColorIndex].primaryColor.replace('#', '#E0'), 0.0], [THEMES[this.themeColorIndex].primaryColor.replace('#', '#F0'), 1.0]]
-    })
   }
 
   @Builder
@@ -790,7 +750,7 @@ struct ConfigCard {
           : hdsEffect.PointLightIlluminatedType.NONE)
       })
       .buildEffect())
-    .shadow({ radius: 20, color: '#1A000000'})
+    .shadow({ radius: 10, color: $r('sys.color.comp_background_tertiary') })
   }
 
   handleTouch(event: TouchEvent): void {
@@ -909,9 +869,9 @@ export struct ConfigurationPage {
   
   // API 介绍展开状态
   @State isApiIntroExpanded: boolean = false;
-  @State disclaimerWidth: string = 'calc(100% - 48vp)';
+  @State disclaimerWidth: string = 'calc(100% - 32vp)';
   @State disclaimerHeight: number = 120;
-  @State disclaimerBorderRadius: number = 30;
+  @State disclaimerBorderRadius: number = 26;
   @State expandedContentOpacity: number = 0;
   @State collapsedContentOpacity: number = 1;
   private longPressTimer: number | undefined = undefined;
@@ -1085,9 +1045,9 @@ export struct ConfigurationPage {
         duration: 400,
         curve: Curve.FastOutSlowIn
       }, () => {
-        this.disclaimerWidth = 'calc(100% - 48vp)';
+        this.disclaimerWidth = 'calc(100% - 32vp)';
         this.disclaimerHeight = 400; // 调整高度以减少留白
-        this.disclaimerBorderRadius = 32;
+        this.disclaimerBorderRadius = 26;
       });
     }, 100);
     
@@ -1117,9 +1077,9 @@ export struct ConfigurationPage {
         duration: 350,
         curve: Curve.FastOutSlowIn
       }, () => {
-        this.disclaimerWidth = 'calc(100% - 48vp)';
+        this.disclaimerWidth = 'calc(100% - 32vp)';
         this.disclaimerHeight = 120;
-        this.disclaimerBorderRadius = 30;
+        this.disclaimerBorderRadius = 26;
         this.disclaimerBgColor = THEMES[this.themeColorIndex].secondaryColor;
         this.disclaimerTextColor = Color.White;
         this.disclaimerSubTextColor = THEMES[this.themeColorIndex].primaryColor.replace('#', '#CC');
@@ -1255,7 +1215,7 @@ export struct ConfigurationPage {
                             .fontSize(16)
                             .fontColor(Color.White)
                             .fontWeight(FontWeight.Medium)
-                          Text('API 密钥是您访问大模型服务的凭证。Voot 使用此密钥直接与服务商（如 OpenAI、豆包）通信。')
+                          Text('API 密钥是您访问大模型服务的凭证。Voot 使用此密钥直接与服务商通信，例如 OpenAI、火山引擎（豆包）。')
                             .fontSize(14)
                             .fontColor('#CCFFFFFF')
                             .lineHeight(20)
@@ -1277,7 +1237,7 @@ export struct ConfigurationPage {
                             .fontSize(16)
                             .fontColor(Color.White)
                             .fontWeight(FontWeight.Medium)
-                          Text('您的密钥仅加密存储在本地设备上，受系统安全芯片保护。Voot 不会上传、收集或与第三方共享您的密钥。')
+                          Text('您的密钥仅加密存储在本地设备上，受系统安全机制保护。Voot 不会上传、收集或与第三方共享您的密钥。')
                             .fontSize(14)
                             .fontColor('#CCFFFFFF')
                             .lineHeight(20)
@@ -1328,135 +1288,68 @@ export struct ConfigurationPage {
             .width(this.disclaimerWidth)
             .height(this.disclaimerHeight)
             .padding(20)
-          .margin({ bottom: 10 })
-          .backgroundColor(this.disclaimerBgColor)
-          .borderRadius(this.disclaimerBorderRadius)
-          .alignItems(HorizontalAlign.Center)
-          .justifyContent(this.isApiIntroExpanded ? FlexAlign.Start : FlexAlign.Center)
-          .opacity(this.cardOpacities[0])
-          .scale({ x: this.disclaimerScale * this.cardScales[0], y: this.disclaimerScale * this.cardScales[0] })
-          .zIndex(this.isApiIntroExpanded ? 100 : 0)
-          .shadow(this.isApiIntroExpanded ? {
-            radius: 32,
-            color: '#40000000',
-            offsetX: 0,
-            offsetY: 8
-          } : {
-            radius: 0,
-            color: 'transparent',
-            offsetX: 0,
-            offsetY: 0
-          })
-          .visualEffect(new hdsEffect.HdsEffectBuilder()
-            .pointLight({
-              sourceType: this.activeBtn === 99 ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT) : hdsEffect.PointLightSourceType.NONE,
-              illuminatedType: this.activeBtn !== 0 ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT : hdsEffect.PointLightIlluminatedType.NONE
+            .margin({ bottom: 10 })
+            .backgroundColor(this.disclaimerBgColor)
+            .shadow({ radius: 10, color: $r('sys.color.comp_background_tertiary')})
+            .borderRadius(this.disclaimerBorderRadius)
+            .alignItems(HorizontalAlign.Center)
+            .justifyContent(this.isApiIntroExpanded ? FlexAlign.Start : FlexAlign.Center)
+            .opacity(this.cardOpacities[0])
+            .scale({ x: this.disclaimerScale * this.cardScales[0], y: this.disclaimerScale * this.cardScales[0] })
+            .zIndex(this.isApiIntroExpanded ? 100 : 0)
+            .shadow(this.isApiIntroExpanded ? {
+              radius: 32,
+              color: '#40000000',
+              offsetX: 0,
+              offsetY: 8
+            } : {
+              radius: 0,
+              color: 'transparent',
+              offsetX: 0,
+              offsetY: 0
             })
-            .buildEffect())
-          .onTouch((event: TouchEvent) => {
-            if (this.isApiIntroExpanded) {
-              return; // 展开状态下不响应触摸
-            }
-            if (event.type === TouchType.Down) {
-              this.pressDisclaimer();
-              this.activeBtn = 99;
-            } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
-              this.releaseDisclaimer();
-              this.activeBtn = 0;
-            }
-          })
-
-          TokenUsageChart({
-            modelName: this.currentApiAlias || this.apiOptions[this.selectedApiIndex],
-            activeBtn: $activeBtn,
-            isLightEffectBright: this.isLightEffectBright
-          })
-          .opacity(this.cardOpacities[1])
-          .scale({ x: this.cardScales[1], y: this.cardScales[1] })
-
-          Grid() {
-            GridItem() {
-              ConfigCard({
-                title: '选择 API',
-                content: this.currentApiAlias || this.apiOptions[this.selectedApiIndex],
-                btnId: 1,
-                icon: $r('sys.symbol.more'),
-                isLightEffectBright: this.isLightEffectBright,
-                isDarkMode: this.isDarkMode,
-                callback: () => { this.sheetType = 'api'; this.isSheetVisible = true; },
-                activeBtn: $activeBtn,
-                onInfoClick: () => {
-                  AlertDialog.show({
-                    title: '选择 API 说明',
-                    message: '点击选择已验证的翻译 / LLM 服务。',
-                    confirm: {
-                      value: '我知道了',
-                      fontColor: THEMES[this.themeColorIndex].primaryColor,
-                      action: () => {}
-                    }
-                  })
-                }
+            .visualEffect(new hdsEffect.HdsEffectBuilder()
+              .pointLight({
+                sourceType: this.activeBtn === 99 ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT) : hdsEffect.PointLightSourceType.NONE,
+                illuminatedType: this.activeBtn !== 0 ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT : hdsEffect.PointLightIlluminatedType.NONE
               })
-            }
-            .opacity(this.cardOpacities[2])
-            .scale({ x: this.cardScales[2], y: this.cardScales[2] })
+              .buildEffect())
+            .onTouch((event: TouchEvent) => {
+              if (this.isApiIntroExpanded) {
+                return; // 展开状态下不响应触摸
+              }
+              if (event.type === TouchType.Down) {
+                this.pressDisclaimer();
+                this.activeBtn = 99;
+              } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+                this.releaseDisclaimer();
+                this.activeBtn = 0;
+              }
+            })
 
-            GridItem() {
-              ConfigCard({
-                title: '配置 API',
-                content: '',
-                btnId: 2,
-                icon: $r('sys.symbol.gearshape'),
-                isLightEffectBright: this.isLightEffectBright,
-                isDarkMode: this.isDarkMode,
-                callback: () => {
-                  animateTo({ duration: 400, curve: Curve.FastOutSlowIn }, () => {
-                    this.handleConfigApi()
-                  })
-                },
-                isSymbol: true,
-                showLockIcon: this.apiConfigRequireScreenLock,
-                activeBtn: $activeBtn,
-                onInfoClick: () => {
-                  AlertDialog.show({
-                    title: '配置 API 说明',
-                    message: '编辑、添加 API 和提示词。',
-                    confirm: {
-                      value: '我知道了',
-                      fontColor: THEMES[this.themeColorIndex].primaryColor,
-                      action: () => {}
-                    }
-                  })
-                }
-              })
-            }
-            .opacity(this.cardOpacities[3])
-            .scale({ x: this.cardScales[3], y: this.cardScales[3] })
+            TokenUsageChart({
+              modelName: this.currentApiAlias || this.apiOptions[this.selectedApiIndex],
+              activeBtn: $activeBtn,
+              isLightEffectBright: this.isLightEffectBright
+            })
+            .opacity(this.cardOpacities[1])
+            .scale({ x: this.cardScales[1], y: this.cardScales[1] })
 
-            GridItem() {
-              ConfigCard({
-                title: '原始语言',
-                content: this.isUsingSenseVoice ?
-                  this.getSourceLanguageLabels()[this.selectedSourceLanguageIndex] : '英语',
-                btnId: 3,
-                icon: $r('sys.symbol.mic_arrow_2_circlepath'),
-                isLightEffectBright: this.isLightEffectBright,
-                isDarkMode: this.isDarkMode,
-                callback: () => {
-                  if (this.isUsingSenseVoice) {
-                    this.openOptionSheet(
-                      '原始语言',
-                      '设置语音识别的原始语言',
-                      this.getSourceLanguageLabels(),
-                      this.selectedSourceLanguageIndex,
-                      'sourceLanguage'
-                    );
-                  } else {
+            Grid() {
+              GridItem() {
+                ConfigCard({
+                  title: '选择 API',
+                  content: this.currentApiAlias || this.apiOptions[this.selectedApiIndex],
+                  btnId: 1,
+                  icon: $r('sys.symbol.more'),
+                  isLightEffectBright: this.isLightEffectBright,
+                  isDarkMode: this.isDarkMode,
+                  callback: () => { this.sheetType = 'api'; this.isSheetVisible = true; },
+                  activeBtn: $activeBtn,
+                  onInfoClick: () => {
                     AlertDialog.show({
-                      title: '功能提示',
-                      message: this.isSenseVoiceAvailable ?
-                        '当前使用 Moonshine 模型，仅支持英语。\n如需更多语言识别，请前往设置页面切换到 SenseVoice 模型。' :
-                        '当前使用 Moonshine 模型，仅支持英语。\n如需更多语言识别，请前往设置页面下载 SenseVoice 语音模型。',
+                      title: '选择 API 说明',
+                      message: '点击选择已验证的翻译 / LLM 服务。',
                       confirm: {
                         value: '我知道了',
                         fontColor: THEMES[this.themeColorIndex].primaryColor,
@@ -1464,317 +1357,385 @@ export struct ConfigurationPage {
                       }
                     })
                   }
-                },
-                activeBtn: $activeBtn,
-                onInfoClick: () => {
-                  AlertDialog.show({
-                    title: '原始语言说明',
-                    message: this.isUsingSenseVoice ?
-                      '选择语音识别的原始语言，支持中文、英语、日语、韩语和粤语。' :
-                      '当前使用 Moonshine 模型，仅支持英语作为原始语言。如需支持更多语言，请在设置页面切换到 SenseVoice 模型。',
-                    confirm: {
-                      value: '我知道了',
-                      fontColor: THEMES[this.themeColorIndex].primaryColor,
-                      action: () => {}
-                    }
-                  })
-                }
-              })
-            }
-            .opacity(this.cardOpacities[4])
-            .scale({ x: this.cardScales[4], y: this.cardScales[4] })
+                })
+              }
+              .opacity(this.cardOpacities[2])
+              .scale({ x: this.cardScales[2], y: this.cardScales[2] })
 
-            GridItem() {
-              ConfigCard({
-                title: '目标语言',
-                content: this.getLanguageLabels()[this.selectedLanguageIndex],
-                btnId: 4,
-                icon: $r('sys.symbol.translate_e2c'),
-                isLightEffectBright: this.isLightEffectBright,
-                isDarkMode: this.isDarkMode,
-                callback: () => this.openOptionSheet(
-                  '目标语言',
-                  '翻译、扫描结果将输出为所选语言',
-                  this.getLanguageLabels(),
-                  this.selectedLanguageIndex,
-                  'language'
-                ),
-                activeBtn: $activeBtn,
-                onInfoClick: () => {
-                  AlertDialog.show({
-                    title: '目标语言说明',
-                    message: '翻译、扫描结果将输出为目标语言，点击选择语言。',
-                    confirm: {
-                      value: '我知道了',
-                      fontColor: THEMES[this.themeColorIndex].primaryColor,
-                      action: () => {}
-                    }
-                  })
-                }
-              })
-            }
-            .opacity(this.cardOpacities[5])
-            .scale({ x: this.cardScales[5], y: this.cardScales[5] })
+              GridItem() {
+                ConfigCard({
+                  title: '配置 API',
+                  content: '',
+                  btnId: 2,
+                  icon: $r('sys.symbol.gearshape'),
+                  isLightEffectBright: this.isLightEffectBright,
+                  isDarkMode: this.isDarkMode,
+                  callback: () => {
+                    animateTo({ duration: 400, curve: Curve.FastOutSlowIn }, () => {
+                      this.handleConfigApi()
+                    })
+                  },
+                  isSymbol: true,
+                  showLockIcon: this.apiConfigRequireScreenLock,
+                  activeBtn: $activeBtn,
+                  onInfoClick: () => {
+                    AlertDialog.show({
+                      title: '配置 API 说明',
+                      message: '编辑、添加 API 和提示词。',
+                      confirm: {
+                        value: '我知道了',
+                        fontColor: THEMES[this.themeColorIndex].primaryColor,
+                        action: () => {}
+                      }
+                    })
+                  }
+                })
+              }
+              .opacity(this.cardOpacities[3])
+              .scale({ x: this.cardScales[3], y: this.cardScales[3] })
 
-            GridItem() {
-              ConfigCard({
-                title: '间隔',
-                content: this.intervalOptions[this.selectedIntervalIndex] + ' 秒',
-                btnId: 5,
-                icon: $r('sys.symbol.clock'),
-                isLightEffectBright: this.isLightEffectBright,
-                isDarkMode: this.isDarkMode,
-                callback: () => this.openOptionSheet(
-                  '翻译间隔',
-                  '设置两次翻译请求之间的最小时间间隔',
-                  this.intervalOptions.map(v => v + ' 秒'),
-                  this.selectedIntervalIndex,
-                  'interval'
-                ),
-                activeBtn: $activeBtn,
-                onInfoClick: () => {
-                  AlertDialog.show({
-                    title: '间隔说明',
-                    message: '设置两次翻译请求之间的最小时间间隔（秒），同时也作为传译的时间间隔。\n较短的间隔能提供更实时的反馈，但会消耗更多 Token。\n默认间隔推荐为5。',
-                    confirm: {
-                      value: '我知道了',
-                      fontColor: THEMES[this.themeColorIndex].primaryColor,
-                      action: () => {}
+              GridItem() {
+                ConfigCard({
+                  title: '原始语言',
+                  content: this.isUsingSenseVoice ?
+                    this.getSourceLanguageLabels()[this.selectedSourceLanguageIndex] : '英语',
+                  btnId: 3,
+                  icon: $r('sys.symbol.mic_arrow_2_circlepath'),
+                  isLightEffectBright: this.isLightEffectBright,
+                  isDarkMode: this.isDarkMode,
+                  callback: () => {
+                    if (this.isUsingSenseVoice) {
+                      this.openOptionSheet(
+                        '原始语言',
+                        '设置语音识别的原始语言',
+                        this.getSourceLanguageLabels(),
+                        this.selectedSourceLanguageIndex,
+                        'sourceLanguage'
+                      );
+                    } else {
+                      AlertDialog.show({
+                        title: '功能提示',
+                        message: this.isSenseVoiceAvailable ?
+                          '当前使用 Moonshine 模型，仅支持英语。\n如需更多语言识别，请前往设置页面切换到 SenseVoice 模型。' :
+                          '当前使用 Moonshine 模型，仅支持英语。\n如需更多语言识别，请前往设置页面下载 SenseVoice 语音模型。',
+                        confirm: {
+                          value: '我知道了',
+                          fontColor: THEMES[this.themeColorIndex].primaryColor,
+                          action: () => {}
+                        }
+                      })
                     }
-                  })
-                }
-              })
-            }
-            .opacity(this.cardOpacities[6])
-            .scale({ x: this.cardScales[6], y: this.cardScales[6] })
+                  },
+                  activeBtn: $activeBtn,
+                  onInfoClick: () => {
+                    AlertDialog.show({
+                      title: '原始语言说明',
+                      message: this.isUsingSenseVoice ?
+                        '选择语音识别的原始语言，支持中文、英语、日语、韩语和粤语。' :
+                        '当前使用 Moonshine 模型，仅支持英语作为原始语言。如需支持更多语言，请在设置页面切换到 SenseVoice 模型。',
+                      confirm: {
+                        value: '我知道了',
+                        fontColor: THEMES[this.themeColorIndex].primaryColor,
+                        action: () => {}
+                      }
+                    })
+                  }
+                })
+              }
+              .opacity(this.cardOpacities[4])
+              .scale({ x: this.cardScales[4], y: this.cardScales[4] })
 
-            GridItem() {
-              ConfigCard({
-                title: '上下文',
-                content: this.contextsOptions[this.selectedContextsIndex] + ' 轮',
-                btnId: 6,
-                icon: $r('sys.symbol.book_pages'),
-                isLightEffectBright: this.isLightEffectBright,
-                isDarkMode: this.isDarkMode,
-                callback: () => this.openOptionSheet(
-                  '历史上下文',
-                  '更多上下文有助于模型理解语境，但会消耗更多 Token',
-                  this.contextsOptions.map(v => v + ' 轮'),
-                  this.selectedContextsIndex,
-                  'contexts'
-                ),
-                activeBtn: $activeBtn,
-                onInfoClick: () => {
-                  AlertDialog.show({
-                    title: '上下文说明',
-                    message: '适用于翻译功能。设置发送给翻译模型的历史对话轮数。\n更多的上下文有助于模型理解语境，提高翻译准确度，但会消耗更多 Token。\n默认上下文推荐为3。',
-                    confirm: {
-                      value: '我知道了',
-                      fontColor: THEMES[this.themeColorIndex].primaryColor,
-                      action: () => {}
-                    }
-                  })
-                }
-              })
-            }
-            .opacity(this.cardOpacities[7])
-            .scale({ x: this.cardScales[7], y: this.cardScales[7] })
+              GridItem() {
+                ConfigCard({
+                  title: '目标语言',
+                  content: this.getLanguageLabels()[this.selectedLanguageIndex],
+                  btnId: 4,
+                  icon: $r('sys.symbol.translate_e2c'),
+                  isLightEffectBright: this.isLightEffectBright,
+                  isDarkMode: this.isDarkMode,
+                  callback: () => this.openOptionSheet(
+                    '目标语言',
+                    '翻译、扫描结果将输出为所选语言',
+                    this.getLanguageLabels(),
+                    this.selectedLanguageIndex,
+                    'language'
+                  ),
+                  activeBtn: $activeBtn,
+                  onInfoClick: () => {
+                    AlertDialog.show({
+                      title: '目标语言说明',
+                      message: '翻译、扫描结果将输出为目标语言，点击选择语言。',
+                      confirm: {
+                        value: '我知道了',
+                        fontColor: THEMES[this.themeColorIndex].primaryColor,
+                        action: () => {}
+                      }
+                    })
+                  }
+                })
+              }
+              .opacity(this.cardOpacities[5])
+              .scale({ x: this.cardScales[5], y: this.cardScales[5] })
 
-            GridItem() {
-              ConfigCard({
-                title: '温度',
-                content: this.temperatureOptions[this.selectedTemperatureIndex],
-                btnId: 7,
-                icon: $r('sys.symbol.color_temperature_1'),
-                isLightEffectBright: this.isLightEffectBright,
-                isDarkMode: this.isDarkMode,
-                callback: () => this.openOptionSheet(
-                  '模型温度',
-                  '较低更确定，较高更随机',
-                  this.temperatureOptions,
-                  this.selectedTemperatureIndex,
-                  'temperature'
-                ),
-                activeBtn: $activeBtn,
-                onInfoClick: () => {
-                  AlertDialog.show({
-                    title: '温度说明',
-                    message: '适用于翻译、润色和扫描。控制模型输出的随机性。\n较低的值使输出更集中和确定。较高的值使输出更随机和多样。\n默认温度推荐为0.3，且不建议过大。',
-                    confirm: {
-                      value: '我知道了',
-                      fontColor: THEMES[this.themeColorIndex].primaryColor,
-                      action: () => {}
-                    }
-                  })
-                }
-              })
-            }
-            .opacity(this.cardOpacities[8])
-            .scale({ x: this.cardScales[8], y: this.cardScales[8] })
+              GridItem() {
+                ConfigCard({
+                  title: '间隔',
+                  content: this.intervalOptions[this.selectedIntervalIndex] + ' 秒',
+                  btnId: 5,
+                  icon: $r('sys.symbol.clock'),
+                  isLightEffectBright: this.isLightEffectBright,
+                  isDarkMode: this.isDarkMode,
+                  callback: () => this.openOptionSheet(
+                    '翻译间隔',
+                    '设置两次翻译请求之间的最小时间间隔',
+                    this.intervalOptions.map(v => v + ' 秒'),
+                    this.selectedIntervalIndex,
+                    'interval'
+                  ),
+                  activeBtn: $activeBtn,
+                  onInfoClick: () => {
+                    AlertDialog.show({
+                      title: '间隔说明',
+                      message: '设置两次翻译请求之间的最小时间间隔（秒），同时也作为传译的时间间隔。\n较短的间隔能提供更实时的反馈，但会消耗更多 Token。\n默认间隔推荐为5。',
+                      confirm: {
+                        value: '我知道了',
+                        fontColor: THEMES[this.themeColorIndex].primaryColor,
+                        action: () => {}
+                      }
+                    })
+                  }
+                })
+              }
+              .opacity(this.cardOpacities[6])
+              .scale({ x: this.cardScales[6], y: this.cardScales[6] })
 
-            GridItem() {
-              ConfigCard({
-                title: '最大 Token',
-                content: this.maxTokensOptions[this.selectedMaxTokensIndex],
-                btnId: 8,
-                icon: $r('sys.symbol.doc_text_badge_arrow_right'),
-                isLightEffectBright: this.isLightEffectBright,
-                isDarkMode: this.isDarkMode,
-                callback: () => this.openOptionSheet(
-                  '最大 Token',
-                  '单次回复的最大长度',
-                  this.maxTokensOptions.map(v => v),
-                  this.selectedMaxTokensIndex,
-                  'maxTokens'
-                ),
-                activeBtn: $activeBtn,
-                onInfoClick: () => {
-                  AlertDialog.show({
-                    title: '最大 Token 说明',
-                    message: '适用于翻译、润色和扫描。设置模型单次回复生成的最大 Token 数量。\n较小的值适合简短回复，响应更快。较大的值允许更长的回复，但可能增加延迟。\n默认最大 Token 推荐为256。',
-                    confirm: {
-                      value: '我知道了',
-                      fontColor: THEMES[this.themeColorIndex].primaryColor,
-                      action: () => {}
-                    }
-                  })
-                }
-              })
-            }
-            .opacity(this.cardOpacities[9])
-            .scale({ x: this.cardScales[9], y: this.cardScales[9] })
+              GridItem() {
+                ConfigCard({
+                  title: '上下文',
+                  content: this.contextsOptions[this.selectedContextsIndex] + ' 轮',
+                  btnId: 6,
+                  icon: $r('sys.symbol.book_pages'),
+                  isLightEffectBright: this.isLightEffectBright,
+                  isDarkMode: this.isDarkMode,
+                  callback: () => this.openOptionSheet(
+                    '历史上下文',
+                    '更多上下文有助于模型理解语境，但会消耗更多 Token',
+                    this.contextsOptions.map(v => v + ' 轮'),
+                    this.selectedContextsIndex,
+                    'contexts'
+                  ),
+                  activeBtn: $activeBtn,
+                  onInfoClick: () => {
+                    AlertDialog.show({
+                      title: '上下文说明',
+                      message: '适用于翻译功能。设置发送给翻译模型的历史对话轮数。\n更多的上下文有助于模型理解语境，提高翻译准确度，但会消耗更多 Token。\n默认上下文推荐为3。',
+                      confirm: {
+                        value: '我知道了',
+                        fontColor: THEMES[this.themeColorIndex].primaryColor,
+                        action: () => {}
+                      }
+                    })
+                  }
+                })
+              }
+              .opacity(this.cardOpacities[7])
+              .scale({ x: this.cardScales[7], y: this.cardScales[7] })
 
-            GridItem() {
-              ConfigCard({
-                title: 'VAD 灵敏度',
-                content: this.vadSensitivityOptions[this.selectedVadSensitivityIndex],
-                btnId: 9,
-                icon: $r('sys.symbol.magnetic_sensor'),
-                isLightEffectBright: this.isLightEffectBright,
-                isDarkMode: this.isDarkMode,
-                callback: () => this.openOptionSheet(
-                  'VAD 灵敏度',
-                  '较高更敏感但可能误报噪音',
-                  this.vadSensitivityOptions,
-                  this.selectedVadSensitivityIndex,
-                  'vad'
-                ),
-                activeBtn: $activeBtn,
-                onInfoClick: () => {
-                  AlertDialog.show({
-                    title: 'VAD 灵敏度说明',
-                    message: '适用于翻译功能。设置语音活动检测的灵敏度。\n较高的灵敏度更容易检测到语音，但也可能误报噪音。\n默认 VAD 灵敏度推荐为中。',
-                    confirm: {
-                      value: '我知道了',
-                      fontColor: THEMES[this.themeColorIndex].primaryColor,
-                      action: () => {}
-                    }
-                  })
-                }
-              })
-            }
-            .opacity(this.cardOpacities[10])
-            .scale({ x: this.cardScales[10], y: this.cardScales[10] })
+              GridItem() {
+                ConfigCard({
+                  title: '温度',
+                  content: this.temperatureOptions[this.selectedTemperatureIndex],
+                  btnId: 7,
+                  icon: $r('sys.symbol.color_temperature_1'),
+                  isLightEffectBright: this.isLightEffectBright,
+                  isDarkMode: this.isDarkMode,
+                  callback: () => this.openOptionSheet(
+                    '模型温度',
+                    '较低更确定，较高更随机',
+                    this.temperatureOptions,
+                    this.selectedTemperatureIndex,
+                    'temperature'
+                  ),
+                  activeBtn: $activeBtn,
+                  onInfoClick: () => {
+                    AlertDialog.show({
+                      title: '温度说明',
+                      message: '适用于翻译、润色和扫描。控制模型输出的随机性。\n较低的值使输出更集中和确定。较高的值使输出更随机和多样。\n默认温度推荐为0.3，且不建议过大。',
+                      confirm: {
+                        value: '我知道了',
+                        fontColor: THEMES[this.themeColorIndex].primaryColor,
+                        action: () => {}
+                      }
+                    })
+                  }
+                })
+              }
+              .opacity(this.cardOpacities[8])
+              .scale({ x: this.cardScales[8], y: this.cardScales[8] })
 
-            GridItem() {
-              ConfigCard({
-                title: '最小匹配长度',
-                content: this.minMatchLenOptions[this.selectedMinMatchLenIndex] + ' 字符',
-                btnId: 10,
-                icon: $r('sys.symbol.root'),
-                isLightEffectBright: this.isLightEffectBright,
-                isDarkMode: this.isDarkMode,
-                callback: () => this.openOptionSheet(
-                  '最小匹配长度',
-                  '智能拼接文本时的最小重叠字符数',
-                  this.minMatchLenOptions.map(v => v + ' 字符'),
-                  this.selectedMinMatchLenIndex,
-                  'minMatch'
-                ),
-                activeBtn: $activeBtn,
-                onInfoClick: () => {
-                  AlertDialog.show({
-                    title: '最小匹配长度说明',
-                    message: '适用于翻译功能。设置智能拼接文本时的最小重叠字符数。\n较大的值能减少误拼接，但可能导致重复。\n默认最小匹配长度推荐为5。',
-                    confirm: {
-                      value: '我知道了',
-                      fontColor: THEMES[this.themeColorIndex].primaryColor,
-                      action: () => {}
-                    }
-                  })
-                }
-              })
+              GridItem() {
+                ConfigCard({
+                  title: '最大 Token',
+                  content: this.maxTokensOptions[this.selectedMaxTokensIndex],
+                  btnId: 8,
+                  icon: $r('sys.symbol.doc_text_badge_arrow_right'),
+                  isLightEffectBright: this.isLightEffectBright,
+                  isDarkMode: this.isDarkMode,
+                  callback: () => this.openOptionSheet(
+                    '最大 Token',
+                    '单次回复的最大长度',
+                    this.maxTokensOptions.map(v => v),
+                    this.selectedMaxTokensIndex,
+                    'maxTokens'
+                  ),
+                  activeBtn: $activeBtn,
+                  onInfoClick: () => {
+                    AlertDialog.show({
+                      title: '最大 Token 说明',
+                      message: '适用于翻译、润色和扫描。设置模型单次回复生成的最大 Token 数量。\n较小的值适合简短回复，响应更快。较大的值允许更长的回复，但可能增加延迟。\n默认最大 Token 推荐为256。',
+                      confirm: {
+                        value: '我知道了',
+                        fontColor: THEMES[this.themeColorIndex].primaryColor,
+                        action: () => {}
+                      }
+                    })
+                  }
+                })
+              }
+              .opacity(this.cardOpacities[9])
+              .scale({ x: this.cardScales[9], y: this.cardScales[9] })
+
+              GridItem() {
+                ConfigCard({
+                  title: 'VAD 灵敏度',
+                  content: this.vadSensitivityOptions[this.selectedVadSensitivityIndex],
+                  btnId: 9,
+                  icon: $r('sys.symbol.magnetic_sensor'),
+                  isLightEffectBright: this.isLightEffectBright,
+                  isDarkMode: this.isDarkMode,
+                  callback: () => this.openOptionSheet(
+                    'VAD 灵敏度',
+                    '较高更敏感但可能误报噪音',
+                    this.vadSensitivityOptions,
+                    this.selectedVadSensitivityIndex,
+                    'vad'
+                  ),
+                  activeBtn: $activeBtn,
+                  onInfoClick: () => {
+                    AlertDialog.show({
+                      title: 'VAD 灵敏度说明',
+                      message: '适用于翻译功能。设置语音活动检测的灵敏度。\n较高的灵敏度更容易检测到语音，但也可能误报噪音。\n默认 VAD 灵敏度推荐为中。',
+                      confirm: {
+                        value: '我知道了',
+                        fontColor: THEMES[this.themeColorIndex].primaryColor,
+                        action: () => {}
+                      }
+                    })
+                  }
+                })
+              }
+              .opacity(this.cardOpacities[10])
+              .scale({ x: this.cardScales[10], y: this.cardScales[10] })
+
+              GridItem() {
+                ConfigCard({
+                  title: '最小匹配长度',
+                  content: this.minMatchLenOptions[this.selectedMinMatchLenIndex] + ' 字符',
+                  btnId: 10,
+                  icon: $r('sys.symbol.root'),
+                  isLightEffectBright: this.isLightEffectBright,
+                  isDarkMode: this.isDarkMode,
+                  callback: () => this.openOptionSheet(
+                    '最小匹配长度',
+                    '智能拼接文本时的最小重叠字符数',
+                    this.minMatchLenOptions.map(v => v + ' 字符'),
+                    this.selectedMinMatchLenIndex,
+                    'minMatch'
+                  ),
+                  activeBtn: $activeBtn,
+                  onInfoClick: () => {
+                    AlertDialog.show({
+                      title: '最小匹配长度说明',
+                      message: '适用于翻译功能。设置智能拼接文本时的最小重叠字符数。\n较大的值能减少误拼接，但可能导致重复。\n默认最小匹配长度推荐为5。',
+                      confirm: {
+                        value: '我知道了',
+                        fontColor: THEMES[this.themeColorIndex].primaryColor,
+                        action: () => {}
+                      }
+                    })
+                  }
+                })
+              }
+              .opacity(this.cardOpacities[11])
+              .scale({ x: this.cardScales[11], y: this.cardScales[11] })
             }
-            .opacity(this.cardOpacities[11])
-            .scale({ x: this.cardScales[11], y: this.cardScales[11] })
+            .columnsTemplate('1fr 1fr')
+            .rowsTemplate('1fr 1fr 1fr 1fr 1fr')
+            .columnsGap(10)
+            .rowsGap(10)
+            .padding({ left: 16, right: 16 })
+            .height(560)
           }
-          .columnsTemplate('1fr 1fr')
-          .rowsTemplate('1fr 1fr 1fr 1fr 1fr')
-          .columnsGap(10)
-          .rowsGap(10)
-          .padding({ left: 24, right: 24 })
-          .height(560)
+          .width('100%')
+          .padding({ bottom: 100 })
         }
-        .width('100%')
-        .padding({ bottom: 100 })
+        .scrollable(ScrollDirection.Vertical)
+        .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.Spring)
       }
-      .scrollable(ScrollDirection.Vertical)
-      .scrollBar(BarState.Off)
-      .edgeEffect(EdgeEffect.Spring)
-    }
-    .mode(NavigationMode.Stack)
-    .width('100%')
-    .height('100%')
-    .backgroundColor(Color.Transparent)
-    .titleMode(HdsNavigationTitleMode.MINI)
-    .hideBackButton(true)
-    .bindSheet($$this.isSheetVisible, this.UnifiedSheetBuilder(), {
-      height: SheetSize.FIT_CONTENT,
-      backgroundColor: Color.Transparent,
-      blurStyle: BlurStyle.NONE,
-      showClose: false,
-      dragBar: false,
-      onDisappear: () => {
-        this.isSheetVisible = false;
-      }
-    })
-    .titleBar({
-      style: {
-        scrollEffectStyle: {
-          backgroundStyle: {
-            backgroundColor: $r('sys.color.ohos_id_color_background_transparent'),
+      .mode(NavigationMode.Stack)
+      .width('100%')
+      .height('100%')
+      .backgroundColor(Color.Transparent)
+      .titleMode(HdsNavigationTitleMode.MINI)
+      .hideBackButton(true)
+      .bindSheet($$this.isSheetVisible, this.UnifiedSheetBuilder(), {
+        height: SheetSize.FIT_CONTENT,
+        backgroundColor: Color.Transparent,
+        blurStyle: BlurStyle.BACKGROUND_THIN,
+        showClose: true,
+        dragBar: false,
+        onDisappear: () => {
+          this.isSheetVisible = false;
+        }
+      })
+      .titleBar({
+        style: {
+          scrollEffectStyle: {
+            backgroundStyle: {
+              backgroundColor: $r('sys.color.ohos_id_color_background_transparent'),
+            },
+            contentStyle: {
+              titleStyle: {
+                mainTitleColor: $r('sys.color.font_on_tertiary'),
+              },
+              menuStyle: {
+                backgroundColor: $r('sys.color.comp_background_tertiary'),
+                iconColor: $r('sys.color.icon_on_tertiary')
+              },
+              backIconStyle: {
+                backgroundColor: $r('sys.color.comp_background_tertiary'),
+                iconColor: $r('sys.color.icon_on_tertiary')
+              }
+            }
           },
-          contentStyle: {
-            titleStyle: {
-              mainTitleColor: $r('sys.color.font_on_tertiary'),
-            },
-            menuStyle: {
-              backgroundColor: $r('sys.color.comp_background_tertiary'),
-              iconColor: $r('sys.color.icon_on_tertiary')
-            },
-            backIconStyle: {
-              backgroundColor: $r('sys.color.comp_background_tertiary'),
-              iconColor: $r('sys.color.icon_on_tertiary')
+          originalStyle: {
+            contentStyle: {
+              titleStyle: {
+                mainTitleColor: Color.White,
+              },
+              backIconStyle: {
+                backgroundColor: $r('sys.color.comp_background_tertiary'),
+                iconColor: $r('sys.color.icon_primary')
+              }
             }
           }
         },
-        originalStyle: {
-          contentStyle: {
-            titleStyle: {
-              mainTitleColor: Color.White,
-            },
-            backIconStyle: {
-              backgroundColor: $r('sys.color.comp_background_tertiary'),
-              iconColor: $r('sys.color.icon_primary')
-            }
-          }
-        }
-      },
-      content: {
-        title: { mainTitle: '配置' },
-      },
-      avoidLayoutSafeArea: true
-    })
+        content: {
+          title: { mainTitle: '配置' },
+        },
+        avoidLayoutSafeArea: true
+      })
 
       // 握持快捷按钮
       if ((this.isLeftHand || this.isRightHand) && !this.isHandPopupDismissed) {

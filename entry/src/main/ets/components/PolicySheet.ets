@@ -100,8 +100,8 @@ export function PolicySheetContent(
   Column() {
     Blank().height(8);
     Text(config.title)
-      .fontSize(20)
-      .fontWeight(FontWeight.Medium)
+      .fontSize(24)
+      .fontWeight(FontWeight.Bold)
       .margin({ bottom: 12 })
       .fontColor(Color.White)
     Text(config.intro)

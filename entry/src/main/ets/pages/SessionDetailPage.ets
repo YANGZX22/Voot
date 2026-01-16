@@ -15,7 +15,7 @@
 import router from '@ohos.router';
 import { Session } from '../model/Session';
 import { HistoryStorage } from '../storage/HistoryStorage';
-import { ApiConfigStorage, ApiConfigSnapshot, createDefaultMultiKeySlots } from '../storage/ApiConfigStorage';
+import { ApiConfigStorage, ApiConfigSnapshot, createDefaultMultiKeySlots, MultiKeySlots } from '../storage/ApiConfigStorage';
 import { TokenUsageStorage } from '../storage/TokenUsageStorage';
 import { ApiMenuType } from './ApiConfigPage';
 import http from '@ohos.net.http';
@@ -489,6 +489,33 @@ struct SessionDetailPage {
     .height('100%')
   }
 
+  // 从配置中获取当前 API 别名（用于 Token 统计）
+  private getApiAliasFromConfig(config: ApiConfigSnapshot): string {
+    const providerNames: string[] = ['OpenAI', 'Gemini', 'DeepL', 'Ollama', 'Doubao', 'Huawei'];
+    const allKeySlots: MultiKeySlots[] = [
+      config.openAiKeySlots,
+      config.geminiKeySlots,
+      config.deepLKeySlots,
+      config.ollamaKeySlots,
+      config.doubaoKeySlots,
+      config.huaweiKeySlots
+    ];
+
+    const apiIndex = config.selectedApiIndex;
+    if (apiIndex < 0 || apiIndex >= allKeySlots.length) {
+      return providerNames[0] + ' 1';
+    }
+
+    const keySlots = allKeySlots[apiIndex];
+    const slotIndex = keySlots.currentSlotIndex;
+    const slot = keySlots.slots[slotIndex];
+    
+    if (slot && slot.alias && slot.alias.trim().length > 0) {
+      return slot.alias;
+    }
+    return `${providerNames[apiIndex]} ${slotIndex + 1}`;
+  }
+
   async generateSummary() {
     if (!this.session || !this.session.translatedText) return;
     this.isSummarizing = true;
@@ -496,26 +523,36 @@ struct SessionDetailPage {
     try {
       const context = getContext(this) as common.UIAbilityContext;
       const config = await ApiConfigStorage.loadSnapshot(context, DEFAULT_CONFIG);
+      const currentApiAlias = this.getApiAliasFromConfig(config);
       const prompt = `请用与以下内容相同的语言进行简要总结，永远不要改变语言（即：英语内容总结为英语，中文内容总结为中文）。直接输出总结内容，不要添加任何前缀或解释，内容为：\n\n${this.session.translatedText}`;
       
       let summary = '';
       
+      // API 索引: 0=OpenAI, 1=Gemini, 2=DeepL, 3=Ollama, 4=Doubao, 5=Huawei
       let apiType = ApiMenuType.OpenAI;
       switch (config.selectedApiIndex) {
         case 0: apiType = ApiMenuType.OpenAI; break;
-        case 1: apiType = ApiMenuType.DeepL; break;
-        case 2: apiType = ApiMenuType.Ollama; break;
-        case 3: apiType = ApiMenuType.Doubao; break;
+        case 1: apiType = ApiMenuType.Gemini; break;
+        case 2: apiType = ApiMenuType.DeepL; break;
+        case 3: apiType = ApiMenuType.Ollama; break;
+        case 4: apiType = ApiMenuType.Doubao; break;
+        case 5: apiType = ApiMenuType.Huawei; break;
       }
 
       if (apiType === ApiMenuType.OpenAI) {
-        summary = await this.callOpenAI({ apiUrl: config.openAiApiUrl, apiKey: config.openAiApiKey, model: config.openAiModel }, prompt);
+        summary = await this.callOpenAI({ apiUrl: config.openAiApiUrl, apiKey: config.openAiApiKey, model: config.openAiModel }, prompt, currentApiAlias);
+      } else if (apiType === ApiMenuType.Gemini) {
+        // Gemini 使用 OpenAI 兼容接口
+        summary = await this.callOpenAI({ apiUrl: config.geminiApiUrl, apiKey: config.geminiApiKey, model: config.geminiModel }, prompt, currentApiAlias);
       } else if (apiType === ApiMenuType.DeepL) {
         summary = "DeepL 仅为翻译模型，不支持大语言模型的总结功能，尝试在配置页面切换其他模型";
       } else if (apiType === ApiMenuType.Ollama) {
-        summary = await this.callOllama({ apiUrl: config.ollamaApiUrl, model: config.ollamaModel }, prompt);
+        summary = await this.callOllama({ apiUrl: config.ollamaApiUrl, model: config.ollamaModel }, prompt, currentApiAlias);
       } else if (apiType === ApiMenuType.Doubao) {
-        summary = await this.callDoubao({ apiUrl: config.doubaoApiUrl, apiKey: config.doubaoApiKey, model: config.doubaoModel }, prompt);
+        summary = await this.callDoubao({ apiUrl: config.doubaoApiUrl, apiKey: config.doubaoApiKey, model: config.doubaoModel }, prompt, currentApiAlias);
+      } else if (apiType === ApiMenuType.Huawei) {
+        // Huawei 使用 OpenAI 兼容接口
+        summary = await this.callOpenAI({ apiUrl: config.huaweiApiUrl, apiKey: config.huaweiApiKey, model: config.huaweiModel }, prompt, currentApiAlias);
       }
 
       if (summary) {
@@ -537,7 +574,7 @@ struct SessionDetailPage {
     }
   }
 
-  async callOpenAI(config: LlmConfig, prompt: string): Promise<string> {
+  async callOpenAI(config: LlmConfig, prompt: string, apiAlias: string): Promise<string> {
     const httpRequest = http.createHttp();
     try {
       const message: ChatMessage = { role: 'user', content: prompt };
@@ -567,7 +604,7 @@ struct SessionDetailPage {
         const result = JSON.parse(response.result as string) as ChatCompletionResponse;
         // 记录 Token 使用量到统计和卡片
         if (result.usage && result.usage.total_tokens) {
-          TokenUsageStorage.getInstance().addTokenUsage('OpenAI', result.usage.total_tokens);
+          TokenUsageStorage.getInstance().addTokenUsage(apiAlias, result.usage.total_tokens);
         }
         return result.choices[0].message.content;
       }
@@ -577,7 +614,7 @@ struct SessionDetailPage {
     }
   }
 
-  async callOllama(config: LlmConfig, prompt: string): Promise<string> {
+  async callOllama(config: LlmConfig, prompt: string, apiAlias: string): Promise<string> {
     const httpRequest = http.createHttp();
     try {
       const message: ChatMessage = { role: 'user', content: prompt };
@@ -601,7 +638,7 @@ struct SessionDetailPage {
         // 记录 Token 使用量到统计和卡片
         if (result.eval_count || result.prompt_eval_count) {
           const total = (result.eval_count || 0) + (result.prompt_eval_count || 0);
-          TokenUsageStorage.getInstance().addTokenUsage('Ollama', total);
+          TokenUsageStorage.getInstance().addTokenUsage(apiAlias, total);
         }
         return result.message.content;
       }
@@ -611,7 +648,7 @@ struct SessionDetailPage {
     }
   }
 
-  async callDoubao(config: LlmConfig, prompt: string): Promise<string> {
+  async callDoubao(config: LlmConfig, prompt: string, apiAlias: string): Promise<string> {
     const httpRequest = http.createHttp();
     try {
       const message: ChatMessage = { role: 'user', content: prompt };
@@ -642,7 +679,7 @@ struct SessionDetailPage {
         const result = JSON.parse(response.result as string) as DoubaoChatResponse;
         // 记录 Token 使用量到统计和卡片
         if (result.usage && result.usage.total_tokens) {
-          TokenUsageStorage.getInstance().addTokenUsage('Doubao', result.usage.total_tokens);
+          TokenUsageStorage.getInstance().addTokenUsage(apiAlias, result.usage.total_tokens);
         }
         return result.choices[0].message.content;
       }

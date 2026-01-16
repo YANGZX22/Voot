@@ -282,7 +282,7 @@ export struct HistoryTabPage {
       .layoutWeight(1)
       .alignItems(HorizontalAlign.Start)
     }
-    .width('calc(100% - 48vp)')
+    .width('calc(100% - 32vp)')
     .padding(16)
     .margin({ left: 24, right: 24 })
     .backgroundColor(THEMES[this.themeColorIndex].tertiaryColor)
