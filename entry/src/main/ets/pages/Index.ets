@@ -457,20 +457,45 @@ struct Index {
   // 更新主题模式并计算 isDarkMode
   updateThemeMode(mode: number) {
     this.themeMode = mode;
-    if (mode === 0) {
-      // 浅色模式
-      this.isDarkMode = false;
-    } else if (mode === 1) {
-      // 深色模式
-      this.isDarkMode = true;
-    } else {
-      // 跟随系统
-      if (this.currentMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK) {
+    
+    // 获取应用上下文并设置系统颜色模式
+    try {
+      const context = getContext(this) as common.UIAbilityContext;
+      const applicationContext = context.getApplicationContext();
+      
+      if (mode === 0) {
+        // 浅色模式
+        this.isDarkMode = false;
+        applicationContext.setColorMode(ConfigurationConstant.ColorMode.COLOR_MODE_LIGHT);
+      } else if (mode === 1) {
+        // 深色模式
+        this.isDarkMode = true;
+        applicationContext.setColorMode(ConfigurationConstant.ColorMode.COLOR_MODE_DARK);
+      } else {
+        // 跟随系统
+        applicationContext.setColorMode(ConfigurationConstant.ColorMode.COLOR_MODE_NOT_SET);
+        if (this.currentMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK) {
+          this.isDarkMode = true;
+        } else {
+          this.isDarkMode = false;
+        }
+      }
+    } catch (error) {
+      console.error(`setColorMode failed: ${JSON.stringify(error)}`);
+      // 降级处理：仅更新应用内状态
+      if (mode === 0) {
+        this.isDarkMode = false;
+      } else if (mode === 1) {
         this.isDarkMode = true;
       } else {
-        this.isDarkMode = false;
+        if (this.currentMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK) {
+          this.isDarkMode = true;
+        } else {
+          this.isDarkMode = false;
+        }
       }
     }
+    
     // 持久化主题设置
     this.persistApiConfigSnapshot();
   }
@@ -3154,18 +3179,9 @@ struct Index {
       }
       .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
       .barPosition(BarPosition.End)
-      .barHeight(70)
-      .barBackgroundColor(Color.Transparent)
-      .barBackgroundBlurStyle(BlurStyle.COMPONENT_THICK)
+      .barHeight(65)
       .scrollable(true)
-      .divider({
-        mode: DividerMode.FOLLOW_SCROLL,
-        style: {
-          color: Color.Transparent,
-          strokeWidth: 1
-        }
-      })
-      .animationDuration(200)
+      .animationDuration(250)
       .barOverlap(true)
       .vertical(false)
       .barBackgroundStyle({

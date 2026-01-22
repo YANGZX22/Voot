@@ -1,4 +1,6 @@
-import { hdsEffect, HdsNavigation, HdsNavigationAttribute, HdsNavigationTitleMode, ScrollEffectType } from '@kit.UIDesignKit';
+import { hdsEffect, HdsNavigation, HdsNavigationAttribute, HdsNavigationTitleMode,
+  HideMode,
+  ScrollEffectType } from '@kit.UIDesignKit';
 import { AuthUtil, LogUtil, ToastUtil } from '@pura/harmony-utils';
 import { userAuth } from '@kit.UserAuthenticationKit';
 import userIAM_userAuth from '@ohos.userIAM.userAuth';
@@ -1352,7 +1354,7 @@ export struct ConfigurationPage {
                       message: '点击选择已验证的翻译 / LLM 服务。',
                       confirm: {
                         value: '我知道了',
-                        fontColor: THEMES[this.themeColorIndex].primaryColor,
+                        fontColor: this.isDarkMode? $r('sys.color.font_on_primary') : THEMES[this.themeColorIndex].primaryColor,
                         action: () => {}
                       }
                     })
@@ -1384,7 +1386,7 @@ export struct ConfigurationPage {
                       message: '编辑、添加 API 和提示词。',
                       confirm: {
                         value: '我知道了',
-                        fontColor: THEMES[this.themeColorIndex].primaryColor,
+                        fontColor: this.isDarkMode? $r('sys.color.font_on_primary') : THEMES[this.themeColorIndex].primaryColor,
                         action: () => {}
                       }
                     })
@@ -1420,7 +1422,7 @@ export struct ConfigurationPage {
                           '当前使用 Moonshine 模型，仅支持英语。\n如需更多语言识别，请前往设置页面下载 SenseVoice 语音模型。',
                         confirm: {
                           value: '我知道了',
-                          fontColor: THEMES[this.themeColorIndex].primaryColor,
+                          fontColor: this.isDarkMode? $r('sys.color.font_on_primary') : THEMES[this.themeColorIndex].primaryColor,
                           action: () => {}
                         }
                       })
@@ -1435,7 +1437,7 @@ export struct ConfigurationPage {
                         '当前使用 Moonshine 模型，仅支持英语作为原始语言。如需支持更多语言，请在设置页面切换到 SenseVoice 模型。',
                       confirm: {
                         value: '我知道了',
-                        fontColor: THEMES[this.themeColorIndex].primaryColor,
+                        fontColor: this.isDarkMode? $r('sys.color.font_on_primary') : THEMES[this.themeColorIndex].primaryColor,
                         action: () => {}
                       }
                     })
@@ -1467,7 +1469,7 @@ export struct ConfigurationPage {
                       message: '翻译、扫描结果将输出为目标语言，点击选择语言。',
                       confirm: {
                         value: '我知道了',
-                        fontColor: THEMES[this.themeColorIndex].primaryColor,
+                        fontColor: this.isDarkMode? $r('sys.color.font_on_primary') : THEMES[this.themeColorIndex].primaryColor,
                         action: () => {}
                       }
                     })
@@ -1499,7 +1501,7 @@ export struct ConfigurationPage {
                       message: '设置两次翻译请求之间的最小时间间隔（秒），同时也作为传译的时间间隔。\n较短的间隔能提供更实时的反馈，但会消耗更多 Token。\n默认间隔推荐为5。',
                       confirm: {
                         value: '我知道了',
-                        fontColor: THEMES[this.themeColorIndex].primaryColor,
+                        fontColor: this.isDarkMode? $r('sys.color.font_on_primary') : THEMES[this.themeColorIndex].primaryColor,
                         action: () => {}
                       }
                     })
@@ -1531,7 +1533,7 @@ export struct ConfigurationPage {
                       message: '适用于翻译功能。设置发送给翻译模型的历史对话轮数。\n更多的上下文有助于模型理解语境，提高翻译准确度，但会消耗更多 Token。\n默认上下文推荐为3。',
                       confirm: {
                         value: '我知道了',
-                        fontColor: THEMES[this.themeColorIndex].primaryColor,
+                        fontColor: this.isDarkMode? $r('sys.color.font_on_primary') : THEMES[this.themeColorIndex].primaryColor,
                         action: () => {}
                       }
                     })
@@ -1563,7 +1565,7 @@ export struct ConfigurationPage {
                       message: '适用于翻译、润色和扫描。控制模型输出的随机性。\n较低的值使输出更集中和确定。较高的值使输出更随机和多样。\n默认温度推荐为0.3，且不建议过大。',
                       confirm: {
                         value: '我知道了',
-                        fontColor: THEMES[this.themeColorIndex].primaryColor,
+                        fontColor: this.isDarkMode? $r('sys.color.font_on_primary') : THEMES[this.themeColorIndex].primaryColor,
                         action: () => {}
                       }
                     })
@@ -1595,7 +1597,7 @@ export struct ConfigurationPage {
                       message: '适用于翻译、润色和扫描。设置模型单次回复生成的最大 Token 数量。\n较小的值适合简短回复，响应更快。较大的值允许更长的回复，但可能增加延迟。\n默认最大 Token 推荐为256。',
                       confirm: {
                         value: '我知道了',
-                        fontColor: THEMES[this.themeColorIndex].primaryColor,
+                        fontColor: this.isDarkMode? $r('sys.color.font_on_primary') : THEMES[this.themeColorIndex].primaryColor,
                         action: () => {}
                       }
                     })
@@ -1627,7 +1629,7 @@ export struct ConfigurationPage {
                       message: '适用于翻译功能。设置语音活动检测的灵敏度。\n较高的灵敏度更容易检测到语音，但也可能误报噪音。\n默认 VAD 灵敏度推荐为中。',
                       confirm: {
                         value: '我知道了',
-                        fontColor: THEMES[this.themeColorIndex].primaryColor,
+                        fontColor: this.isDarkMode? $r('sys.color.font_on_primary') : THEMES[this.themeColorIndex].primaryColor,
                         action: () => {}
                       }
                     })
@@ -1659,7 +1661,7 @@ export struct ConfigurationPage {
                       message: '适用于翻译功能。设置智能拼接文本时的最小重叠字符数。\n较大的值能减少误拼接，但可能导致重复。\n默认最小匹配长度推荐为5。',
                       confirm: {
                         value: '我知道了',
-                        fontColor: THEMES[this.themeColorIndex].primaryColor,
+                        fontColor: this.isDarkMode? $r('sys.color.font_on_primary') : THEMES[this.themeColorIndex].primaryColor,
                         action: () => {}
                       }
                     })
@@ -1736,6 +1738,7 @@ export struct ConfigurationPage {
         },
         avoidLayoutSafeArea: true
       })
+      .dynamicHideTitleBar({ hideTitleArea:true, hideBottomBuilder: true, hideStatusBar: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 20 })
 
       // 握持快捷按钮
       if ((this.isLeftHand || this.isRightHand) && !this.isHandPopupDismissed) {

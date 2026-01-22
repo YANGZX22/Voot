@@ -80,13 +80,13 @@ struct ApiExplanationPage {
         Row() {
           Button() {
             SymbolGlyph($r('sys.symbol.chevron_left'))
-              .fontSize(24)
+              .fontSize(30)
               .fontColor([Color.White])
           }
           .width(40)
           .height(40)
           .type(ButtonType.Circle)
-          .backgroundColor($r('sys.color.comp_background_tertiary'))
+          .backgroundColor($r('sys.color.comp_background_secondary'))
           .onClick(() => {
             router.back();
           })

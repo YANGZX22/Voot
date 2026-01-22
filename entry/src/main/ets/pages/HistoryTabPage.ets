@@ -576,7 +576,7 @@ struct HelpTabDialog {
       Text('历史记录使用说明')
         .fontSize(20)
         .fontWeight(FontWeight.Bold)
-        .fontColor(Color.Black)
+        .fontColor($r('sys.color.font_primary'))
         .margin({ top: 24, bottom: 16 })
         .textAlign(TextAlign.Center)
 
@@ -595,7 +595,7 @@ struct HelpTabDialog {
 
           Text('左滑卡片点击红色按钮删除单条记录')
             .fontSize(14)
-            .fontColor('#333333')
+            .fontColor($r('sys.color.font_secondary'))
             .layoutWeight(1)
         }
         .width('100%')
@@ -615,7 +615,7 @@ struct HelpTabDialog {
 
           Text('左滑卡片点击黄色按钮收藏（移入收藏夹）')
             .fontSize(14)
-            .fontColor('#333333')
+            .fontColor($r('sys.color.font_secondary'))
             .layoutWeight(1)
         }
         .width('100%')
@@ -635,7 +635,7 @@ struct HelpTabDialog {
 
           Text('左滑卡片点击绿色按钮分享记录')
             .fontSize(14)
-            .fontColor('#333333')
+            .fontColor($r('sys.color.font_secondary'))
             .layoutWeight(1)
         }
         .width('100%')
@@ -655,7 +655,7 @@ struct HelpTabDialog {
 
           Text('点击右上角菜单切换收藏夹/全部历史')
             .fontSize(14)
-            .fontColor('#333333')
+            .fontColor($r('sys.color.font_secondary'))
             .layoutWeight(1)
         }
         .width('100%')
@@ -675,7 +675,7 @@ struct HelpTabDialog {
 
           Text('历史/收藏分别删除，互不影响')
             .fontSize(14)
-            .fontColor('#333333')
+            .fontColor($r('sys.color.font_secondary'))
             .layoutWeight(1)
         }
         .width('100%')
@@ -686,7 +686,7 @@ struct HelpTabDialog {
 
         Text('点击卡片可查看详情并生成 AI 总结')
           .fontSize(14)
-          .fontColor('#666666')
+          .fontColor($r('sys.color.font_secondary'))
           .textAlign(TextAlign.Center)
       }
       .width('100%')
@@ -703,7 +703,7 @@ struct HelpTabDialog {
         })
     }
     .width(320)
-    .backgroundColor(Color.White)
+    .backgroundColor($r('sys.color.background_primary'))
     .borderRadius(30)
     .alignItems(HorizontalAlign.Center)
   }

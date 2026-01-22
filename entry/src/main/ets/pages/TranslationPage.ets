@@ -1048,7 +1048,7 @@ struct ContinuityHelpDialog {
       Text('跨端流转说明')
         .fontSize(20)
         .fontWeight(FontWeight.Bold)
-        .fontColor(Color.Black)
+        .fontColor($r('sys.color.font_primary'))
         .margin({ top: 24, bottom: 16 })
         .textAlign(TextAlign.Center)
 
@@ -1067,7 +1067,7 @@ struct ContinuityHelpDialog {
 
           Text('确保两台设备登录同一华为账号')
             .fontSize(14)
-            .fontColor('#333333')
+            .fontColor($r('sys.color.font_secondary'))
             .layoutWeight(1)
         }
         .width('100%')
@@ -1085,9 +1085,9 @@ struct ContinuityHelpDialog {
           .backgroundColor('#FFB800')
           .justifyContent(FlexAlign.Center)
 
-          Text('保持 Wi‑Fi 和蓝牙开启，便于发现设备')
+          Text('保持 WLAN 和蓝牙开启，便于发现设备')
             .fontSize(14)
-            .fontColor('#333333')
+            .fontColor($r('sys.color.font_secondary'))
             .layoutWeight(1)
         }
         .width('100%')
@@ -1107,7 +1107,7 @@ struct ContinuityHelpDialog {
 
           Text('点击“流转”按钮搜索并选择目标设备')
             .fontSize(14)
-            .fontColor('#333333')
+            .fontColor($r('sys.color.font_secondary'))
             .layoutWeight(1)
         }
         .width('100%')
@@ -1127,7 +1127,7 @@ struct ContinuityHelpDialog {
 
           Text('同意连接后，API、配置、字幕与翻译将无缝流转到目标设备')
             .fontSize(14)
-            .fontColor('#333333')
+            .fontColor($r('sys.color.font_secondary'))
             .layoutWeight(1)
         }
         .width('100%')
@@ -1147,7 +1147,7 @@ struct ContinuityHelpDialog {
         })
     }
     .width(320)
-    .backgroundColor(Color.White)
+    .backgroundColor($r('sys.color.background_primary'))
     .borderRadius(30)
     .alignItems(HorizontalAlign.Center)
   }

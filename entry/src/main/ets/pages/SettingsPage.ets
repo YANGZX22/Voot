@@ -1,4 +1,4 @@
-import { hdsEffect, HdsNavigation, HdsNavigationAttribute, HdsNavigationTitleMode } from '@kit.UIDesignKit';
+import { hdsEffect, HdsNavigation, HdsNavigationAttribute, HdsNavigationTitleMode, HideMode } from '@kit.UIDesignKit';
 import { CapsuleSegmentButtonV2, SegmentButtonV2Items, ColorMetrics, SymbolGlyphModifier } from '@kit.ArkUI';
 import { webview } from '@kit.ArkWeb';
 import common from '@ohos.app.ability.common';
@@ -109,7 +109,7 @@ struct ModelDownloadDialog {
       Text('下载 SenseVoice 模型')
         .fontSize(20)
         .fontWeight(FontWeight.Bold)
-        .fontColor(Color.Black)
+        .fontColor($r('sys.color.font_primary'))
         .margin({ top: 24, bottom: 16 })
         .textAlign(TextAlign.Center)
 
@@ -128,7 +128,7 @@ struct ModelDownloadDialog {
 
           Text('支持中、英、日、韩、粤语识别')
             .fontSize(14)
-            .fontColor('#333333')
+            .fontColor($r('sys.color.font_secondary'))
             .layoutWeight(1)
         }
         .width('100%')
@@ -148,7 +148,7 @@ struct ModelDownloadDialog {
 
           Text(`文件大小：约 ${this.modelSizeMB} MB`)
             .fontSize(14)
-            .fontColor('#333333')
+            .fontColor($r('sys.color.font_secondary'))
             .layoutWeight(1)
         }
         .width('100%')
@@ -182,7 +182,7 @@ struct ModelDownloadDialog {
       .margin({ top: 20, bottom: 16 })
     }
     .width(320)
-    .backgroundColor(Color.White)
+    .backgroundColor($r('sys.color.background_primary'))
     .borderRadius(30)
     .alignItems(HorizontalAlign.Center)
   }
@@ -200,7 +200,7 @@ struct ModelDeleteDialog {
       Text('删除模型')
         .fontSize(20)
         .fontWeight(FontWeight.Bold)
-        .fontColor(Color.Black)
+        .fontColor($r('sys.color.font_primary'))
         .margin({ top: 24, bottom: 16 })
         .textAlign(TextAlign.Center)
 
@@ -219,7 +219,7 @@ struct ModelDeleteDialog {
 
           Text('确定要删除已下载的 SenseVoice 模型吗？')
             .fontSize(14)
-            .fontColor('#333333')
+            .fontColor($r('sys.color.font_secondary'))
             .layoutWeight(1)
         }
         .width('100%')
@@ -239,7 +239,7 @@ struct ModelDeleteDialog {
 
           Text('删除后需重新下载才能使用更多语言识别')
             .fontSize(14)
-            .fontColor('#333333')
+            .fontColor($r('sys.color.font_secondary'))
             .layoutWeight(1)
         }
         .width('100%')
@@ -273,7 +273,7 @@ struct ModelDeleteDialog {
       .margin({ top: 20, bottom: 16 })
     }
     .width(320)
-    .backgroundColor(Color.White)
+    .backgroundColor($r('sys.color.background_primary'))
     .borderRadius(30)
     .alignItems(HorizontalAlign.Center)
   }
@@ -353,8 +353,8 @@ struct SubtitleStyleDialog {
           ForEach(this.colors, (color: string) => {
             Circle({ width: 30, height: 30 })
               .fill(color)
-              .stroke(this.fontColor === color ? Color.Blue : Color.Gray)
-              .strokeWidth(this.fontColor === color ? 2 : 1)
+              .stroke(this.fontColor === color ? $r('sys.color.confirm') : $r('sys.color.font_secondary'))
+              .strokeWidth(this.fontColor === color ? 3 : 1)
               .margin(5)
               .onClick(() => {
                 this.fontColor = color
@@ -375,8 +375,8 @@ struct SubtitleStyleDialog {
           ForEach(this.colors, (color: string) => {
             Circle({ width: 30, height: 30 })
               .fill(color)
-              .stroke(this.subtitleBackgroundColor === color ? Color.Blue : Color.Gray)
-              .strokeWidth(this.subtitleBackgroundColor === color ? 2 : 1)
+              .stroke(this.subtitleBackgroundColor === color ? $r('sys.color.confirm') : $r('sys.color.font_secondary'))
+              .strokeWidth(this.subtitleBackgroundColor === color ? 3 : 1)
               .margin(5)
               .onClick(() => {
                 this.subtitleBackgroundColor = color
@@ -717,7 +717,7 @@ struct PoseDetectionGuideDialog {
     }
     .width(300)
     .padding(24)
-    .backgroundColor(Color.White)
+    .backgroundColor($r('sys.color.background_primary'))
     .borderRadius(24)
   }
 }
@@ -755,10 +755,12 @@ export struct SettingsPage {
   // 本地动画状态变量
   @State showSubtitleStyle: boolean = false;
   @State showGestureActions: boolean = false;
+  @State showPhoneNumber: boolean = false; // 是否显示手机号
 
   // Theme Color
   @StorageLink('themeColorIndex') @Watch('onThemeColorChange') themeColorIndex: number = 0;
   @StorageLink('isNumberVerified') isVerified: boolean = false;
+  @StorageLink('verifiedPhone') verifiedPhone: string = '';
 
   onThemeColorChange() {
     this.settingsBtnBgColor = THEMES[this.themeColorIndex].primaryColor;
@@ -822,8 +824,14 @@ export struct SettingsPage {
   exitDialogController: CustomDialogController = new CustomDialogController({
     builder: ExitVerificationDialog({
       onConfirm: () => {
+        const context = getContext(this) as common.UIAbilityContext;
+        // 清除验证状态
         AppStorage.setOrCreate('isNumberVerified', false);
-        OnboardingStorage.setNumberVerified(getContext(this) as common.UIAbilityContext, false);
+        OnboardingStorage.setNumberVerified(context, false);
+        // 清除已验证的手机号
+        AppStorage.setOrCreate('verifiedPhone', '');
+        this.verifiedPhone = '';
+        OnboardingStorage.clearVerifiedPhone(context);
         router.pushUrl({
           url: 'pages/WelcomePage',
           params: { targetStep: 3 }
@@ -861,6 +869,21 @@ export struct SettingsPage {
   @State sectionOpacities: number[] = new Array(SETTINGS_SECTION_COUNT).fill(0);
   @State sectionOffsets: number[] = new Array(SETTINGS_SECTION_COUNT).fill(16);
 
+  /**
+   * 将手机号码格式化为脱敏显示格式
+   * @param phone 11位手机号码
+   * @returns 格式如 "+86 138****1234"
+   */
+  private maskPhoneNumber(phone: string): string {
+    if (!phone || phone.length < 11) {
+      return phone || '';
+    }
+    // 提取前3位和后4位
+    const prefix = phone.substring(0, 3);
+    const suffix = phone.substring(phone.length - 4);
+    return `+86 ${prefix}****${suffix}`;
+  }
+
   async aboutToAppear() {
     this.settingsBtnBgColor = THEMES[this.themeColorIndex].primaryColor;
     this.pageOpacity = 0;
@@ -875,6 +898,9 @@ export struct SettingsPage {
 
     // 加载 ASR 模型配置
     await this.loadAsrModelConfig();
+
+    // 加载已验证的手机号
+    await this.loadVerifiedPhone();
 
     // 初始化展开状态（无动画）
     this.showSubtitleStyle = this.isPipSubtitleEnabled;
@@ -935,6 +961,20 @@ export struct SettingsPage {
       console.error('[SettingsPage] Failed to load ASR model config: ' + JSON.stringify(e));
     } finally {
       this.isCheckingModel = false;
+    }
+  }
+
+  // 加载已验证的手机号
+  private async loadVerifiedPhone(): Promise<void> {
+    try {
+      const context = getContext(this) as common.UIAbilityContext;
+      const phone = await OnboardingStorage.getVerifiedPhone(context);
+      if (phone) {
+        this.verifiedPhone = phone;
+        AppStorage.setOrCreate('verifiedPhone', phone);
+      }
+    } catch (e) {
+      console.error('[SettingsPage] Failed to load verified phone: ' + JSON.stringify(e));
     }
   }
 
@@ -1346,7 +1386,7 @@ export struct SettingsPage {
 
   @Builder
   AsrModelItems() {
-    // 语音识别模型选择（类似手势开关的简洁风格）
+    // 语音识别模型选择
     SettingsItem({
       title: '语音识别模型'
     }) {
@@ -1375,7 +1415,7 @@ export struct SettingsPage {
         })
     }
 
-    // 下载进度显示（仅在下载中显示）
+    // 下载进度显示
     if (this.downloadState === DownloadState.DOWNLOADING || this.downloadState === DownloadState.EXTRACTING) {
       Column({ space: 8 }) {
         Row() {
@@ -1469,7 +1509,7 @@ export struct SettingsPage {
     }
 
     SettingsItem({
-      title: '模型开源许可证',
+      title: '开源模型许可证',
       hasArrow: true,
       onClickItem: () => {
         const context = getContext(this) as common.UIAbilityContext;
@@ -1583,6 +1623,16 @@ export struct SettingsPage {
                 isLightEffectBright: this.isLightEffectBright
               }) {
                 if (this.isVerified) {
+                  SettingsItem({
+                    title: this.showPhoneNumber ? '点击隐藏已验证手机号码' : '点击查看已验证手机号码',
+                    subtitle: this.showPhoneNumber ? this.maskPhoneNumber(this.verifiedPhone) : '',
+                    hasArrow: false,
+                    onClickItem: () => {
+                      animateTo({ duration: 200, curve: Curve.EaseOut }, () => {
+                        this.showPhoneNumber = !this.showPhoneNumber;
+                      });
+                    }
+                  })
                   SettingsItem({
                     title: '退出验证',
                     subtitle: '退出后将无法使用部分功能，需重新验证手机号码',
@@ -1847,6 +1897,8 @@ export struct SettingsPage {
         blurStyle: BlurStyle.BACKGROUND_THIN,
         enableOutsideInteractive: true,
       })
+      .dynamicHideTitleBar({ hideTitleArea:true, hideBottomBuilder: true, hideStatusBar: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 20 })
+
 
       // 握持快捷按钮
       if ((this.isLeftHand || this.isRightHand) && !this.isHandPopupDismissed) {

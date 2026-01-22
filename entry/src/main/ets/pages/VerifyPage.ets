@@ -26,6 +26,7 @@ struct PasswordDialog {
   build() {
     Column() {
       Text('请输入测试账号密码')
+        .fontColor($r('sys.color.font_primary'))
         .fontSize(18)
         .fontWeight(FontWeight.Bold)
         .margin({ bottom: 16 })
@@ -34,14 +35,14 @@ struct PasswordDialog {
         .type(InputType.Password)
         .height(48)
         .borderRadius(8)
-        .backgroundColor('#F5F5F5')
+        .fontColor($r('sys.color.font_primary'))
         .onChange((val) => this.password = val)
         .margin({ bottom: 24 })
       
       Row() {
         Button('取消')
           .onClick(() => this.controller.close())
-          .backgroundColor('#F5F5F5')
+          .backgroundColor($r('sys.color.comp_background_secondary'))
           .fontColor('#666666')
           .layoutWeight(1)
           .margin({ right: 12 })
@@ -57,7 +58,7 @@ struct PasswordDialog {
       .width('100%')
     }
     .padding(24)
-    .backgroundColor(Color.White)
+    .backgroundColor($r('sys.color.background_primary'))
     .borderRadius(16)
     .width(300)
   }
@@ -153,23 +154,23 @@ struct VerifyPage {
         // Header with Back Button
         Row() {
           Button({ type: ButtonType.Circle, stateEffect: true }) {
-            Image($r('app.media.back'))
-              .width(24)
-              .height(24)
-              .fillColor(Color.White)
+            SymbolGlyph($r('sys.symbol.chevron_left'))
+              .fontSize(30)
+              .fontColor([Color.White])
           }
           .width(40)
           .height(40)
-          .backgroundColor('#33FFFFFF')
+          .backgroundColor($r('sys.color.comp_background_secondary'))
           .onClick(() => {
             this.quitPage()
           })
           .margin({ right: 16 })
 
           Text('验证码验证')
-            .fontSize(24)
+            .fontSize(20)
             .fontWeight(FontWeight.Bold)
             .fontColor(Color.White)
+            .textAlign(TextAlign.Center)
         }
         .width('100%')
         .padding({ top: 48, left: 24, right: 24 })
@@ -177,7 +178,7 @@ struct VerifyPage {
 
         Column({ space: 20 }) {
           // 手机号输入
-          Text('请输入11位手机号')
+          Text('请输入 11 位手机号码')
             .fontSize(18)
             .fontColor(Color.White)
             .fontWeight(FontWeight.Bold)
@@ -187,9 +188,10 @@ struct VerifyPage {
           TextInput({ placeholder: '请输入手机号', text: this.phonenumber })
             .height(56)
             .fontSize(18)
-            .fontColor('#333333')
-            .backgroundColor(Color.White)
-            .borderRadius(16)
+            .backgroundColor($r('sys.color.background_tertiary'))
+            .placeholderColor($r('sys.color.font_tertiary'))
+            .fontColor($r('sys.color.font_primary'))
+            .borderRadius(28)
             .padding({ left: 20, right: 20 })
             .type(InputType.PhoneNumber)
             .maxLength(11)
@@ -199,12 +201,13 @@ struct VerifyPage {
 
           // 验证码输入行
           Row({ space: 12 }) {
-            TextInput({ placeholder: '验证码', text: this.verifyCode })
+            TextInput({ placeholder: '请输入验证码', text: this.verifyCode })
               .height(56)
               .fontSize(18)
-              .fontColor('#333333')
-              .backgroundColor(Color.White)
-              .borderRadius(16)
+              .backgroundColor($r('sys.color.background_tertiary'))
+              .placeholderColor($r('sys.color.font_tertiary'))
+              .fontColor($r('sys.color.font_primary'))
+              .borderRadius(28)
               .padding({ left: 20, right: 20 })
               .type(InputType.Number)
               .maxLength(6)
@@ -217,9 +220,9 @@ struct VerifyPage {
               .height(56)
               .fontSize(14)
               .fontWeight(FontWeight.Medium)
-              .fontColor(this.canSendCode() ? '#3c1464' : '#999999')
-              .backgroundColor(this.canSendCode() ? Color.White : '#CCCCCC')
-              .borderRadius(16)
+              .fontColor(this.canSendCode() ? $r('sys.color.font_primary') : $r('sys.color.font_on_secondary'))
+              .backgroundColor(this.canSendCode() ? $r('sys.color.background_tertiary') : $r('sys.color.comp_background_secondary'))
+              .borderRadius(28)
               .width(120)
               .enabled(this.canSendCode())
               .onClick(() => {
@@ -234,8 +237,8 @@ struct VerifyPage {
             .height(56)
             .fontSize(18)
             .fontWeight(FontWeight.Bold)
-            .fontColor('#3c1464')
-            .backgroundColor(Color.White)
+            .fontColor($r('sys.color.font_secondary'))
+            .backgroundColor($r('sys.color.background_primary'))
             .borderRadius(28)
             .onClick(() => {
               this.doVerify()
@@ -355,8 +358,13 @@ struct VerifyPage {
       // 本地验证验证码
       if (this.verifyCode === this.sentCode) {
         promptAction.showToast({ message: '验证成功' });
+        const context = getContext(this) as common.UIAbilityContext;
+        // 保存验证状态
         AppStorage.setOrCreate('isNumberVerified', true);
-        await OnboardingStorage.setNumberVerified(getContext(this) as common.UIAbilityContext, true);
+        await OnboardingStorage.setNumberVerified(context, true);
+        // 保存手机号
+        AppStorage.setOrCreate('verifiedPhone', this.phonenumber);
+        await OnboardingStorage.setVerifiedPhone(context, this.phonenumber);
         this.quitPage();
       } else {
         promptAction.showToast({ message: '验证码错误' });
@@ -372,8 +380,13 @@ struct VerifyPage {
   private verifyTestPassword(pwd: string): void {
     if (this.testAccount && pwd === this.testAccount.pass) {
       promptAction.showToast({ message: '测试账号验证成功' });
+      const context = getContext(this) as common.UIAbilityContext;
+      // 保存验证状态
       AppStorage.setOrCreate('isNumberVerified', true);
-      OnboardingStorage.setNumberVerified(getContext(this) as common.UIAbilityContext, true);
+      OnboardingStorage.setNumberVerified(context, true);
+      // 保存测试账号手机号
+      AppStorage.setOrCreate('verifiedPhone', this.testAccount.phone);
+      OnboardingStorage.setVerifiedPhone(context, this.testAccount.phone);
       this.quitPage();
     } else {
       promptAction.showToast({ message: '密码错误' });

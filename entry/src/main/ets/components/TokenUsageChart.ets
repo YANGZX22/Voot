@@ -267,7 +267,7 @@ export struct TokenUsageChart {
               message: '此数据仅在本地统计，用于估算您的使用量。\n不同模型对 Token 的计算方式可能略有差异，具体计费请以 API 提供商为准。',
               confirm: {
                 value: '我知道了',
-                fontColor: THEMES[this.themeColorIndex].primaryColor,
+                fontColor: $r('sys.color.font_primary'),
                 action: () => {}
               }
             })

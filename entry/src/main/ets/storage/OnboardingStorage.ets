@@ -35,6 +35,7 @@ export class OnboardingStorage {
   private static readonly KEY_COMPLETED: string = 'welcome_completed';
   private static readonly KEY_SETUP_COMPLETED: string = 'setup_completed';
   private static readonly KEY_NUMBER_VERIFIED: string = 'number_verified';
+  private static readonly KEY_VERIFIED_PHONE: string = 'verified_phone';
   private static readonly KEY_ACCEPTED_PRIVACY_VERSION: string = 'accepted_privacy_version';
   private static readonly KEY_ACCEPTED_TERMS_VERSION: string = 'accepted_terms_version';
   private static prefs?: preferences.Preferences;
@@ -97,6 +98,37 @@ export class OnboardingStorage {
   static async setNumberVerified(ctx: common.UIAbilityContext, verified: boolean): Promise<void> {
     const prefs = await OnboardingStorage.getPrefs(ctx);
     await prefs.put(OnboardingStorage.KEY_NUMBER_VERIFIED, verified);
+    await prefs.flush();
+  }
+
+  /**
+   * 获取已验证的手机号码
+   * @param ctx UI Ability Context
+   * @returns 已验证的手机号码，未验证时返回空字符串
+   */
+  static async getVerifiedPhone(ctx: common.UIAbilityContext): Promise<string> {
+    const prefs = await OnboardingStorage.getPrefs(ctx);
+    return (await prefs.get(OnboardingStorage.KEY_VERIFIED_PHONE, '')) as string;
+  }
+
+  /**
+   * 设置已验证的手机号码
+   * @param ctx UI Ability Context
+   * @param phone 手机号码（完整11位）
+   */
+  static async setVerifiedPhone(ctx: common.UIAbilityContext, phone: string): Promise<void> {
+    const prefs = await OnboardingStorage.getPrefs(ctx);
+    await prefs.put(OnboardingStorage.KEY_VERIFIED_PHONE, phone);
+    await prefs.flush();
+  }
+
+  /**
+   * 清除已验证的手机号码
+   * @param ctx UI Ability Context
+   */
+  static async clearVerifiedPhone(ctx: common.UIAbilityContext): Promise<void> {
+    const prefs = await OnboardingStorage.getPrefs(ctx);
+    await prefs.put(OnboardingStorage.KEY_VERIFIED_PHONE, '');
     await prefs.flush();
   }
 

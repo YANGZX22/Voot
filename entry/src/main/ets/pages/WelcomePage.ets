@@ -228,8 +228,9 @@ struct WelcomePage {
   @State gradientAngle: number = 0;
   private breathingTimer: number = -1;
   
-  // SDK Key from config file
+  // SDK Key and API config from config file
   private authSdkKey: string = '';
+  private getMobileApiUrl: string = '';
   
   private swiperController: SwiperController = new SwiperController();
 
@@ -287,6 +288,10 @@ struct WelcomePage {
       if (config['sdkKey']) {
         this.authSdkKey = config['sdkKey'];
         console.info('Loaded SDK key from config');
+      }
+      if (config['getMobileApiUrl']) {
+        this.getMobileApiUrl = config['getMobileApiUrl'];
+        console.info('Loaded getMobile API URL from config');
       }
     } catch (e) {
       console.error('Failed to load auth SDK config:', e);
@@ -1257,7 +1262,7 @@ struct WelcomePage {
       Text('配置 AI 模型引擎')
         .fontSize(24)
         .fontWeight(FontWeight.Bold)
-        .fontColor('#333333')
+        .fontColor($r('sys.color.font_primary'))
         .margin({ top: 24, bottom: 24 })
         .alignSelf(ItemAlign.Start)
 
@@ -1268,7 +1273,7 @@ struct WelcomePage {
             Row({ space: 6 }) {
               Text('选择服务商')
                 .fontSize(14)
-                .fontColor('#666666')
+                .fontColor($r('sys.color.font_secondary'))
                 .fontWeight(FontWeight.Medium)
               
               // 当在CN、HK或MO地区且选择OpenAI时显示警告图标
@@ -1409,13 +1414,13 @@ struct WelcomePage {
               Column({ space: 8 }) {
                 Text('API Key (密钥)')
                   .fontSize(14)
-                  .fontColor('#666666')
+                  .fontColor($r('sys.color.font_primary'))
                   .fontWeight(FontWeight.Medium)
                   .alignSelf(ItemAlign.Start)
                 
                 TextInput({ placeholder: '请输入 API Key', text: this.apiKey })
                   .height(48)
-                  .backgroundColor('#FFFFFF')
+                  .fontColor($r('sys.color.font_primary'))
                   .borderRadius(12)
                   .padding({ left: 16, right: 16 })
                   .onChange((value: string) => {
@@ -1430,16 +1435,16 @@ struct WelcomePage {
               Column({ space: 8 }) {
                 Text('Model (模型)')
                   .fontSize(14)
-                  .fontColor('#666666')
+                  .fontColor($r('sys.color.font_primary'))
                   .fontWeight(FontWeight.Medium)
                   .alignSelf(ItemAlign.Start)
                 
                 TextInput({ 
                   placeholder: PROVIDERS[this.selectedProvider].modelPlaceholder, 
-                  text: this.model 
+                  text: this.model
                 })
                   .height(48)
-                  .backgroundColor('#FFFFFF')
+                  .fontColor($r('sys.color.font_primary'))
                   .borderRadius(12)
                   .padding({ left: 16, right: 16 })
                   .onChange((value: string) => {
@@ -1454,7 +1459,7 @@ struct WelcomePage {
               Row() {
                 Text('API URL (接口地址)')
                   .fontSize(14)
-                  .fontColor('#666666')
+                  .fontColor($r('sys.color.font_primary'))
                   .fontWeight(FontWeight.Medium)
                 
                 Blank()
@@ -1474,7 +1479,7 @@ struct WelcomePage {
                 text: this.apiUrl 
               })
                 .height(48)
-                .backgroundColor('#FFFFFF')
+                .fontColor($r('sys.color.font_primary'))
                 .borderRadius(12)
                 .padding({ left: 16, right: 16 })
                 .onChange((value: string) => {
@@ -1515,7 +1520,7 @@ struct WelcomePage {
       Text('什么是 API 密钥？')
         .fontSize(24)
         .fontWeight(FontWeight.Bold)
-        .fontColor('#333333')
+        .fontColor($r('sys.color.font_primary'))
         .margin({ top: 24, bottom: 24 })
         .alignSelf(ItemAlign.Start)
 
@@ -1561,7 +1566,7 @@ struct WelcomePage {
           }
           .width('100%')
           .padding(16)
-          .backgroundColor('#1A3c1464')
+          .backgroundColor($r('sys.color.comp_background_primary_contrary_secondary'))
           .borderRadius(16)
           .margin({ top: 8 })
         }
@@ -1595,12 +1600,12 @@ struct WelcomePage {
           Text(title)
             .fontSize(16)
             .fontWeight(FontWeight.Bold)
-            .fontColor('#333333')
+            .fontColor($r('sys.color.font_primary'))
             .margin({ bottom: 4 })
           
           Text(desc)
             .fontSize(14)
-            .fontColor('#666666')
+            .fontColor($r('sys.color.font_secondary'))
             .lineHeight(22)
         }
         .layoutWeight(1)
@@ -1610,7 +1615,7 @@ struct WelcomePage {
     }
     .width('100%')
     .padding(20)
-    .backgroundColor(Color.White)
+    .backgroundColor($r('sys.color.comp_background_secondary'))
     .borderRadius(20)
     .shadow({ radius: 20, color: '#0D000000', offsetY: 4 })
     .transition(TransitionEffect.OPACITY.animation({ duration: 600, delay: delay })
@@ -1725,10 +1730,8 @@ struct WelcomePage {
         const token = result['_token'] + ''
         if (code == "600000") {
           this.page.quitLoginPage()
-          promptAction.showToast({ message: '验证成功' });
-          AppStorage.setOrCreate('isNumberVerified', true);
-          OnboardingStorage.setNumberVerified(getContext(this.page) as common.UIAbilityContext, true);
-          this.page.swiperController.showNext();
+          // 调用服务端 API 获取真实手机号
+          this.page.getMobileFromServer(token);
         }
       }
 
@@ -1779,7 +1782,7 @@ struct WelcomePage {
     // 协议栏样式
     uiConfig.privacySpanBeforeFontColor = $r('sys.color.font_on_primary')
     uiConfig.privacySpanBeforeText = "阿里云提供认证服务，验证即代表同意"
-    uiConfig.privacySpanEndText = '。验证仅本次有效，手机号码不会提供给应用。'
+    uiConfig.privacySpanEndText = '。同时手机号码会提供给应用，验证仅本次有效。'
     uiConfig.privacyFontColor = $r('sys.color.font_emphasize')
     uiConfig.privacySpanEndFontColor = $r('sys.color.font_on_primary')
     uiConfig.privacyCbTipText = '请阅读并勾选协议'
@@ -1830,6 +1833,98 @@ struct WelcomePage {
       const appIdentifier = bundleInfo.signatureInfo.appIdentifier
       console.log("numberauth:appid:" + appIdentifier)
     })
+  }
+
+  /**
+   * 调用服务端 API 获取真实手机号码
+   * 服务端需要调用阿里云 GetMobile API 并返回手机号
+   * @param accessToken 客户端 SDK 获取的登录 Token
+   */
+  public async getMobileFromServer(accessToken: string) {
+    if (!this.getMobileApiUrl) {
+      console.error('GetMobile API URL not configured');
+      promptAction.showToast({ message: '服务端配置缺失' });
+      return;
+    }
+
+    const httpRequest = http.createHttp();
+    try {
+      const response = await httpRequest.request(this.getMobileApiUrl, {
+        method: http.RequestMethod.POST,
+        header: {
+          'Content-Type': 'application/json'
+        },
+        extraData: JSON.stringify({
+          accessToken: accessToken
+        }),
+        connectTimeout: 10000,
+        readTimeout: 10000
+      });
+
+      if (response.responseCode === 200) {
+        const result = JSON.parse(response.result as string) as Record<string, Object>;
+        
+        // 检查返回码
+        if (result['Code'] === 'OK' || result['code'] === 'OK' || result['code'] === 0) {
+          // 尝试从不同的响应格式获取手机号
+          let mobile: string = '';
+          
+          // 阿里云标准格式: GetMobileResultDTO.Mobile
+          if (result['GetMobileResultDTO']) {
+            const dto = result['GetMobileResultDTO'] as Record<string, string>;
+            mobile = dto['Mobile'] || '';
+          }
+          // 简化格式: mobile 或 phone
+          if (!mobile && result['mobile']) {
+            mobile = result['mobile'] as string;
+          }
+          if (!mobile && result['phone']) {
+            mobile = result['phone'] as string;
+          }
+          
+          if (mobile && mobile.length >= 11) {
+            // 验证成功，保存手机号
+            const context = getContext(this) as common.UIAbilityContext;
+            AppStorage.setOrCreate('isNumberVerified', true);
+            AppStorage.setOrCreate('verifiedPhone', mobile);
+            await OnboardingStorage.setNumberVerified(context, true);
+            await OnboardingStorage.setVerifiedPhone(context, mobile);
+            
+            // 显示脱敏手机号
+            const maskedPhone = this.maskPhoneNumber(mobile);
+            promptAction.showToast({ message: `验证成功：${maskedPhone}` });
+            this.swiperController.showNext();
+          } else {
+            console.error('GetMobile: Mobile number not found in response');
+            promptAction.showToast({ message: '获取手机号失败' });
+          }
+        } else {
+          const message = (result['Message'] || result['message'] || '取号失败') as string;
+          console.error('GetMobile failed:', message);
+          promptAction.showToast({ message: message });
+        }
+      } else {
+        console.error('GetMobile HTTP error:', response.responseCode);
+        promptAction.showToast({ message: '网络请求失败' });
+      }
+    } catch (e) {
+      console.error('GetMobile error:', e);
+      promptAction.showToast({ message: '获取手机号失败' });
+    } finally {
+      httpRequest.destroy();
+    }
+  }
+
+  /**
+   * 手机号脱敏处理：+86 138****1234
+   */
+  private maskPhoneNumber(phone: string): string {
+    if (phone.length >= 11) {
+      const prefix = phone.substring(0, 3);
+      const suffix = phone.substring(phone.length - 4);
+      return `+86 ${prefix}****${suffix}`;
+    }
+    return phone;
   }
 
   private quitLoginPage() {

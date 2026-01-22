@@ -1435,6 +1435,7 @@ export struct ScanPage {
         .backgroundColor(Color.Transparent)
         .titleMode(HdsNavigationTitleMode.MINI)
         .hideBackButton(true)
+        .accessibilityScrollTriggerable(false)
         .titleBar({
           style: {
             scrollEffectStyle: {
