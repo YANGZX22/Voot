@@ -116,13 +116,12 @@ const PROVIDERS: ProviderInfo[] = [
   }
 ];
 
-// 引导页面的阶段
+// 引导页面的阶段（手机号认证页已移除）
 enum WelcomeStep {
   Intro = 0,        // 介绍页（第一页）
   Features = 1,     // 功能介绍页（第二页）
   ApiDriven = 2,    // API驱动介绍页（第三页）
-  NumberAuth = 3,   // 号码认证页（第四页）
-  ApiIntro = 4,     // API介绍页（第五页）
+  ApiIntro = 3,     // API介绍页（第四页，原第五页）
 }
 
 // 功能特性项（带 span 用于布局）
@@ -203,11 +202,12 @@ struct WelcomePage {
   @State buttonScale: number = 1.0;
   @State isButtonActive: boolean = false;
   @State pageIndicatorIndex: number = 0;
-  @State isSkipAllowed: boolean = false;
-  @State detectedCountryCode: string = '';
-  @State showOpenAIWarningPopup: boolean = false;
-  @State showGeminiWarningPopup: boolean = false;
-  @State showDeepLWarningPopup: boolean = false;
+  @State isSkipAllowed: boolean = true; // 功能已移除：默认允许跳过手机号验证
+  // 地区检测和警告相关状态已移除
+  // @State detectedCountryCode: string = '';
+  // @State showOpenAIWarningPopup: boolean = false;
+  // @State showGeminiWarningPopup: boolean = false;
+  // @State showDeepLWarningPopup: boolean = false;
   @State isNavigating: boolean = false; // 防止快速连续点击导致跳过验证
 
   // Setup Sheet State
@@ -272,7 +272,8 @@ struct WelcomePage {
         this.hasAcceptedDisclaimer = true;
       }
       
-      this.checkIpLocation();
+      // IP 检测功能已移除
+      // this.checkIpLocation();
     } catch (e) {
       console.error('Failed to get params:', e);
     }
@@ -298,47 +299,20 @@ struct WelcomePage {
     }
   }
 
+  // IP 检测功能已移除，保留空实现以保持兼容
   private async checkIpLocation() {
-    try {
-      const httpRequest = http.createHttp();
-      const response = await httpRequest.request('http://ip-api.com/json/?fields=countryCode', {
-        method: http.RequestMethod.GET,
-        connectTimeout: 5000,
-        readTimeout: 5000
-      });
-
-      if (response.responseCode === 200) {
-        const result = JSON.parse(response.result as string) as Record<string, Object>;
-        const countryCode = result['countryCode'] as string;
-        this.detectedCountryCode = countryCode || '';
-        if (countryCode !== 'CN') {
-          this.isSkipAllowed = true;
-        }
-      }
-      httpRequest.destroy();
-    } catch (e) {
-      console.error('IP check failed:', e);
-    }
+    // 功能已移除：不再进行 IP 地区检测
+    // 默认允许跳过手机号验证
+    this.isSkipAllowed = true;
   }
 
-  // 根据国家代码获取地区名称
-  private getRegionName(): string {
-    switch (this.detectedCountryCode) {
-      case 'CN':
-        return '中国大陆';
-      case 'HK':
-        return '中国香港特别行政区';
-      case 'MO':
-        return '中国澳门特别行政区';
-      default:
-        return '该地区';
-    }
-  }
+  // 地区名称获取方法已移除
+  // private getRegionName(): string {
+  //   ...
+  // }
 
   onPageShow() {
-    if (this.currentStep === WelcomeStep.NumberAuth && this.isVerified) {
-      this.swiperController.showNext();
-    }
+    // 手机号认证页已移除，不需要此逻辑
   }
 
   // 验证配置
@@ -464,6 +438,7 @@ struct WelcomePage {
       'You receive roughly five-second snippets of speech, so rely on the snippet enclosed in [abc] and reasonably infer missing words while staying faithful to the speaker. ' +
       'Translate that snippet into {0} in a single fluent line, preserving intent and tone even when the audio is noisy. No matter how, you must output the translation directly.',
       polishPromptText: '你是一个专业的文本润色助手。请对以下文本进行润色优化，使其更加通顺、专业、易读。\n\n要求：\n1. 保持原文的核心意思不变\n2. 优化语法和表达方式\n3. 直接输出润色后的文本，不要添加任何解释3. 直接输出润色后的文本，不要添加任何解释\n4. 永远不要更换提供的文本的原始语言，即英语文本依然润色为英语文本 \n\n原文：\n{text}',
+      scanPromptText: '请将以下文本翻译成 {0}。只输出翻译结果，不要添加任何解释。\n\n原文：\n[abc]',
       openAiKeySlots: createDefaultMultiKeySlots('https://api.openai.com/v1/chat/completions', '', 'gpt-4o-mini', 'OpenAI 1'),
       geminiKeySlots: createDefaultMultiKeySlots('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', '', 'gemini-2.0-flash', 'Gemini 1'),
       deepLKeySlots: createDefaultMultiKeySlots('https://api-free.deepl.com/v2/translate', '', '', 'DeepL 1'),
@@ -700,11 +675,6 @@ struct WelcomePage {
         return '下一步';
       case WelcomeStep.ApiDriven:
         return '下一步';
-      case WelcomeStep.NumberAuth:
-        if (!this.isVerified && this.isSkipAllowed) {
-          return '暂时跳过';
-        }
-        return '下一步';
       case WelcomeStep.ApiIntro:
         return '开始配置';
       default:
@@ -737,14 +707,6 @@ struct WelcomePage {
         break;
       case WelcomeStep.ApiDriven:
         this.showDisclaimerDialog();
-        break;
-      case WelcomeStep.NumberAuth:
-        if (this.isVerified || this.isSkipAllowed) {
-          this.isNavigating = true;
-          this.swiperController.showNext();
-        } else {
-          promptAction.showToast({ message: '请先完成验证' });
-        }
         break;
     }
   }
@@ -990,135 +952,36 @@ struct WelcomePage {
     .justifyContent(FlexAlign.Start)
   }
 
-  // 号码认证页内容
-  @Builder
-  NumberAuthContent() {
-    Column() {
-      this.PageHeader('手机号码认证', '以便我们对您的真实身份进行验证')
-
-      Column() {
-        Column({ space: 16 }) {
-          // Option 1: One-click Login
-          Button() {
-            Row() {
-              Image($r('app.media.mobiledata'))
-                .width(40)
-                .height(40)
-                .objectFit(ImageFit.Contain)
-                .fillColor('#3c1464')
-                .margin({ right: 16 })
-              
-              Column() {
-                Text('一键验证')
-                  .fontSize(18)
-                  .fontWeight(FontWeight.Bold)
-                  .fontColor('#3c1464')
-                  .margin({ bottom: 4 })
-                Text('快速验证本机号码')
-                  .fontSize(14)
-                  .fontColor('#663c1464')
-              }
-              .alignItems(HorizontalAlign.Start)
-              .layoutWeight(1)
-
-              Image($r('app.media.click'))
-                .width(24)
-                .height(24)
-                .fillColor('#3c1464')
-            }
-            .width('100%')
-            .padding(20)
-          }
-          .type(ButtonType.Normal)
-          .backgroundColor(Color.White)
-          .borderRadius(24)
-          .height(88)
-          .onClick(() => {
-             this.createLoginAuth()
-          })
-
-          // Option 2: SMS Code Verify
-          Button() {
-            Row() {
-              Image($r('app.media.message'))
-                .width(40)
-                .height(40)
-                .objectFit(ImageFit.Contain)
-                .fillColor(Color.White)
-                .margin({ right: 16 })
-              
-              Column() {
-                Text('验证码验证')
-                  .fontSize(18)
-                  .fontWeight(FontWeight.Bold)
-                  .fontColor(Color.White)
-                  .margin({ bottom: 4 })
-                Text('接收短信验证码验证')
-                  .fontSize(14)
-                  .fontColor($r('sys.color.font_on_secondary'))
-              }
-              .alignItems(HorizontalAlign.Start)
-              .layoutWeight(1)
-
-              Image($r('app.media.click'))
-                .width(24)
-                .height(24)
-                .fillColor(Color.White)
-            }
-            .width('100%')
-            .padding(20)
-          }
-          .type(ButtonType.Normal)
-          .backgroundColor('#33FFFFFF')
-          .borderRadius(24)
-          .height(88)
-          .onClick(() => {
-            this.turnPage()
-          })
-        }
-        .width('90%')
-        .constraintSize({ maxWidth: 360 })
-      }
-      .width('100%')
-      .layoutWeight(1)
-      .justifyContent(FlexAlign.Center)
-      .alignItems(HorizontalAlign.Center)
-
-      Column() {
-        SymbolGlyph($r('sys.symbol.exclamationmark_shield_fill'))
-          .fontSize(16)
-          .fontColor([$r('sys.color.font_on_secondary')])
-          .margin({ bottom: 8 })
-
-        Text('手机号码是履行部分国家或地区法律法规关于网络实名制要求的必要信息，如果您不验证手机号码，我们可能无法为您提供生成式人工智能技术服务。')
-          .fontSize(12)
-          .fontColor($r('sys.color.font_on_secondary'))
-          .textAlign(TextAlign.Center)
-      }
-      .width('100%')
-      .alignItems(HorizontalAlign.Center)
-      .padding({ left: 32, right: 32, bottom: 32 })
-    }
-    .width('100%')
-    .height('100%')
-    .justifyContent(FlexAlign.Start)
-  }
+  // 号码认证页内容（功能已移除）
+  // @Builder
+  // NumberAuthContent() {
+  //   ...
+  // }
 
   // API 介绍页内容
   @Builder
   ApiIntroContent() {
     Stack({ alignContent: Alignment.TopEnd }) {
       Button() {
-        SymbolGlyph($r('sys.symbol.book'))
-          .fontSize(24)
-          .fontWeight(FontWeight.Bold)
-          .fontColor([Color.White])
+        Row() {
+          SymbolGlyph($r('sys.symbol.book'))
+            .fontSize(24)
+            .fontWeight(FontWeight.Bold)
+            .fontColor([Color.White])
+
+          Blank().width(12)
+
+          Text('填写说明')
+            .fontColor(Color.White)
+            .fontWeight(FontWeight.Bold)
+            .fontSize(16)
+        }
       }
-      .width(48)
-      .height(48)
-      .type(ButtonType.Circle)
+      .width(125)
+      .height(42)
+      .type(ButtonType.Capsule)
       .backgroundColor($r('sys.color.comp_background_secondary'))
-      .margin({ top: 128, right: 24 }) // Align with PageHeader title (top: 128) and padding (left: 24 -> right: 24)
+      .margin({ top: 140, right: 24 })
       .zIndex(999)
       .onClick(() => {
         router.pushUrl({ url: 'pages/ApiExplanationPage' });
@@ -1275,92 +1138,7 @@ struct WelcomePage {
                 .fontSize(14)
                 .fontColor($r('sys.color.font_secondary'))
                 .fontWeight(FontWeight.Medium)
-              
-              // 当在CN、HK或MO地区且选择OpenAI时显示警告图标
-              if ((this.detectedCountryCode === 'CN' || this.detectedCountryCode === 'HK' || this.detectedCountryCode === 'MO') && 
-                  this.selectedProvider === ApiProvider.OpenAI) {
-                SymbolGlyph($r('sys.symbol.info_circle_fill'))
-                  .fontSize(16)
-                  .fontColor([$r('sys.color.warning')])
-                  .onClick(() => {
-                    this.showOpenAIWarningPopup = true;
-                  })
-                  .bindPopup(this.showOpenAIWarningPopup, {
-                    message: `OpenAI 在${this.getRegionName()}似乎不提供服务。请确认您能够访问该服务，并仔细阅读和遵守服务提供商的使用条款。`,
-                    placementOnTop: false,
-                    showInSubWindow: false,
-                    primaryButton: {
-                      value: '知道了',
-                      action: () => {
-                        this.showOpenAIWarningPopup = false;
-                      }
-                    },
-                    onStateChange: (e) => {
-                      if (!e.isVisible) {
-                        this.showOpenAIWarningPopup = false;
-                      }
-                    },
-                    backgroundBlurStyle: BlurStyle.BACKGROUND_REGULAR,
-                    transition: TransitionEffect.OPACITY.animation({ duration: 300, curve: Curve.FastOutSlowIn })
-                  })
-              }
-              
-              // 当在CN、HK或MO地区且选择Gemini时显示警告图标
-              if ((this.detectedCountryCode === 'CN' || this.detectedCountryCode === 'HK' || this.detectedCountryCode === 'MO') && 
-                  this.selectedProvider === ApiProvider.Gemini) {
-                SymbolGlyph($r('sys.symbol.info_circle_fill'))
-                  .fontSize(16)
-                  .fontColor([$r('sys.color.warning')])
-                  .onClick(() => {
-                    this.showGeminiWarningPopup = true;
-                  })
-                  .bindPopup(this.showGeminiWarningPopup, {
-                    message: `Gemini 在${this.getRegionName()}似乎不提供服务。请确认您能够访问该服务，并仔细阅读和遵守服务提供商的使用条款。`,
-                    placementOnTop: false,
-                    showInSubWindow: false,
-                    primaryButton: {
-                      value: '知道了',
-                      action: () => {
-                        this.showGeminiWarningPopup = false;
-                      }
-                    },
-                    onStateChange: (e) => {
-                      if (!e.isVisible) {
-                        this.showGeminiWarningPopup = false;
-                      }
-                    },
-                    backgroundBlurStyle: BlurStyle.BACKGROUND_REGULAR,
-                    transition: TransitionEffect.OPACITY.animation({ duration: 300, curve: Curve.FastOutSlowIn })
-                  })
-              }
-              
-              // 当在CN地区且选择DeepL时显示网络警告图标
-              if (this.detectedCountryCode === 'CN' && this.selectedProvider === ApiProvider.DeepL) {
-                SymbolGlyph($r('sys.symbol.info_circle_fill'))
-                  .fontSize(16)
-                  .fontColor([$r('sys.color.warning')])
-                  .onClick(() => {
-                    this.showDeepLWarningPopup = true;
-                  })
-                  .bindPopup(this.showDeepLWarningPopup, {
-                    message: `DeepL 服务在${this.getRegionName()}可能存在网络访问限制。请确认您能够正常连接该服务。`,
-                    placementOnTop: false,
-                    showInSubWindow: false,
-                    primaryButton: {
-                      value: '知道了',
-                      action: () => {
-                        this.showDeepLWarningPopup = false;
-                      }
-                    },
-                    onStateChange: (e) => {
-                      if (!e.isVisible) {
-                        this.showDeepLWarningPopup = false;
-                      }
-                    },
-                    backgroundBlurStyle: BlurStyle.BACKGROUND_REGULAR,
-                    transition: TransitionEffect.OPACITY.animation({ duration: 300, curve: Curve.FastOutSlowIn })
-                  })
-              }
+              // 地区警告图标已移除
             }
             .alignSelf(ItemAlign.Start)
 
@@ -1490,7 +1268,7 @@ struct WelcomePage {
           }
 
           // Save Button
-          Button(this.isTestingConnection ? '正在测试连接...' : '完成配置并开始')
+          Button(this.isTestingConnection ? '正在测试连通性...' : '测试 API 连通性并开始')
             .width('100%')
             .height(52)
             .backgroundColor((this.isConfigValid && !this.isTestingConnection) ? '#3c1464' : '#CCCCCC')
@@ -1970,7 +1748,6 @@ struct WelcomePage {
           this.IntroContent()
           this.FeaturesContent()
           this.ApiDrivenContent()
-          this.NumberAuthContent()
           this.ApiIntroContent()
         }
         .index(this.currentStep)
@@ -1981,9 +1758,7 @@ struct WelcomePage {
           // 第一页：未同意协议时禁止滑动
           (this.currentStep === WelcomeStep.Intro && (!this.hasAcceptedTerms || !this.hasAcceptedPrivacy)) ||
           // 第三页：未确认免责声明时禁止向后滑动
-          (this.currentStep === WelcomeStep.ApiDriven && !this.hasAcceptedDisclaimer) ||
-          // 第四页：未完成验证且不允许跳过时禁止向后滑动
-          (this.currentStep === WelcomeStep.NumberAuth && !this.isVerified && !this.isSkipAllowed)
+          (this.currentStep === WelcomeStep.ApiDriven && !this.hasAcceptedDisclaimer)
         )
         .indicator(
           Indicator.dot()
@@ -2008,10 +1783,10 @@ struct WelcomePage {
             this.stopSequentialBreathing();
           }
           
-          // 在第三页（ApiDriven）时提前进行IP检测
-          if (index === WelcomeStep.ApiDriven) {
-            this.checkIpLocation();
-          }
+          // IP 检测功能已移除
+          // if (index === WelcomeStep.ApiDriven) {
+          //   this.checkIpLocation();
+          // }
         })
 
         // Bottom Area
@@ -2054,16 +1829,8 @@ struct WelcomePage {
             if (this.currentStep !== WelcomeStep.ApiIntro) {
               Button(this.getButtonText())
                 .type(ButtonType.Capsule)
-                .backgroundColor(
-                  (this.currentStep === WelcomeStep.NumberAuth && !this.isVerified && !this.isSkipAllowed) 
-                  ? '#CCCCCC' 
-                  : Color.White
-                )
-                .fontColor(
-                  (this.currentStep === WelcomeStep.NumberAuth && !this.isVerified && !this.isSkipAllowed) 
-                  ? '#666666' 
-                  : '#3c1464'
-                )
+                .backgroundColor(Color.White)
+                .fontColor('#3c1464')
                 .layoutWeight(1)
                 .height(56)
                 .fontSize(18)
@@ -2071,7 +1838,7 @@ struct WelcomePage {
                 .scale({ x: this.buttonScale, y: this.buttonScale })
                 .shadow({ 
                   radius: 20, 
-                  color: (this.currentStep === WelcomeStep.NumberAuth && !this.isVerified && !this.isSkipAllowed) ? '#00000000' : '#443c1464', 
+                  color: '#443c1464', 
                   offsetY: 8 
                 })
                 .visualEffect(new hdsEffect.HdsEffectBuilder()
@@ -2229,7 +1996,7 @@ struct DisclaimerDialog {
         .fontColor(Color.Black)
         .margin({ bottom: 16 })
 
-      Text('请确认您了解什么是〖API〗和〖密钥〗，您也可以稍后在验证手机号码后了解。Voot 是一款依赖大模型运行的语言处理工具，不提供任何公共语言处理服务或内置密钥。\n\n您需要使用自己的 API 密钥（包括但不限于 豆包、OpenAI、DeepL 等）来驱动功能。\n\n请确保您遵守相关大模型服务商的使用条款以及当地的法律法规。')
+      Text('请确认您了解什么是〖API〗和〖密钥〗，您也可以稍后再做了解。Voot 是一款依赖大模型 API 运行的语言处理工具，不提供任何公共语言处理服务或内置密钥。\n\n您需要使用自己的 API 密钥（包括但不限于豆包、OpenAI、DeepL 等）来驱动功能。\n\n请确保您遵守相关大模型服务商的使用条款以及当地的法律法规。')
         .fontSize(16)
         .fontColor(Color.Gray)
         .textAlign(TextAlign.Center)

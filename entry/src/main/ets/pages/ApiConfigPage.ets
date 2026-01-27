@@ -25,6 +25,7 @@ interface NavMenuItem {
 export enum ApiMenuType {
   Prompt = 0,
   PolishPrompt,
+  ScanPrompt,
   Glossary,
   OpenAI,
   Gemini,
@@ -414,6 +415,7 @@ export struct ApiConfigPage {
   @Prop selectedMenu: ApiMenuType = ApiMenuType.Prompt;
   @Prop promptText: string = "";
   @Prop polishPromptText: string = ""; // 润色提示词
+  @Prop scanPromptText: string = ""; // 扫描提示词
   // 多密钥槽位
   @Prop openAiKeySlots: MultiKeySlots = { slots: [], currentSlotIndex: 0 };
   @Prop geminiKeySlots: MultiKeySlots = { slots: [], currentSlotIndex: 0 };
@@ -462,6 +464,7 @@ export struct ApiConfigPage {
   onSelectMenu: (menu: ApiMenuType) => void = () => {};
   onUpdatePrompt: (value: string) => void = () => {};
   onUpdatePolishPrompt: (value: string) => void = () => {}; // 润色提示词更新回调
+  onUpdateScanPrompt: (value: string) => void = () => {}; // 扫描提示词更新回调
   // 槽位切换回调
   onSwitchOpenAiSlot: (index: number) => void = () => {};
   onSwitchGeminiSlot: (index: number) => void = () => {};
@@ -516,10 +519,10 @@ export struct ApiConfigPage {
     const itemHeight = 52; // 每个按钮高度 44 + margin 8
     const groupGap = 40; // 第二组分组标题高度
     
-    if (menu < 3) {
+    if (menu < 4) {
       return baseOffset + menu * itemHeight;
     } else {
-      return baseOffset + 3 * itemHeight + groupGap + (menu - 3) * itemHeight;
+      return baseOffset + 4 * itemHeight + groupGap + (menu - 4) * itemHeight;
     }
   }
   
@@ -1385,6 +1388,21 @@ export struct ApiConfigPage {
                 onClickAction: () => { this.animateIndicator(ApiMenuType.PolishPrompt); this.onSelectMenu(ApiMenuType.PolishPrompt); }
               });
 
+              // Menu Item: Scan Prompt (扫描提示词)
+              MenuButton({
+                label: '扫描提示词',
+                iconName: 'scan',
+                menuType: ApiMenuType.ScanPrompt,
+                isSelected: this.selectedMenu === ApiMenuType.ScanPrompt,
+                isLightEffectBright: this.isLightEffectBright,
+                isDarkMode: this.isDarkMode,
+                isSource: this.activeMenuId === ApiMenuType.ScanPrompt,
+                isIlluminated: this.activeMenuId !== -1,
+                onTouchStart: () => { animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => { this.activeMenuId = ApiMenuType.ScanPrompt; }) },
+                onTouchEnd: () => { animateTo({ duration: 200, curve: Curve.EaseOut }, () => { this.activeMenuId = -1; }) },
+                onClickAction: () => { this.animateIndicator(ApiMenuType.ScanPrompt); this.onSelectMenu(ApiMenuType.ScanPrompt); }
+              });
+
               // Menu Item: Glossary
               MenuButton({
                 label: '术语库',
@@ -1918,6 +1936,9 @@ export struct ApiConfigPage {
             } else if (this.selectedMenu === ApiMenuType.PolishPrompt) {
               // 润色提示词配置
               this.RenderPolishPromptConfig();
+            } else if (this.selectedMenu === ApiMenuType.ScanPrompt) {
+              // 扫描提示词配置
+              this.RenderScanPromptConfig();
             } else {
               if (this.selectedMenu === ApiMenuType.OpenAI) {
                 this.RenderProviderHeader('OpenAI', this.getCurrentSlotAlias(), $r('app.media.OpenAI'));
@@ -2344,6 +2365,42 @@ export struct ApiConfigPage {
         .maxLines(20)
         .textAlign(TextAlign.Start)
         .onChange((value: string) => this.onUpdatePolishPrompt(value))
+        .placeholderColor($r('sys.color.font_on_secondary'));
+    }
+    .width('100%')
+    .padding(12)
+    .borderRadius(12)
+  }
+
+  @Builder
+  RenderScanPromptConfig() {
+    Column() {
+      Image($r('app.media.scan'))
+        .width(48)
+        .height(48)
+        .margin({ bottom: 8 })
+        .fillColor(Color.White)
+      Text('扫描提示词')
+        .fontSize(20)
+        .fontWeight(FontWeight.Bold)
+        .margin({ bottom: 12 })
+        .fontColor(Color.White);
+      
+      Text('请确保提示词包含 {0} 与 [abc]。{0} 代表目标语言，[abc] 代表待翻译的文本。')
+        .fontSize(14)
+        .backgroundColor(Color.Transparent)
+        .fontColor($r('sys.color.font_on_secondary'))
+        .margin({ bottom: 12 });
+
+      TextArea({ text: this.scanPromptText,
+        placeholder: '请将以下文本翻译成 {0}。只输出翻译结果，不要添加任何解释。\n\n原文：\n[abc]'
+      })
+        .fontColor(Color.White)
+        .width('100%')
+        .height(this.getConfigTextAreaHeight(12))
+        .maxLines(20)
+        .textAlign(TextAlign.Start)
+        .onChange((value: string) => this.onUpdateScanPrompt(value))
         .placeholderColor($r('sys.color.font_on_secondary'));
     }
     .width('100%')

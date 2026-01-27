@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @fileoverview This file contains code related to AI content generation.
  * @compliance EU AI Act, US EO 14110, China Interim Measures for Generative AI Services
  * @metadata {
@@ -278,9 +278,9 @@ struct Index {
   // Configuration main-page state
   @State apiOptions: string[] = ['OpenAI', 'Gemini', 'DeepL', 'Ollama', 'Doubao', 'Huawei'];
 
-  // 验证弹窗
+  // 验证弹窗（功能已移除）
   @State showVerificationDialog: boolean = false;
-  @State isCheckingVerification: boolean = true; // 启动时默认为检查中
+  @State isCheckingVerification: boolean = false; // 功能已移除，不再检查
   verificationDialogController: CustomDialogController | null = null;
 
   // Continuity
@@ -406,6 +406,10 @@ struct Index {
     '你是一个专业的文本润色助手。请对以下文本进行润色优化，使其更加通顺、专业、易读。\n\n' +
     '要求：\n1. 保持原文的核心意思不变\n2. 优化语法和表达方式\n3. 直接输出润色后的文本，不要添加任何解释\n4. 永远不要更换提供的文本的原始语言，即英语文本依然润色为英语文本 \n\n' +
     '原文：\n{text}';
+
+  // Scan Prompt template (用于扫描翻译)
+  @State scanPromptText: string =
+    '请将以下文本翻译成 {0}。只输出翻译结果，不要添加任何解释。\n\n原文：\n[abc]';
 
   // Subtitle Style Config
   @State subtitleFontSize: number = 20;
@@ -1214,74 +1218,13 @@ struct Index {
     );
   }
 
+  // 手机号验证和 IP 检测功能已移除，此方法保留为空实现以保持兼容
   private async checkVerificationAndIp() {
-    console.info('[VerificationCheck] Starting verification and IP check...');
-    this.isCheckingVerification = true;
-    try {
-      const context = getContext(this) as common.UIAbilityContext;
-      const isVerified = await OnboardingStorage.isNumberVerified(context);
-      console.info('[VerificationCheck] isVerified:', isVerified);
-      
-      if (!isVerified) {
-        // 未验证，检查 IP
-        console.info('[VerificationCheck] Not verified, checking IP...');
-        
-        // 尝试多个 IP 查询服务
-        const ipServices: string[] = [
-          'http://ip-api.com/json/?fields=countryCode'
-        ];
-        
-        let countryCode: string = '';
-        
-        for (const serviceUrl of ipServices) {
-          try {
-            console.info('[VerificationCheck] Trying IP service:', serviceUrl);
-            const httpRequest = http.createHttp();
-            const response = await httpRequest.request(serviceUrl, {
-              method: http.RequestMethod.GET,
-              connectTimeout: 3000,
-              readTimeout: 3000
-            });
-
-            console.info('[VerificationCheck] IP API response code:', response.responseCode);
-            
-            if (response.responseCode === 200) {
-              const result = JSON.parse(response.result as string) as Record<string, Object>;
-              // ip-api.com 使用 countryCode，ipwho.is 使用 country_code
-              countryCode = (result['countryCode'] || result['country_code'] || '') as string;
-              console.info('[VerificationCheck] Country code:', countryCode);
-              httpRequest.destroy();
-              break; // 成功获取，退出循环
-            }
-            httpRequest.destroy();
-          } catch (serviceErr) {
-            console.warn('[VerificationCheck] Service failed:', serviceUrl, JSON.stringify(serviceErr));
-            // 继续尝试下一个服务
-          }
-        }
-        
-        if (countryCode === 'CN') {
-          console.info('[VerificationCheck] Detected CN, showing dialog...');
-          // 在中国大陆且未验证，设置状态触发弹窗
-          this.showVerificationDialog = true;
-        } else if (countryCode) {
-          console.info('[VerificationCheck] Not in CN, skipping verification requirement');
-          this.isCheckingVerification = false;
-        } else {
-          // 无法确定国家（网络不可用等情况），保守处理：显示验证弹窗
-          console.warn('[VerificationCheck] Could not determine country, showing verification dialog as fallback');
-          this.showVerificationDialog = true;
-        }
-      } else {
-        console.info('[VerificationCheck] Already verified, skipping check');
-        // 同步验证状态到 AppStorage，确保 SettingsPage 能读取到
-        AppStorage.setOrCreate('isNumberVerified', true);
-        this.isCheckingVerification = false;
-      }
-    } catch (e) {
-      console.error('[VerificationCheck] Error:', JSON.stringify(e));
-      this.isCheckingVerification = false;
-    }
+    // 功能已移除：不再进行手机号验证和 IP 地区检测
+    // 直接设置为已通过状态
+    this.isCheckingVerification = false;
+    this.showVerificationDialog = false;
+    AppStorage.setOrCreate('isNumberVerified', true);
   }
 
   async aboutToAppear(): Promise<void> {
@@ -1690,6 +1633,11 @@ struct Index {
     // 应用润色提示词
     if (snapshot.polishPromptText !== undefined) {
       this.polishPromptText = snapshot.polishPromptText;
+    }
+    
+    // 应用扫描提示词
+    if (snapshot.scanPromptText !== undefined) {
+      this.scanPromptText = snapshot.scanPromptText;
     }
     
     // 应用多密钥槽位配置
@@ -2225,6 +2173,7 @@ struct Index {
     return {
       promptText: this.promptText,
       polishPromptText: this.polishPromptText,
+      scanPromptText: this.scanPromptText,
       // 多密钥槽位
       openAiKeySlots: this.openAiKeySlots,
       geminiKeySlots: this.geminiKeySlots,
@@ -2463,15 +2412,11 @@ struct Index {
     return color;
   }
 
-  // 前往验证页面
+  // 前往验证页面（功能已移除，保留方法以保持兼容）
   private goToVerification() {
+    // 功能已移除：不再需要验证
     this.showVerificationDialog = false;
     this.isCheckingVerification = false;
-    // 使用 replaceUrl 替换当前页面，避免返回时再次进入 Index
-    router.replaceUrl({
-      url: 'pages/WelcomePage',
-      params: { targetStep: 3 }
-    });
   }
 
   onBackPress() {
@@ -2794,6 +2739,11 @@ struct Index {
                   this.polishPromptText = value;
                   this.persistApiConfigSnapshot();
                 },
+                scanPromptText: this.scanPromptText,
+                onUpdateScanPrompt: (value: string) => {
+                  this.scanPromptText = value;
+                  this.persistApiConfigSnapshot();
+                },
                 getConfigTextAreaHeight: (rows: number) => this.getConfigTextAreaHeight(rows)
               })
               .transition(TransitionEffect.move(TransitionEdge.START).animation({ curve: curves.springMotion(0.55, 0.8) }));
@@ -3075,6 +3025,7 @@ struct Index {
               huaweiModel: this.huaweiModel,
               targetLanguage: this.languageOptions[this.selectedLanguageIndex],
               promptText: this.promptText,
+              scanPromptText: this.scanPromptText,
               isHistoryOpen: this.showScanHistory,
               onOpenHistory: () => {
                 animateTo({ duration: 300, curve: curves.springMotion(0.55, 0.8) }, () => {
@@ -4280,6 +4231,7 @@ struct Index {
       const apiConfigSnapshot: ApiConfigSnapshot = {
         promptText: this.promptText,
         polishPromptText: this.polishPromptText,
+        scanPromptText: this.scanPromptText,
         openAiKeySlots: this.openAiKeySlots,
         geminiKeySlots: this.geminiKeySlots,
         deepLKeySlots: this.deepLKeySlots,

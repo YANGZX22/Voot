@@ -33,6 +33,7 @@ export function createDefaultMultiKeySlots(defaultUrl: string, defaultKey: strin
 export interface ApiConfigSnapshot {
   promptText: string;
   polishPromptText: string; // 润色提示词
+  scanPromptText: string; // 扫描提示词
   // OpenAI 多密钥槽位
   openAiKeySlots: MultiKeySlots;
   // Gemini 多密钥槽位
@@ -84,6 +85,7 @@ export interface ApiConfigSnapshot {
 export interface PartialApiConfigSnapshot {
   promptText?: string;
   polishPromptText?: string; // 润色提示词
+  scanPromptText?: string; // 扫描提示词
   // 多密钥槽位
   openAiKeySlots?: MultiKeySlots;
   geminiKeySlots?: MultiKeySlots;
@@ -175,6 +177,7 @@ export class ApiConfigStorage {
 
     sanitized.promptText = ApiConfigStorage.pickString(candidate.promptText, defaults.promptText);
     sanitized.polishPromptText = ApiConfigStorage.pickString(candidate.polishPromptText, defaults.polishPromptText);
+    sanitized.scanPromptText = ApiConfigStorage.pickString(candidate.scanPromptText, defaults.scanPromptText);
     
     // 处理多密钥槽位（支持旧版本迁移）
     sanitized.openAiKeySlots = ApiConfigStorage.migrateKeySlots(
@@ -326,6 +329,7 @@ export class ApiConfigStorage {
     return {
       promptText: snapshot.promptText,
       polishPromptText: snapshot.polishPromptText,
+      scanPromptText: snapshot.scanPromptText,
       openAiKeySlots: ApiConfigStorage.cloneMultiKeySlots(snapshot.openAiKeySlots),
       geminiKeySlots: ApiConfigStorage.cloneMultiKeySlots(snapshot.geminiKeySlots),
       deepLKeySlots: ApiConfigStorage.cloneMultiKeySlots(snapshot.deepLKeySlots),

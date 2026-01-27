@@ -621,55 +621,56 @@ struct GestureActionRow {
   }
 }
 
-@CustomDialog
-struct ExitVerificationDialog {
-  controller: CustomDialogController
-  onConfirm: () => void = () => {}
-
-  build() {
-    Column() {
-      Text('退出验证')
-        .fontSize(20)
-        .fontWeight(FontWeight.Medium)
-        .fontColor(Color.Black)
-        .margin({ bottom: 12 })
-      
-      Text('确定要退出验证吗？退出后将无法使用部分功能，直到重新验证。')
-        .fontSize(16)
-        .fontColor('#666666')
-        .textAlign(TextAlign.Center)
-        .margin({ bottom: 24 })
-        .lineHeight(24)
-
-      Row() {
-        Button('取消')
-          .type(ButtonType.Capsule)
-          .backgroundColor('#F5F5F5')
-          .fontColor('#666666')
-          .layoutWeight(1)
-          .margin({ right: 12 })
-          .onClick(() => {
-            this.controller.close()
-          })
-
-        Button('退出')
-          .type(ButtonType.Capsule)
-          .backgroundColor('#FF0000')
-          .fontColor(Color.White)
-          .layoutWeight(1)
-          .onClick(() => {
-            this.controller.close()
-            this.onConfirm()
-          })
-      }
-      .width('100%')
-    }
-    .width(300)
-    .padding(24)
-    .backgroundColor(Color.White)
-    .borderRadius(24)
-  }
-}
+// 手机号验证功能已移除，退出验证对话框不再需要
+// @CustomDialog
+// struct ExitVerificationDialog {
+//   controller: CustomDialogController
+//   onConfirm: () => void = () => {}
+// 
+//   build() {
+//     Column() {
+//       Text('退出验证')
+//         .fontSize(20)
+//         .fontWeight(FontWeight.Medium)
+//         .fontColor(Color.Black)
+//         .margin({ bottom: 12 })
+//       
+//       Text('确定要退出验证吗？退出后将无法使用部分功能，直到重新验证。')
+//         .fontSize(16)
+//         .fontColor('#666666')
+//         .textAlign(TextAlign.Center)
+//         .margin({ bottom: 24 })
+//         .lineHeight(24)
+// 
+//       Row() {
+//         Button('取消')
+//           .type(ButtonType.Capsule)
+//           .backgroundColor('#F5F5F5')
+//           .fontColor('#666666')
+//           .layoutWeight(1)
+//           .margin({ right: 12 })
+//           .onClick(() => {
+//             this.controller.close()
+//           })
+// 
+//         Button('退出')
+//           .type(ButtonType.Capsule)
+//           .backgroundColor('#FF0000')
+//           .fontColor(Color.White)
+//           .layoutWeight(1)
+//           .onClick(() => {
+//             this.controller.close()
+//             this.onConfirm()
+//           })
+//       }
+//       .width('100%')
+//     }
+//     .width(300)
+//     .padding(24)
+//     .backgroundColor(Color.White)
+//     .borderRadius(24)
+//   }
+// }
 
 @CustomDialog
 struct PoseDetectionGuideDialog {
@@ -755,11 +756,12 @@ export struct SettingsPage {
   // 本地动画状态变量
   @State showSubtitleStyle: boolean = false;
   @State showGestureActions: boolean = false;
-  @State showPhoneNumber: boolean = false; // 是否显示手机号
+  @State showPhoneNumber: boolean = false; // 是否显示手机号（功能已移除）
 
   // Theme Color
   @StorageLink('themeColorIndex') @Watch('onThemeColorChange') themeColorIndex: number = 0;
-  @StorageLink('isNumberVerified') isVerified: boolean = false;
+  // 手机号验证功能已移除，默认设置为已验证状态
+  @StorageLink('isNumberVerified') isVerified: boolean = true;
   @StorageLink('verifiedPhone') verifiedPhone: string = '';
 
   onThemeColorChange() {
@@ -821,28 +823,29 @@ export struct SettingsPage {
     alignment: DialogAlignment.Center,
   })
 
-  exitDialogController: CustomDialogController = new CustomDialogController({
-    builder: ExitVerificationDialog({
-      onConfirm: () => {
-        const context = getContext(this) as common.UIAbilityContext;
-        // 清除验证状态
-        AppStorage.setOrCreate('isNumberVerified', false);
-        OnboardingStorage.setNumberVerified(context, false);
-        // 清除已验证的手机号
-        AppStorage.setOrCreate('verifiedPhone', '');
-        this.verifiedPhone = '';
-        OnboardingStorage.clearVerifiedPhone(context);
-        router.pushUrl({
-          url: 'pages/WelcomePage',
-          params: { targetStep: 3 }
-        });
-      }
-    }),
-    autoCancel: true,
-    alignment: DialogAlignment.Center,
-    customStyle: true,
-    backgroundColor: 'transparent'
-  })
+  // 手机号验证功能已移除，退出验证对话框不再需要
+  // exitDialogController: CustomDialogController = new CustomDialogController({
+  //   builder: ExitVerificationDialog({
+  //     onConfirm: () => {
+  //       const context = getContext(this) as common.UIAbilityContext;
+  //       // 清除验证状态
+  //       AppStorage.setOrCreate('isNumberVerified', false);
+  //       OnboardingStorage.setNumberVerified(context, false);
+  //       // 清除已验证的手机号
+  //       AppStorage.setOrCreate('verifiedPhone', '');
+  //       this.verifiedPhone = '';
+  //       OnboardingStorage.clearVerifiedPhone(context);
+  //       router.pushUrl({
+  //         url: 'pages/WelcomePage',
+  //         params: { targetStep: 3 }
+  //       });
+  //     }
+  //   }),
+  //   autoCancel: true,
+  //   alignment: DialogAlignment.Center,
+  //   customStyle: true,
+  //   backgroundColor: 'transparent'
+  // })
 
   poseDetectionGuideDialogController: CustomDialogController = new CustomDialogController({
     builder: PoseDetectionGuideDialog({
@@ -899,8 +902,8 @@ export struct SettingsPage {
     // 加载 ASR 模型配置
     await this.loadAsrModelConfig();
 
-    // 加载已验证的手机号
-    await this.loadVerifiedPhone();
+    // 手机号验证功能已移除
+    // await this.loadVerifiedPhone();
 
     // 初始化展开状态（无动画）
     this.showSubtitleStyle = this.isPipSubtitleEnabled;
@@ -1613,51 +1616,51 @@ export struct SettingsPage {
           Column() {
             Blank().height(TITLE_BAR_HEIGHT_MINI);
 
-            // Verified Section
-            Column() {
-              SettingsGroup({
-                title: this.isVerified ? '已验证' : '未验证手机号码',
-                icon: this.isVerified ? $r('sys.symbol.checkmark_circle') : $r('sys.symbol.exclamationmark_circle'),
-                isOpen: $isVerifiedSectionOpen,
-                isDarkMode: this.isDarkMode,
-                isLightEffectBright: this.isLightEffectBright
-              }) {
-                if (this.isVerified) {
-                  SettingsItem({
-                    title: this.showPhoneNumber ? '点击隐藏已验证手机号码' : '点击查看已验证手机号码',
-                    subtitle: this.showPhoneNumber ? this.maskPhoneNumber(this.verifiedPhone) : '',
-                    hasArrow: false,
-                    onClickItem: () => {
-                      animateTo({ duration: 200, curve: Curve.EaseOut }, () => {
-                        this.showPhoneNumber = !this.showPhoneNumber;
-                      });
-                    }
-                  })
-                  SettingsItem({
-                    title: '退出验证',
-                    subtitle: '退出后将无法使用部分功能，需重新验证手机号码',
-                    hasArrow: true,
-                    onClickItem: () => {
-                      this.exitDialogController.open();
-                    }
-                  })
-                } else {
-                  SettingsItem({
-                    title: '去验证',
-                    subtitle: '如果您处于中国大陆地区，请验证手机号码来满足政府部门监管要求',
-                    hasArrow: true,
-                    onClickItem: () => {
-                      router.pushUrl({
-                        url: 'pages/WelcomePage',
-                        params: { targetStep: 3 }
-                      });
-                    }
-                  })
-                }
-              }
-            }
-            .opacity(this.sectionOpacities[0])
-            .offset({ y: this.sectionOffsets[0] })
+            // Verified Section - 手机号验证功能已移除
+            // Column() {
+            //   SettingsGroup({
+            //     title: this.isVerified ? '已验证' : '未验证手机号码',
+            //     icon: this.isVerified ? $r('sys.symbol.checkmark_circle') : $r('sys.symbol.exclamationmark_circle'),
+            //     isOpen: $isVerifiedSectionOpen,
+            //     isDarkMode: this.isDarkMode,
+            //     isLightEffectBright: this.isLightEffectBright
+            //   }) {
+            //     if (this.isVerified) {
+            //       SettingsItem({
+            //         title: this.showPhoneNumber ? '点击隐藏已验证手机号码' : '点击查看已验证手机号码',
+            //         subtitle: this.showPhoneNumber ? this.maskPhoneNumber(this.verifiedPhone) : '',
+            //         hasArrow: false,
+            //         onClickItem: () => {
+            //           animateTo({ duration: 200, curve: Curve.EaseOut }, () => {
+            //             this.showPhoneNumber = !this.showPhoneNumber;
+            //           });
+            //         }
+            //       })
+            //       SettingsItem({
+            //         title: '退出验证',
+            //         subtitle: '退出后将无法使用部分功能，需重新验证手机号码',
+            //         hasArrow: true,
+            //         onClickItem: () => {
+            //           this.exitDialogController.open();
+            //         }
+            //       })
+            //     } else {
+            //       SettingsItem({
+            //         title: '去验证',
+            //         subtitle: '如果您处于中国大陆地区，请验证手机号码来满足政府部门监管要求',
+            //         hasArrow: true,
+            //         onClickItem: () => {
+            //           router.pushUrl({
+            //             url: 'pages/WelcomePage',
+            //             params: { targetStep: 3 }
+            //           });
+            //         }
+            //       })
+            //     }
+            //   }
+            // }
+            // .opacity(this.sectionOpacities[0])
+            // .offset({ y: this.sectionOffsets[0] })
 
             // Subtitle Section
             Column() {
@@ -1815,16 +1818,16 @@ export struct SettingsPage {
                 isLightEffectBright: this.isLightEffectBright
               }) {
                 SettingsItem({
-                  title: '为什么 Voot 备案了服务器？',
-                  subtitle: '应部分国家或地区的监管要求，联网类应用可能需要进行服务器备案。但 Voot 不部署面向用户的集中式数据服务器。应用的数据处理仍在本地完成，或仅在您发起请求时与您配置的第三方 API 直接通信。'
-                })
-                SettingsItem({
                   title: '在 Voot 保存的密钥怎么保证安全？',
                   subtitle: '您的 API 密钥仅存储在您设备的本地安全存储区中，绝不会上传到我们的服务器。应用仅在向服务商发起请求时使用密钥。'
                 })
                 SettingsItem({
                   title: '我们如何接受政府组织对 AI 的监管？',
                   subtitle: 'Voot 严格遵守当地法律法规。作为工具提供方，我们不提供内置的 AI 模型服务，用户需自行确保所使用的第三方 API 服务符合提供商的使用条款和相关监管要求。'
+                })
+                SettingsItem({
+                  title: '为什么有时候 API 无法添加？',
+                  subtitle: '我们尽全力兼容各种 API 请求格式，但仍可能存在不足之处。如果您遇到问题，欢迎在测试群内反馈或通过邮件联系我们，我们会尽快增加相关功能。'
                 })
               }
             }

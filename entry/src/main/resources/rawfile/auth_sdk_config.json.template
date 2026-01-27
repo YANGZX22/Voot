@@ -1,4 +1,0 @@
-{
-  "sdkKey": "YOUR_AUTH_SDK_KEY_HERE",
-  "getMobileApiUrl": "https://your-server.com/api/getMobile"
-}

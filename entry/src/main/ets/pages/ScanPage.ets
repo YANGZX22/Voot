@@ -126,6 +126,7 @@ export struct ScanPage {
   @Prop huaweiModel: string = '';
   @Prop targetLanguage: string = 'Chinese';
   @Prop promptText: string = '';
+  @Prop scanPromptText: string = ''; // 扫描提示词
   @Prop isHistoryOpen: boolean = false;
   onOpenHistory: () => void = () => {};
 
@@ -307,8 +308,32 @@ export struct ScanPage {
     this.currentStep = 3;
 
     try {
-      const systemPrompt = this.promptText.replace('{0}', this.targetLanguage) ||
-        `Translate the following text to ${this.targetLanguage}. Output only the translation, no explanations.`;
+      // 优先使用扫描提示词，如果没有则使用翻译提示词，最后使用默认提示词
+      let systemPrompt: string = '';
+      let userMessage: string = this.recognizedText;
+      
+      if (this.scanPromptText && this.scanPromptText.trim().length > 0) {
+        // 使用扫描提示词
+        // 如果提示词包含 [abc]，说明提示词格式是完整的用户消息模板
+        if (this.scanPromptText.includes('[abc]')) {
+          // 将提示词中的 {0} 和 [abc] 替换为实际值，作为用户消息
+          userMessage = this.scanPromptText.replace('{0}', this.targetLanguage).replace('[abc]', this.recognizedText);
+          // 使用简化的系统提示
+          systemPrompt = `You are a translation assistant. Translate the text as requested.`;
+        } else {
+          // 标准格式：提示词作为系统提示，{0} 替换为目标语言
+          systemPrompt = this.scanPromptText.replace('{0}', this.targetLanguage);
+          userMessage = this.recognizedText;
+        }
+      } else if (this.promptText && this.promptText.trim().length > 0) {
+        // 使用翻译提示词
+        systemPrompt = this.promptText.replace('{0}', this.targetLanguage);
+        userMessage = this.recognizedText;
+      } else {
+        // 使用默认提示词
+        systemPrompt = `Translate the following text to ${this.targetLanguage}. Output only the translation, no explanations.`;
+        userMessage = this.recognizedText;
+      }
 
       let translatedResult = '';
 
@@ -322,34 +347,34 @@ export struct ScanPage {
           apiUrl: this.openAiApiUrl,
           apiKey: this.openAiApiKey,
           model: this.openAiModel
-        }, systemPrompt, this.recognizedText);
+        }, systemPrompt, userMessage);
       } else if (this.selectedApiIndex === 1) {
         // Gemini (使用 OpenAI 兼容接口)
         translatedResult = await this.callOpenAI({
           apiUrl: this.geminiApiUrl,
           apiKey: this.geminiApiKey,
           model: this.geminiModel
-        }, systemPrompt, this.recognizedText);
+        }, systemPrompt, userMessage);
       } else if (this.selectedApiIndex === 3) {
         // Ollama
         translatedResult = await this.callOllama({
           apiUrl: this.ollamaApiUrl,
           model: this.ollamaModel
-        }, systemPrompt, this.recognizedText);
+        }, systemPrompt, userMessage);
       } else if (this.selectedApiIndex === 4) {
         // Doubao
         translatedResult = await this.callDoubao({
           apiUrl: this.doubaoApiUrl,
           apiKey: this.doubaoApiKey,
           model: this.doubaoModel
-        }, systemPrompt, this.recognizedText);
+        }, systemPrompt, userMessage);
       } else if (this.selectedApiIndex === 5) {
         // Huawei (使用 OpenAI 兼容接口)
         translatedResult = await this.callOpenAI({
           apiUrl: this.huaweiApiUrl,
           apiKey: this.huaweiApiKey,
           model: this.huaweiModel
-        }, systemPrompt, this.recognizedText);
+        }, systemPrompt, userMessage);
       }
 
       this.translatedText = translatedResult;

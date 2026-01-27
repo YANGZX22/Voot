@@ -18,8 +18,3 @@ DOCS
 appfreeze-*.txt
 jscrash-*.txt
 cppcrash-*.txt
-entry/src/main/resources/rawfile/test_account.json
-
-entry/src/main/resources/rawfile/auth_sdk_config.json
-
-entry/src/main/resources/rawfile/sms_config.json

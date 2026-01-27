@@ -1,3 +1,7 @@
+/**
+ * @file Phone Number Verification with SMS
+ * @status Aborted
+ */
 import { router, promptAction } from '@kit.ArkUI'
 import util from '@ohos.util';
 import http from '@ohos.net.http';
