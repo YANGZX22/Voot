@@ -333,26 +333,29 @@ struct ApiExplanationPage {
           .offset({ y: this.geminiCardOffsetY1 })
 
         // Intro Text
-        Text('我们也支持 Google Gemini 的原生 API。您可以从 Google AI Studio 获取 API 密钥，并按以下格式填写配置。')
+        Text('我们支持 Google Gemini 的两种接入方式：Gemini API 和 OpenAI 兼容模式。Voot 会根据您填写的 API 地址自动识别并选择对应的请求格式。')
           .fontSize(16)
           .fontColor($r('sys.color.font_on_secondary'))
           .lineHeight(24)
           .opacity(this.geminiCardOpacity1)
           .offset({ y: this.geminiCardOffsetY1 })
 
-        // Code Block Card
+        // Native API Code Block
+        Text('Gemini API')
+          .fontSize(16)
+          .fontWeight(FontWeight.Medium)
+          .fontColor(Color.White)
+          .alignSelf(ItemAlign.Start)
+          .opacity(this.geminiCardOpacity2)
+          .offset({ y: this.geminiCardOffsetY2 })
+
         Column() {
           Scroll() {
             Text("curl \"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=YOUR_API_KEY\" \\\n" +
 "-H \"Content-Type: application/json\" \\\n" +
 "-d '{\n" +
-"  \"contents\": [\n" +
-"    {\n" +
-"      \"parts\": [\n" +
-"        { \"text\": \"你好\" }\n" +
-"      ]\n" +
-"    }\n" +
-"  ]\n" +
+"  \"contents\": [{ \"parts\": [{ \"text\": \"你好\" }] }],\n" +
+"  \"generationConfig\": { \"maxOutputTokens\": 256 }\n" +
 "}'\n")
               .fontSize(14)
               .fontColor('#E6E6E6')
@@ -377,9 +380,9 @@ struct ApiExplanationPage {
         Column({ space: 16 }) {
           Column() {
             this.ParamItem(
-              'API 密钥 (Key)', 
-              'YOUR_API_KEY',
-              '对应 URL 中 key= 之后的部分。可在 Google AI Studio 中创建。'
+              'API 地址 (URL)',
+              'https://generativelanguage.googleapis.com/v1beta',
+              '填写基础地址即可，应用会自动拼接模型名称和后缀。'
             )
           }
           .opacity(this.geminiParamOpacity1)
@@ -387,14 +390,56 @@ struct ApiExplanationPage {
 
           Column() {
             this.ParamItem(
+              'API 密钥 (Key)', 
+              'YOUR_API_KEY',
+              '在 Google AI Studio 中创建的 API 密钥。'
+            )
+          }
+          .opacity(this.geminiParamOpacity2)
+          .offset({ y: this.geminiParamOffsetY2 })
+
+          Column() {
+            this.ParamItem(
               '模型名称 (Model)', 
               'gemini-2.0-flash',
-              '对应 URL 中 models/ 之后、冒号之前的部分。常用模型：gemini-2.0-flash、gemini-1.5-pro 等。'
+              '常用模型有 gemini-2.0-flash、gemini-1.5-flash 等。'
             )
           }
           .opacity(this.geminiParamOpacity2)
           .offset({ y: this.geminiParamOffsetY2 })
         }
+
+        Text('OpenAI 兼容模式')
+          .fontSize(16)
+          .fontWeight(FontWeight.Medium)
+          .fontColor(Color.White)
+          .alignSelf(ItemAlign.Start)
+
+        // OpenAI Compatible Mode
+        Column({ space: 12 }) {
+          Text('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions')
+            .fontSize(14)
+            .fontColor('#d8bfd8') // Light purple
+            .backgroundColor('#663c1464') // Darker purple bg
+            .padding({ left: 8, right: 8, top: 4, bottom: 4 })
+            .borderRadius(4)
+            .fontFamily('JetBrainsMono')
+            .copyOption(CopyOptions.LocalDevice)
+
+          Text('使用此地址时，请求格式与 OpenAI 兼容接口完全相同。')
+            .fontSize(14)
+            .fontColor($r('sys.color.font_on_secondary'))
+            .lineHeight(20)
+        }
+        .width('100%')
+        .alignItems(HorizontalAlign.Start)
+        .padding(16)
+        .backgroundColor('#22FFFFFF')
+        .borderRadius(12)
+        .backdropBlur(10)
+        .margin({ top: 8 })
+        .opacity(this.geminiParamOpacity2)
+        .offset({ y: this.geminiParamOffsetY2 })
 
         // 底部留白，确保沉浸式效果
         Blank().height(48)

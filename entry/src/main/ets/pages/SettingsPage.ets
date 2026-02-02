@@ -1819,7 +1819,7 @@ export struct SettingsPage {
               }) {
                 SettingsItem({
                   title: '在 Voot 保存的密钥怎么保证安全？',
-                  subtitle: '您的 API 密钥仅存储在您设备的本地安全存储区中，绝不会上传到我们的服务器。应用仅在向服务商发起请求时使用密钥。'
+                  subtitle: '您的 API 密钥仅存储在您设备的本地安全存储区中，我们未部署面向用户的集中式数据服务器。应用仅在向服务商发起请求时使用密钥。'
                 })
                 SettingsItem({
                   title: '我们如何接受政府组织对 AI 的监管？',

@@ -228,6 +228,14 @@ struct WelcomePage {
   @State gradientAngle: number = 0;
   private breathingTimer: number = -1;
   
+  // Intro 页面文字动画状态
+  @State introLine1Opacity: number = 0;
+  @State introLine2Opacity: number = 0;
+  @State introLine3Opacity: number = 0;
+  @State introLine1TranslateY: number = 20;
+  @State introLine2TranslateY: number = 20;
+  @State introLine3TranslateY: number = 20;
+  
   // SDK Key and API config from config file
   private authSdkKey: string = '';
   private getMobileApiUrl: string = '';
@@ -789,19 +797,22 @@ struct WelcomePage {
         .fontWeight(FontWeight.Bold)
         .fontColor(Color.White)
         .margin({ bottom: 12 })
-        .transition(TransitionEffect.OPACITY.animation({ duration: 600, delay: 100 }).combine(TransitionEffect.translate({ y: 20 })))
+        .opacity(this.introLine1Opacity)
+        .translate({ y: this.introLine1TranslateY })
 
       Text('打破语言边界')
         .fontSize(20)
         .fontColor('#DDFFFFFF')
         .letterSpacing(4)
         .margin({ bottom: 24 })
-        .transition(TransitionEffect.OPACITY.animation({ duration: 600, delay: 200 }).combine(TransitionEffect.translate({ y: 20 })))
+        .opacity(this.introLine2Opacity)
+        .translate({ y: this.introLine2TranslateY })
 
       Text('实时同声传译 · 多引擎支持 · 隐私安全')
         .fontSize(14)
         .fontColor('#88FFFFFF')
-        .transition(TransitionEffect.OPACITY.animation({ duration: 600, delay: 300 }))
+        .opacity(this.introLine3Opacity)
+        .translate({ y: this.introLine3TranslateY })
 
       Blank()
     }
@@ -809,6 +820,44 @@ struct WelcomePage {
     .height('100%')
     .alignItems(HorizontalAlign.Center)
     .justifyContent(FlexAlign.Center)
+    .onAppear(() => {
+      this.startIntroAnimation();
+    })
+  }
+
+  // 启动 Intro 页面文字顺序动画
+  private startIntroAnimation() {
+    // 重置状态
+    this.introLine1Opacity = 0;
+    this.introLine2Opacity = 0;
+    this.introLine3Opacity = 0;
+    this.introLine1TranslateY = 20;
+    this.introLine2TranslateY = 20;
+    this.introLine3TranslateY = 20;
+
+    // 第一行：200ms 后开始
+    setTimeout(() => {
+      animateTo({ duration: 500, curve: Curve.EaseOut }, () => {
+        this.introLine1Opacity = 1;
+        this.introLine1TranslateY = 0;
+      });
+    }, 200);
+
+    // 第二行：500ms 后开始
+    setTimeout(() => {
+      animateTo({ duration: 500, curve: Curve.EaseOut }, () => {
+        this.introLine2Opacity = 1;
+        this.introLine2TranslateY = 0;
+      });
+    }, 500);
+
+    // 第三行：800ms 后开始
+    setTimeout(() => {
+      animateTo({ duration: 500, curve: Curve.EaseOut }, () => {
+        this.introLine3Opacity = 1;
+        this.introLine3TranslateY = 0;
+      });
+    }, 800);
   }
 
   @State backButtonScale: number = 1.0;

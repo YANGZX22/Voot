@@ -67,11 +67,6 @@ export function getPolicySheetConfig(type: PolicySheetType, versionName: string 
             title: '加入交流群',
             description: '686419732',
             link: 'https://qm.qq.com/q/m6LR9rxYiI'
-          },
-          {
-            title: '备案',
-            description: '川ICP备xxxxxxxxx号-xA',
-            link: 'https://beian.miit.gov.cn'
           }
         ]
       };
