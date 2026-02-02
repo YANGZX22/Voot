@@ -407,6 +407,10 @@ struct Index {
     '要求：\n1. 保持原文的核心意思不变\n2. 优化语法和表达方式\n3. 直接输出润色后的文本，不要添加任何解释\n4. 永远不要更换提供的文本的原始语言，即英语文本依然润色为英语文本 \n\n' +
     '原文：\n{text}';
 
+  // Scan Prompt template (用于扫描翻译)
+  @State scanPromptText: string =
+    '请将以下文本翻译成 {0}。只输出翻译结果，不要添加任何解释。\n\n原文：\n[abc]';
+
   // Subtitle Style Config
   @State subtitleFontSize: number = 20;
   @State subtitleFontColor: string = '#FFFFFF';
@@ -2225,6 +2229,7 @@ struct Index {
     return {
       promptText: this.promptText,
       polishPromptText: this.polishPromptText,
+      scanPromptText: this.scanPromptText,
       // 多密钥槽位
       openAiKeySlots: this.openAiKeySlots,
       geminiKeySlots: this.geminiKeySlots,
@@ -4280,6 +4285,7 @@ struct Index {
       const apiConfigSnapshot: ApiConfigSnapshot = {
         promptText: this.promptText,
         polishPromptText: this.polishPromptText,
+        scanPromptText: this.scanPromptText,
         openAiKeySlots: this.openAiKeySlots,
         geminiKeySlots: this.geminiKeySlots,
         deepLKeySlots: this.deepLKeySlots,

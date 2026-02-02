@@ -996,7 +996,7 @@ export struct ConfigurationPage {
   }
 
   pressDisclaimer(): void {
-    animateTo({ duration: 100, curve: Curve.EaseIn }, () => {
+    animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => {
       this.disclaimerScale = 0.95;
       this.disclaimerBgColor = Color.White;
       this.disclaimerTextColor = THEMES[this.themeColorIndex].primaryColor;
@@ -1016,7 +1016,7 @@ export struct ConfigurationPage {
       this.longPressTimer = undefined;
     }
     
-    animateTo({ duration: 100, curve: Curve.EaseOut }, () => {
+    animateTo({ duration: 200, curve: Curve.EaseOut }, () => {
       this.disclaimerScale = 1.0;
       this.disclaimerBgColor = THEMES[this.themeColorIndex].secondaryColor;
       this.disclaimerTextColor = Color.White;
@@ -1312,8 +1312,14 @@ export struct ConfigurationPage {
             })
             .visualEffect(new hdsEffect.HdsEffectBuilder()
               .pointLight({
-                sourceType: this.activeBtn === 99 ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT) : hdsEffect.PointLightSourceType.NONE,
-                illuminatedType: this.activeBtn !== 0 ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT : hdsEffect.PointLightIlluminatedType.NONE
+                sourceType: this.isDarkMode ? hdsEffect.PointLightSourceType.NONE :
+                  (this.activeBtn === 99
+                    ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT)
+                    : hdsEffect.PointLightSourceType.NONE),
+                illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE :
+                  (this.activeBtn !== 0
+                    ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
+                    : hdsEffect.PointLightIlluminatedType.NONE)
               })
               .buildEffect())
             .onTouch((event: TouchEvent) => {
@@ -1332,7 +1338,8 @@ export struct ConfigurationPage {
             TokenUsageChart({
               modelName: this.currentApiAlias || this.apiOptions[this.selectedApiIndex],
               activeBtn: $activeBtn,
-              isLightEffectBright: this.isLightEffectBright
+              isLightEffectBright: this.isLightEffectBright,
+              isDarkMode: this.isDarkMode
             })
             .opacity(this.cardOpacities[1])
             .scale({ x: this.cardScales[1], y: this.cardScales[1] })

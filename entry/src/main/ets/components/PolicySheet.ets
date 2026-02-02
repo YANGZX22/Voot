@@ -7,6 +7,7 @@ export interface PolicyHighlight {
   title: string;
   description: string | url.URL;
   link?: string;
+  action?: 'appgallery' | 'browser' | 'email'; // 特殊操作类型
 }
 
 export interface PolicySheetConfig {
@@ -53,7 +54,8 @@ export function getPolicySheetConfig(type: PolicySheetType, versionName: string 
         highlights: [
           {
             title: '版本信息',
-            description: versionName || 'Unknown'
+            description: versionName || 'Unknown',
+            action: 'appgallery'
           },
           {
             title: '项目仓库',
@@ -132,9 +134,21 @@ export function PolicySheetContent(
                   .fontColor($r('sys.color.font_on_secondary'))
                   .lineHeight(20)
                   .onClick(() => {
+                    if (!context) return;
+                    
+                    // 应用商店跳转
+                    if (item.action === 'appgallery') {
+                      context.startAbility({
+                        action: 'ohos.want.action.appdetail',
+                        uri: 'store://appgallery.huawei.com/app/detail?id=com.zixiao.voot'
+                      });
+                      return;
+                    }
+                    
+                    // 浏览器/邮件跳转
                     const desc = resolveHighlightText(item.description);
                     const link = item.link || desc;
-                    if (context && (link.startsWith('http') || link.startsWith('mailto'))) {
+                    if (link.startsWith('http') || link.startsWith('mailto')) {
                       context.startAbility({
                         action: 'ohos.want.action.viewData',
                         entities: ['entity.system.browsable'],

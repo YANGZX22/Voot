@@ -26,6 +26,7 @@ export struct TokenUsageChart {
   // Visual effects state
   @Link activeBtn: number;
   @Prop isLightEffectBright: boolean = true;
+  @Prop isDarkMode: boolean = false;
   @State scaleValue: number = 1.0;
   @State bgColor: ResourceColor = '#803c1464';
   @State textColor: ResourceColor = Color.White;
@@ -88,7 +89,7 @@ export struct TokenUsageChart {
   }
 
   press(): void {
-    animateTo({ duration: 100, curve: Curve.EaseIn }, () => {
+    animateTo({ duration: 200, curve: Curve.FastOutSlowIn }, () => {
       this.isPressed = true;
       this.scaleValue = 0.95;
       this.applyTheme(true);
@@ -97,7 +98,7 @@ export struct TokenUsageChart {
   }
 
   release(): void {
-    animateTo({ duration: 100, curve: Curve.EaseOut }, () => {
+    animateTo({ duration: 200, curve: Curve.EaseOut }, () => {
       this.isPressed = false;
       this.scaleValue = 1.0;
       this.applyTheme(false);
@@ -298,8 +299,14 @@ export struct TokenUsageChart {
     .scale({ x: this.scaleValue, y: this.scaleValue })
     .visualEffect(new hdsEffect.HdsEffectBuilder()
       .pointLight({
-        sourceType: this.activeBtn === this.btnId ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT) : hdsEffect.PointLightSourceType.NONE,
-        illuminatedType: this.activeBtn !== 0 ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT : hdsEffect.PointLightIlluminatedType.NONE
+        sourceType: this.isDarkMode ? hdsEffect.PointLightSourceType.NONE :
+          (this.activeBtn === this.btnId
+            ? (this.isLightEffectBright ? hdsEffect.PointLightSourceType.BRIGHT : hdsEffect.PointLightSourceType.SOFT)
+            : hdsEffect.PointLightSourceType.NONE),
+        illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE :
+          (this.activeBtn !== 0
+            ? hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
+            : hdsEffect.PointLightIlluminatedType.NONE)
       })
       .buildEffect())
     .onTouch((event: TouchEvent) => {
