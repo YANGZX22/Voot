@@ -11,6 +11,9 @@ It is designed with three core principles: **security, privacy, and simplicity**
 > Voot does not provide or resell any LLM/translation service.  
 > You bring your own API keys (OpenAI, DeepL, Ollama, 豆包, etc.).
 
+## Huawei AppGallery
+
+Voot has launched on [Huawei AppGallery (Overseas)](https://appgallery.huawei.com/app/detail?id=com.zixiao.voot) (Note: You need an oversea internet environment to access). Also, releases update will be still available on GitHub for sideloading. Even though, we strongly recommend you to follow the AppGallery listing for the latest version.
 
 ## Table of Contents
 
@@ -73,10 +76,6 @@ It is designed with three core principles: **security, privacy, and simplicity**
 - 📷 **Scan & Translate**
   - Scan text from physical documents or screens using the camera.
   - Instantly translate scanned text with save functionality.
-
-## Huawei AppGallery
-
-Voot has launched on [Huawei AppGallery (Overseas)](https://appgallery.huawei.com/app/detail?id=com.zixiao.voot) (Note: You need an oversea internet environment to access). Releases update may suspend on GitHub after that, please follow the AppGallery listing for the latest version.
 
 ## Architecture
 
