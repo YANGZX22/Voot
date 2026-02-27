@@ -55,13 +55,10 @@ It is designed with three core principles: **security, privacy, and simplicity**
 - 🗣️ **Simultaneous interpretation**
   - One-tap start/stop of “live” translation.
   - Clear split between **original text** and **translated text**.
-- 📚 **Glossary / Terminology Support**
-  - Define custom term pairs (e.g., `HarmonyOS = 鸿蒙`) to force specific translations.
-  - Injected directly into the LLM system prompt for high adherence.
 - 🔄 **Device Continuation**
   - Seamlessly transfer your active translation session to another HarmonyOS device (e.g., from Phone to Tablet).
   - Keeps your current transcription and translation context intact.
-- 🖼️ **Picture-in-Picture (PiP) Subtitles**
+- 🖼️ **Subtitles**
   - Floating subtitle window that works over other apps.
   - Resizable and movable overlay for seamless multitasking.
 - 📱 **Desktop Widgets**
@@ -76,10 +73,10 @@ It is designed with three core principles: **security, privacy, and simplicity**
 - 📷 **Scan & Translate**
   - Scan text from physical documents or screens using the camera.
   - Instantly translate scanned text with save functionality.
-- 💡 **Simple UI, ArkTS only**
-  - Frontend written purely in **ArkTS**, no extra UI framework.
-  - Minimalist layout: buttons, text, and light effects – optimized for real-time usage.
 
+## Huawei AppGallery
+
+Voot has launched on [Huawei AppGallery (Overseas)](https://appgallery.huawei.com/app/detail?id=com.zixiao.voot) (Note: You need an oversea internet environment to access). Releases update may suspend on GitHub after that, please follow the AppGallery listing for the latest version.
 
 ## Architecture
 
@@ -314,9 +311,6 @@ Before submitting, please:
 - This project is an independent implementation and does not reuse any code from that repository.
 
 ## License
-
-> [!IMPORTANT]
-> **We are trying to push _Voot_ to launch on Huawei AppGallery. Before that, the source code is open-sourced under GPL-3.0 license. Please comply with the license terms when using or modifying the code. If launched on AppGallery, we may change the license.**
 
 This project is licensed under the **GNU General Public License v3.0 (GPL-3.0)**.
 
