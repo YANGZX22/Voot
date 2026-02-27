@@ -278,11 +278,6 @@ struct Index {
   // Configuration main-page state
   @State apiOptions: string[] = ['OpenAI', 'Gemini', 'DeepL', 'Ollama', 'Doubao', 'Huawei'];
 
-  // 验证弹窗
-  @State showVerificationDialog: boolean = false;
-  @State isCheckingVerification: boolean = true; // 启动时默认为检查中
-  verificationDialogController: CustomDialogController | null = null;
-
   // Continuity
   @State showDeviceDialog: boolean = false;
   @State deviceList: DeviceInfo[] = [];
@@ -1218,82 +1213,9 @@ struct Index {
     );
   }
 
-  private async checkVerificationAndIp() {
-    console.info('[VerificationCheck] Starting verification and IP check...');
-    this.isCheckingVerification = true;
-    try {
-      const context = getContext(this) as common.UIAbilityContext;
-      const isVerified = await OnboardingStorage.isNumberVerified(context);
-      console.info('[VerificationCheck] isVerified:', isVerified);
-      
-      if (!isVerified) {
-        // 未验证，检查 IP
-        console.info('[VerificationCheck] Not verified, checking IP...');
-        
-        // 尝试多个 IP 查询服务
-        const ipServices: string[] = [
-          'http://ip-api.com/json/?fields=countryCode'
-        ];
-        
-        let countryCode: string = '';
-        
-        for (const serviceUrl of ipServices) {
-          try {
-            console.info('[VerificationCheck] Trying IP service:', serviceUrl);
-            const httpRequest = http.createHttp();
-            const response = await httpRequest.request(serviceUrl, {
-              method: http.RequestMethod.GET,
-              connectTimeout: 3000,
-              readTimeout: 3000
-            });
-
-            console.info('[VerificationCheck] IP API response code:', response.responseCode);
-            
-            if (response.responseCode === 200) {
-              const result = JSON.parse(response.result as string) as Record<string, Object>;
-              // ip-api.com 使用 countryCode，ipwho.is 使用 country_code
-              countryCode = (result['countryCode'] || result['country_code'] || '') as string;
-              console.info('[VerificationCheck] Country code:', countryCode);
-              httpRequest.destroy();
-              break; // 成功获取，退出循环
-            }
-            httpRequest.destroy();
-          } catch (serviceErr) {
-            console.warn('[VerificationCheck] Service failed:', serviceUrl, JSON.stringify(serviceErr));
-            // 继续尝试下一个服务
-          }
-        }
-        
-        if (countryCode === 'CN') {
-          console.info('[VerificationCheck] Detected CN, showing dialog...');
-          // 在中国大陆且未验证，设置状态触发弹窗
-          this.showVerificationDialog = true;
-        } else if (countryCode) {
-          console.info('[VerificationCheck] Not in CN, skipping verification requirement');
-          this.isCheckingVerification = false;
-        } else {
-          // 无法确定国家（网络不可用等情况），保守处理：显示验证弹窗
-          console.warn('[VerificationCheck] Could not determine country, showing verification dialog as fallback');
-          this.showVerificationDialog = true;
-        }
-      } else {
-        console.info('[VerificationCheck] Already verified, skipping check');
-        // 同步验证状态到 AppStorage，确保 SettingsPage 能读取到
-        AppStorage.setOrCreate('isNumberVerified', true);
-        this.isCheckingVerification = false;
-      }
-    } catch (e) {
-      console.error('[VerificationCheck] Error:', JSON.stringify(e));
-      this.isCheckingVerification = false;
-    }
-  }
-
   async aboutToAppear(): Promise<void> {
     // 尽早检测设备是否支持握持检测
     this.checkPoseDetectionSupport();
-
-    // 检查验证状态和 IP
-    this.checkVerificationAndIp();
 
     // 加载 TTS 封面图
     this.loadTtsCoverImage();
@@ -2468,16 +2390,7 @@ struct Index {
     return color;
   }
 
-  // 前往验证页面
-  private goToVerification() {
-    this.showVerificationDialog = false;
-    this.isCheckingVerification = false;
-    // 使用 replaceUrl 替换当前页面，避免返回时再次进入 Index
-    router.replaceUrl({
-      url: 'pages/WelcomePage',
-      params: { targetStep: 3 }
-    });
-  }
+
 
   onBackPress() {
     if (this.showApiSettings) {
@@ -2504,69 +2417,6 @@ struct Index {
 
   build() {
     Stack() {
-      // 验证弹窗
-      if (this.showVerificationDialog) {
-        Column() {
-          // 遮罩层
-          Column()
-            .width('100%')
-            .height('100%')
-            .backgroundColor($r('sys.color.mask_secondary'))
-
-          // 弹窗内容
-          Column() {
-            Text('请帮助我们接受监管')
-              .fontSize(20)
-              .fontWeight(FontWeight.Bold)
-              .fontColor($r('sys.color.font_primary'))
-              .margin({ bottom: 16 })
-
-            Text('您似乎处在中国大陆地区，根据相关法律法规，请完成手机号验证。')
-              .fontSize(16)
-              .fontColor($r('sys.color.font_secondary'))
-              .textAlign(TextAlign.Center)
-              .margin({ bottom: 24 })
-
-            Button('前往验证')
-              .type(ButtonType.Capsule)
-              .backgroundColor(THEMES[this.themeColorIndex].primaryColor)
-              .fontColor($r('sys.color.font_on_primary'))
-              .fontSize(16)
-              .fontWeight(FontWeight.Medium)
-              .width('80%')
-              .height(44)
-              .onClick(() => {
-                this.goToVerification();
-              })
-          }
-          .width('80%')
-          .padding(24)
-          .backgroundColor($r('sys.color.white'))
-          .borderRadius(24)
-          .position({ x: '10%', y: '35%' })
-        }
-        .width('100%')
-        .height('100%')
-        .position({ x: 0, y: 0 })
-        .zIndex(9999)
-      }
-
-      // 检查中遮罩层 - 阻止用户在检查期间操作
-      if (this.isCheckingVerification) {
-        Column() {
-          // 透明遮罩层，阻止用户交互
-          Column()
-            .width('100%')
-            .height('100%')
-            .backgroundColor('#00000000')
-            .hitTestBehavior(HitTestMode.Block) // 阻止点击穿透
-        }
-        .width('100%')
-        .height('100%')
-        .position({ x: 0, y: 0 })
-        .zIndex(9998)
-      }
-
       Image(THEMES[this.themeColorIndex].backgroundImage)
         .width('100%')
         .height('100%')
