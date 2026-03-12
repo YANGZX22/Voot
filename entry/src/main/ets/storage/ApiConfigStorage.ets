@@ -76,6 +76,9 @@ export interface ApiConfigSnapshot {
   glossary: string;
   // 主题模式: 0 = 浅色, 1 = 深色, 2 = 跟随系统
   themeMode: number;
+  // 底部导航栏配置
+  autoCollapseTabBar: boolean;
+  collapseDirection: number; // 0 = 左侧, 1 = 右侧
   // VAD Sensitivity
   vadSensitivityIndex: number;
   // Min Match Length
@@ -123,6 +126,8 @@ export interface PartialApiConfigSnapshot {
   glossary?: string;
   // 主题模式
   themeMode?: number;
+  autoCollapseTabBar?: boolean;
+  collapseDirection?: number;
   vadSensitivityIndex?: number;
   minMatchLenIndex?: number;
 }
@@ -264,6 +269,8 @@ export class ApiConfigStorage {
     sanitized.temperatureIndex = ApiConfigStorage.pickNumber(candidate.temperatureIndex, defaults.temperatureIndex);
     sanitized.glossary = ApiConfigStorage.pickString(candidate.glossary, defaults.glossary);
     sanitized.themeMode = ApiConfigStorage.pickNumber(candidate.themeMode, defaults.themeMode);
+    sanitized.autoCollapseTabBar = ApiConfigStorage.pickBoolean(candidate.autoCollapseTabBar, defaults.autoCollapseTabBar);
+    sanitized.collapseDirection = ApiConfigStorage.pickNumber(candidate.collapseDirection, defaults.collapseDirection);
     return sanitized;
   }
   
@@ -364,6 +371,8 @@ export class ApiConfigStorage {
       subtitleHeight: snapshot.subtitleHeight,
       glossary: snapshot.glossary,
       themeMode: snapshot.themeMode,
+      autoCollapseTabBar: snapshot.autoCollapseTabBar,
+      collapseDirection: snapshot.collapseDirection,
       vadSensitivityIndex: snapshot.vadSensitivityIndex,
       minMatchLenIndex: snapshot.minMatchLenIndex
     };

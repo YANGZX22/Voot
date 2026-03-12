@@ -741,7 +741,11 @@ export struct SettingsPage {
   @Link subtitleHeight: number;
   @Link isLightEffectBright: boolean;
   @Link themeMode: number;  // 0 = 浅色, 1 = 深色, 2 = 跟随系统
+  @Link @Watch('onAutoCollapseChange') autoCollapseTabBar: boolean;
+  @Link collapseDirection: number;
   @Prop isDarkMode: boolean = true;  // 计算后的暗色模式状态（用于光效）
+  
+  onAppearanceChange: () => void = () => {};
 
   // 握持弹窗临时关闭状态
   @State isHandPopupDismissed: boolean = false;
@@ -758,6 +762,7 @@ export struct SettingsPage {
   // 本地动画状态变量
   @State showSubtitleStyle: boolean = false;
   @State showGestureActions: boolean = false;
+  @State showAutoCollapseOptions: boolean = false;
   @State showPhoneNumber: boolean = false; // 是否显示手机号（功能已移除）
 
   // Theme Color
@@ -780,6 +785,12 @@ export struct SettingsPage {
   onPipEnabledChange() {
     animateTo({ duration: 300, curve: Curve.FastOutSlowIn }, () => {
       this.showSubtitleStyle = this.isPipSubtitleEnabled;
+    });
+  }
+
+  onAutoCollapseChange() {
+    animateTo({ duration: 300, curve: Curve.FastOutSlowIn }, () => {
+      this.showAutoCollapseOptions = this.autoCollapseTabBar;
     });
   }
 
@@ -910,6 +921,7 @@ export struct SettingsPage {
     // 初始化展开状态（无动画）
     this.showSubtitleStyle = this.isPipSubtitleEnabled;
     this.showGestureActions = this.airGesturesEnabled;
+    this.showAutoCollapseOptions = this.autoCollapseTabBar;
 
     setTimeout(() => {
       animateTo({ duration: 320, curve: Curve.FastOutSlowIn }, () => {
@@ -1600,6 +1612,7 @@ export struct SettingsPage {
         selectedIndex: this.isLightEffectBright ? 0 : 1,
         $selectedIndex: (index: number) => {
           this.isLightEffectBright = index === 0;
+          this.onAppearanceChange();
         },
         buttonBackgroundColor: ColorMetrics.resourceColor($r('sys.color.comp_background_tertiary')),
         itemSelectedBackgroundColor: ColorMetrics.resourceColor(THEMES[this.themeColorIndex].primaryColor),
@@ -1608,6 +1621,50 @@ export struct SettingsPage {
         .width(100)
         .enabled(!this.isDarkMode)
         .opacity(this.isDarkMode ? 0.5 : 1.0)
+    }
+
+    SettingsItem({
+      title: '导航栏自动收缩',
+      subtitle: '自动或滑动将导航栏退至角落',
+    }) {
+      Toggle({ type: ToggleType.Switch, isOn: this.autoCollapseTabBar })
+        .selectedColor(THEMES[this.themeColorIndex].primaryColor)
+        .onChange((isOn: boolean) => {
+          this.autoCollapseTabBar = isOn;
+          this.onAppearanceChange();
+        })
+    }
+
+    if (this.showAutoCollapseOptions) {
+      Column() {
+        SettingsItem({
+          title: '导航栏停靠方向',
+          subtitle: '导航栏收起时的停靠位置',
+        }) {
+          CapsuleSegmentButtonV2({
+            items: new SegmentButtonV2Items([
+              { text: '左下' },
+              { text: '右下' }
+            ]),
+            selectedIndex: this.collapseDirection,
+            $selectedIndex: (index: number) => {
+              this.collapseDirection = index;
+              this.onAppearanceChange();
+            },
+            buttonBackgroundColor: ColorMetrics.resourceColor($r('sys.color.comp_background_tertiary')),
+            itemSelectedBackgroundColor: ColorMetrics.resourceColor(THEMES[this.themeColorIndex].primaryColor),
+            itemFontColor: ColorMetrics.resourceColor($r('sys.color.font_on_secondary'))
+          })
+            .width(130)
+        }
+      }
+      .width('100%')
+      .clip(true)
+      .transition(
+        TransitionEffect.OPACITY.combine(
+          TransitionEffect.translate({ y: -10 })
+        ).animation({ duration: 300, curve: Curve.FastOutSlowIn })
+      )
     }
   }
 

@@ -275,8 +275,7 @@ struct KeySlotSwitcher {
         }),
         actionBarStyle: new ActionBarStyle({
           isPrimaryIconChanged: false,
-          backgroundColor: ColorMetrics.resourceColor(THEMES[this.themeColorIndex].tertiaryColor),
-          backgroundBlurStyle: BlurStyle.COMPONENT_ULTRA_THIN
+          backgroundColor: ColorMetrics.resourceColor(THEMES[this.themeColorIndex].tertiaryColor)
         }),
         isExpand: true,
         $isExpand: () => { /* 不折叠 */ }

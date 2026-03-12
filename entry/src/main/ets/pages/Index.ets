@@ -29,6 +29,7 @@ import { TranslationPage } from './TranslationPage';
 import { HistoryTabPage } from './HistoryTabPage';
 import { SettingsPage } from './SettingsPage';
 import { PolishPage } from './PolishPage';
+import { FloatingTabBar } from '../components/FloatingTabBar';
 import { ScanPage } from './ScanPage';
 import { ApiConfigPage, ApiMenuType } from './ApiConfigPage';
 import App from '@system.app';
@@ -437,6 +438,9 @@ struct Index {
   @State isLightEffectBright: boolean = true;
   // Theme mode: 0 = Light, 1 = Dark, 2 = Follow System
   @State themeMode: number = 2; // 默认跟随系统
+  // 底部悬浮导航栏配置
+  @State autoCollapseTabBar: boolean = true;
+  @State collapseDirection: number = 0; // 0 = 左侧, 1 = 右侧
   // Computed dark mode for compatibility with child components
   @State isDarkMode: boolean = true;
   
@@ -1659,6 +1663,14 @@ struct Index {
     if (snapshot.themeMode !== undefined) {
       this.updateThemeMode(snapshot.themeMode);
     }
+    
+    // 应用导航栏配置
+    if (snapshot.autoCollapseTabBar !== undefined) {
+      this.autoCollapseTabBar = snapshot.autoCollapseTabBar;
+    }
+    if (snapshot.collapseDirection !== undefined) {
+      this.collapseDirection = snapshot.collapseDirection;
+    }
   }
   
   // 从当前槽位同步兼容字段
@@ -2189,7 +2201,9 @@ struct Index {
       subtitleBackgroundColor: this.subtitleBackgroundColor,
       subtitleHeight: this.subtitleHeight,
       glossary: this.glossary,
-      themeMode: this.themeMode
+      themeMode: this.themeMode,
+      autoCollapseTabBar: this.autoCollapseTabBar,
+      collapseDirection: this.collapseDirection
     };
   }
 
@@ -2985,7 +2999,10 @@ struct Index {
               subtitleHeight: $subtitleHeight,
               isLightEffectBright: $isLightEffectBright,
               themeMode: $themeMode,
+              autoCollapseTabBar: $autoCollapseTabBar,
+              collapseDirection: $collapseDirection,
               isDarkMode: this.isDarkMode,
+              onAppearanceChange: () => this.persistApiConfigSnapshot(),
               onTogglePipSubtitle: (isOn: boolean) => this.togglePipSubtitle(isOn),
               onToggleRealtimeReading: () => {
                 if (!this.isRealtimeReadingEnabled) {
@@ -3034,18 +3051,11 @@ struct Index {
       }
       .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
       .barPosition(BarPosition.End)
-      .barHeight(65)
-      .scrollable(true)
+      .barHeight(0)
+      .scrollable(false)
       .animationDuration(250)
-      .barOverlap(true)
+      .barOverlap(false)
       .vertical(false)
-      .barBackgroundStyle({
-        // 仍随主题色变化，但用更低透明度避免色块过重
-        maskColor: this.isDarkMode
-          ? this.getThemeColorWithAlpha('55')
-          : this.getThemeColorWithAlpha('33'),
-        maskHeight: 70
-      })
       .onChange(async (index: number) => {
         this.currentTab = index;
         if (index !== 0 && this.showApiSettings) {
@@ -3067,6 +3077,28 @@ struct Index {
       .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP])
       .width('100%')
       .height('100%')
+
+      // 导航栏
+      Column() {
+        FloatingTabBar({
+          currentIndex: this.currentTab,
+          isDarkMode: this.isDarkMode,
+          themeColorIndex: this.themeColorIndex,
+          autoCollapseTabBar: this.autoCollapseTabBar,
+          collapseDirection: this.collapseDirection,
+          onTabChange: (index: number) => {
+            this.tabsController.changeIndex(index);
+          }
+        })
+        .width('100%')
+        .constraintSize({ maxWidth: 600, maxHeight: 58 })
+      }
+      .width('100%')
+      .padding({ left: 20, right: 20 })
+      .position({ x: 0, y: '100%' })
+      .translate({ y: -82 }) // 24 margin + 58 height = 82
+      .alignItems(HorizontalAlign.Center)
+      .hitTestBehavior(HitTestMode.Transparent)
 
       // Gesture Feedback UI
       if (this.gestureFeedbackVisible) {
@@ -4171,7 +4203,9 @@ struct Index {
         glossary: this.glossary,
         themeMode: this.themeMode,
         vadSensitivityIndex: this.selectedVadSensitivityIndex,
-        minMatchLenIndex: this.selectedMinMatchLenIndex
+        minMatchLenIndex: this.selectedMinMatchLenIndex,
+        autoCollapseTabBar: this.autoCollapseTabBar,
+        collapseDirection: this.collapseDirection
       };
 
       // 准备 continuation 数据（匹配 ContinuityState 接口）

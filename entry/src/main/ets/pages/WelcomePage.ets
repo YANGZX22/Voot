@@ -482,7 +482,9 @@ struct WelcomePage {
       glossary: 'HarmonyOS = 鸿蒙',
       themeMode: 2,  // 默认跟随系统
       vadSensitivityIndex: 1,
-      minMatchLenIndex: 1
+      minMatchLenIndex: 1,
+      autoCollapseTabBar: true,
+      collapseDirection: 0
     };
 
     const currentConfig = await ApiConfigStorage.loadSnapshot(context, defaults);
