@@ -6,7 +6,7 @@ import { userAuth } from '@kit.UserAuthenticationKit';
 import userIAM_userAuth from '@ohos.userIAM.userAuth';
 import { TokenUsageChart } from '../components/TokenUsageChart';
 import { THEMES } from '../model/Theme';
-import { ColorMetrics, curves, promptAction } from '@kit.ArkUI';
+import { ColorMetrics, curves, LengthMetrics, promptAction } from '@kit.ArkUI';
 import { BusinessError } from '@kit.BasicServicesKit';
 
 const TITLE_BAR_HEIGHT_MINI: number = 110;
@@ -1710,6 +1710,12 @@ export struct ConfigurationPage {
       })
       .titleBar({
         style: {
+          scrollEffectOpts: {
+            enableScrollEffect: true,
+            scrollEffectType: ScrollEffectType.GRADIENT_BLUR,
+            blurEffectiveStartOffset: LengthMetrics.vp(0),
+            blurEffectiveEndOffset: LengthMetrics.vp(20)
+          },
           scrollEffectStyle: {
             backgroundStyle: {
               backgroundColor: $r('sys.color.ohos_id_color_background_transparent'),
@@ -1745,7 +1751,7 @@ export struct ConfigurationPage {
         },
         avoidLayoutSafeArea: true
       })
-      .dynamicHideTitleBar({ hideTitleArea:true, hideBottomBuilder: true, hideStatusBar: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 20 })
+      // .dynamicHideTitleBar({ hideTitleArea:true, hideBottomBuilder: true, hideStatusBar: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 20 })
 
       // 握持快捷按钮
       if ((this.isLeftHand || this.isRightHand) && !this.isHandPopupDismissed) {

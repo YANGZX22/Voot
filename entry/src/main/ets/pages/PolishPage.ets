@@ -12,7 +12,8 @@
  * }
  */
 
-import { hdsEffect, HdsNavigation, HdsNavigationAttribute, HdsNavigationTitleMode } from '@kit.UIDesignKit';
+import { hdsEffect, HdsNavigation, HdsNavigationAttribute, HdsNavigationTitleMode,
+  ScrollEffectType } from '@kit.UIDesignKit';
 import promptAction from '@ohos.promptAction';
 import http from '@ohos.net.http';
 import { systemShare } from '@kit.ShareKit';
@@ -21,6 +22,7 @@ import common from '@ohos.app.ability.common';
 import display from '@ohos.display';
 import { THEMES } from '../model/Theme';
 import { TokenUsageStorage } from '../storage/TokenUsageStorage';
+import { LengthMetrics } from '@kit.ArkUI';
 
 const TITLE_BAR_HEIGHT_MINI: number = 94;
 
@@ -869,21 +871,27 @@ export struct PolishPage {
       .hideBackButton(true)
       .titleBar({
         style: {
+          scrollEffectOpts: {
+            enableScrollEffect: true,
+            scrollEffectType: ScrollEffectType.GRADIENT_BLUR,
+            blurEffectiveStartOffset: LengthMetrics.vp(1e5),
+            blurEffectiveEndOffset: LengthMetrics.vp(2e5)
+          },
           scrollEffectStyle: {
             backgroundStyle: {
               backgroundColor: $r('sys.color.ohos_id_color_background_transparent'),
             },
             contentStyle: {
               titleStyle: {
-                mainTitleColor: $r('sys.color.font_on_tertiary'),
+                mainTitleColor: $r('sys.color.font_on_primary'),
               },
               menuStyle: {
-                backgroundColor: $r('sys.color.comp_background_tertiary'),
-                iconColor: $r('sys.color.icon_on_tertiary')
+                backgroundColor: $r('sys.color.comp_background_primary'),
+                iconColor: $r('sys.color.icon_on_primary')
               },
               backIconStyle: {
-                backgroundColor: $r('sys.color.comp_background_tertiary'),
-                iconColor: $r('sys.color.icon_on_tertiary')
+                backgroundColor: $r('sys.color.comp_background_primary'),
+                iconColor: $r('sys.color.icon_on_primary')
               }
             }
           },

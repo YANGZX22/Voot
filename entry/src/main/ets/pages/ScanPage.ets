@@ -12,7 +12,8 @@
  * }
  */
 
-import { hdsEffect, HdsNavigation, HdsNavigationTitleMode, HdsNavigationAttribute } from '@kit.UIDesignKit';
+import { hdsEffect, HdsNavigation, HdsNavigationTitleMode, HdsNavigationAttribute,
+  ScrollEffectType } from '@kit.UIDesignKit';
 import { DocType, DocumentScanner, DocumentScannerConfig, SaveOption, FilterId, ShootingMode } from '@kit.VisionKit';
 import promptAction from '@ohos.promptAction';
 import http from '@ohos.net.http';
@@ -30,6 +31,7 @@ import router from '@ohos.router';
 import { photoAccessHelper } from '@kit.MediaLibraryKit';
 import { fileUri } from '@kit.CoreFileKit';
 import { buffer } from '@kit.ArkTS';
+import { LengthMetrics } from '@kit.ArkUI';
 
 const TITLE_BAR_HEIGHT_MINI: number = 94;
 
@@ -1398,21 +1400,27 @@ export struct ScanPage {
         .hideBackButton(true)
         .titleBar({
           style: {
+            scrollEffectOpts: {
+              enableScrollEffect: true,
+              scrollEffectType: ScrollEffectType.GRADIENT_BLUR,
+              blurEffectiveStartOffset: LengthMetrics.vp(1e5),
+              blurEffectiveEndOffset: LengthMetrics.vp(2e5)
+            },
             scrollEffectStyle: {
               backgroundStyle: {
                 backgroundColor: $r('sys.color.ohos_id_color_background_transparent'),
               },
               contentStyle: {
                 titleStyle: {
-                  mainTitleColor: $r('sys.color.font_on_tertiary'),
+                  mainTitleColor: $r('sys.color.font_on_primary'),
                 },
                 menuStyle: {
-                  backgroundColor: $r('sys.color.comp_background_tertiary'),
-                  iconColor: $r('sys.color.icon_on_tertiary')
+                  backgroundColor: $r('sys.color.comp_background_primary'),
+                  iconColor: $r('sys.color.icon_on_primary')
                 },
                 backIconStyle: {
-                  backgroundColor: $r('sys.color.comp_background_tertiary'),
-                  iconColor: $r('sys.color.icon_on_tertiary')
+                  backgroundColor: $r('sys.color.comp_background_primary'),
+                  iconColor: $r('sys.color.icon_on_primary')
                 }
               }
             },
@@ -1463,17 +1471,27 @@ export struct ScanPage {
         .accessibilityScrollTriggerable(false)
         .titleBar({
           style: {
+            scrollEffectOpts: {
+              enableScrollEffect: true,
+              scrollEffectType: ScrollEffectType.GRADIENT_BLUR,
+              blurEffectiveStartOffset: LengthMetrics.vp(1e5),
+              blurEffectiveEndOffset: LengthMetrics.vp(2e5)
+            },
             scrollEffectStyle: {
               backgroundStyle: {
-                backgroundColor: Color.Transparent,
+                backgroundColor: $r('sys.color.ohos_id_color_background_transparent'),
               },
               contentStyle: {
                 titleStyle: {
-                  mainTitleColor: Color.White,
+                  mainTitleColor: $r('sys.color.font_on_primary'),
                 },
                 menuStyle: {
-                  backgroundColor: $r('sys.color.comp_background_tertiary'),
-                  iconColor: Color.White
+                  backgroundColor: $r('sys.color.comp_background_primary'),
+                  iconColor: $r('sys.color.icon_on_primary')
+                },
+                backIconStyle: {
+                  backgroundColor: $r('sys.color.comp_background_primary'),
+                  iconColor: $r('sys.color.icon_on_primary')
                 }
               }
             },

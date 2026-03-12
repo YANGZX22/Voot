@@ -1,9 +1,10 @@
-import { hdsEffect, HdsNavigation, HdsNavigationAttribute, HdsNavigationTitleMode, HdsActionBar, ActionBarButton, ActionBarStyle } from '@kit.UIDesignKit';
+import { hdsEffect, HdsNavigation, HdsNavigationAttribute, HdsNavigationTitleMode, HdsActionBar, ActionBarButton, ActionBarStyle,
+  ScrollEffectType } from '@kit.UIDesignKit';
 import { MultiKeySlots, MAX_KEY_SLOTS } from '../storage/ApiConfigStorage';
 import http from '@ohos.net.http';
 import promptAction from '@ohos.promptAction';
 import router from '@ohos.router';
-import { ColorMetrics, curves } from '@kit.ArkUI';
+import { ColorMetrics, curves, LengthMetrics } from '@kit.ArkUI';
 import { THEMES } from '../model/Theme';
 import window from '@ohos.window';
 import common from '@ohos.app.ability.common';
@@ -244,6 +245,8 @@ struct KeySlotSwitcher {
       HdsActionBar({
         startButtons: [new ActionBarButton({
           baseIcon: $r('sys.symbol.chevron_left'),
+          backgroundColor: ColorMetrics.resourceColor($r('sys.color.comp_background_secondary')),
+          iconFillColor: ColorMetrics.resourceColor(Color.White),
           onClick: () => {
             if (this.currentSlotIndex > 0) {
               this.onSwitchSlot(this.currentSlotIndex - 1);
@@ -253,6 +256,8 @@ struct KeySlotSwitcher {
         })],
         endButtons: [new ActionBarButton({
           baseIcon: $r('sys.symbol.chevron_right'),
+          backgroundColor: ColorMetrics.resourceColor($r('sys.color.comp_background_secondary')),
+          iconFillColor: ColorMetrics.resourceColor(Color.White),
           onClick: () => {
             if (this.currentSlotIndex < this.totalSlots - 1) {
               this.onSwitchSlot(this.currentSlotIndex + 1);
@@ -269,7 +274,9 @@ struct KeySlotSwitcher {
           hoverTips: this.hasApiKey ? '编辑槽位 ' + (this.currentSlotIndex + 1).toString() : '添加密钥'
         }),
         actionBarStyle: new ActionBarStyle({
-          isPrimaryIconChanged: false
+          isPrimaryIconChanged: false,
+          backgroundColor: ColorMetrics.resourceColor(THEMES[this.themeColorIndex].tertiaryColor),
+          backgroundBlurStyle: BlurStyle.COMPONENT_ULTRA_THIN
         }),
         isExpand: true,
         $isExpand: () => { /* 不折叠 */ }
@@ -1621,6 +1628,12 @@ export struct ApiConfigPage {
     .hideBackButton(false)
     .titleBar({
       style: {
+        scrollEffectOpts: {
+          enableScrollEffect: true,
+          scrollEffectType: ScrollEffectType.GRADIENT_BLUR,
+          blurEffectiveStartOffset: LengthMetrics.vp(30),
+          blurEffectiveEndOffset: LengthMetrics.vp(50)
+        },
         scrollEffectStyle: {
           backgroundStyle: {
             backgroundColor: $r('sys.color.ohos_id_color_background_transparent'),

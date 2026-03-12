@@ -1,12 +1,14 @@
 import router from '@ohos.router';
 import { Session } from '../model/Session';
 import { HistoryStorage } from '../storage/HistoryStorage';
-import { HdsNavigation, HdsNavigationAttribute, HdsNavigationTitleMode, hdsEffect } from '@kit.UIDesignKit';
+import { HdsNavigation, HdsNavigationAttribute, HdsNavigationTitleMode, hdsEffect,
+  ScrollEffectType } from '@kit.UIDesignKit';
 import common from '@ohos.app.ability.common';
 import promptAction from '@ohos.promptAction';
 import { systemShare } from '@kit.ShareKit';
 import { uniformTypeDescriptor as utd } from '@kit.ArkData';
 import { THEMES } from '../model/Theme';
+import { LengthMetrics } from '@kit.ArkUI';
 
 const TITLE_BAR_HEIGHT_MINI: number = 100;
 
@@ -282,7 +284,7 @@ export struct HistoryTabPage {
       .layoutWeight(1)
       .alignItems(HorizontalAlign.Start)
     }
-    .width('calc(100% - 32vp)')
+    .width('calc(100% - 48vp)')
     .padding(16)
     .margin({ left: 24, right: 24 })
     .backgroundColor(THEMES[this.themeColorIndex].tertiaryColor)
@@ -406,6 +408,12 @@ export struct HistoryTabPage {
     .hideBackButton(false)
     .titleBar({
       style: {
+        scrollEffectOpts: {
+          enableScrollEffect: true,
+          scrollEffectType: ScrollEffectType.GRADIENT_BLUR,
+          blurEffectiveStartOffset: LengthMetrics.vp(0),
+          blurEffectiveEndOffset: LengthMetrics.vp(20)
+        },
         scrollEffectStyle: {
           backgroundStyle: {
             backgroundColor: $r('sys.color.ohos_id_color_background_transparent'),

@@ -1,5 +1,7 @@
-import { hdsEffect, HdsNavigation, HdsNavigationAttribute, HdsNavigationTitleMode, HideMode } from '@kit.UIDesignKit';
-import { CapsuleSegmentButtonV2, SegmentButtonV2Items, ColorMetrics, SymbolGlyphModifier } from '@kit.ArkUI';
+import { hdsEffect, HdsNavigation, HdsNavigationAttribute, HdsNavigationTitleMode, HideMode,
+  ScrollEffectType } from '@kit.UIDesignKit';
+import { CapsuleSegmentButtonV2, SegmentButtonV2Items, ColorMetrics, SymbolGlyphModifier,
+  LengthMetrics } from '@kit.ArkUI';
 import { webview } from '@kit.ArkWeb';
 import common from '@ohos.app.ability.common';
 import { Want } from '@kit.AbilityKit';
@@ -1849,11 +1851,17 @@ export struct SettingsPage {
       .mode(NavigationMode.Stack)
       .width('100%')
       .height('100%')
-      .backgroundColor(Color.Transparent)
+      // .backgroundColor(Color.Transparent)
       .titleMode(HdsNavigationTitleMode.MINI)
       .hideBackButton(true)
       .titleBar({
         style: {
+          scrollEffectOpts: {
+            enableScrollEffect: true,
+            scrollEffectType: ScrollEffectType.GRADIENT_BLUR,
+            blurEffectiveStartOffset: LengthMetrics.vp(0),
+            blurEffectiveEndOffset: LengthMetrics.vp(20)
+          },
           scrollEffectStyle: {
             backgroundStyle: {
               backgroundColor: $r('sys.color.ohos_id_color_background_transparent'),
@@ -1900,7 +1908,7 @@ export struct SettingsPage {
         blurStyle: BlurStyle.BACKGROUND_THIN,
         enableOutsideInteractive: true,
       })
-      .dynamicHideTitleBar({ hideTitleArea:true, hideBottomBuilder: true, hideStatusBar: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 20 })
+      // .dynamicHideTitleBar({ hideTitleArea:true, hideBottomBuilder: true, hideStatusBar: true, mode: HideMode.SCROLL_UP_TO, hideOffset: 20 })
 
 
       // 握持快捷按钮
