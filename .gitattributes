@@ -1,0 +1,19 @@
+# Normalize text files to LF to avoid cross-platform line-ending noise.
+* text=auto eol=lf
+
+# Keep common Windows scripts with CRLF when they exist.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Common binary assets
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.zip binary
+*.7z binary
+*.so binary
+*.onnx binary
+*.keystore binary
