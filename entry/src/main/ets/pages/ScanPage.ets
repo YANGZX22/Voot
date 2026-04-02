@@ -13,7 +13,7 @@
  */
 
 import { hdsEffect, HdsNavigation, HdsNavigationTitleMode, HdsNavigationAttribute,
-  ScrollEffectType } from '@kit.UIDesignKit';
+  ScrollEffectType, hdsMaterial } from '@kit.UIDesignKit';
 import { DocType, DocumentScanner, DocumentScannerConfig, SaveOption, FilterId, ShootingMode } from '@kit.VisionKit';
 import promptAction from '@ohos.promptAction';
 import http from '@ohos.net.http';
@@ -1406,7 +1406,8 @@ export struct ScanPage {
               blurEffectiveStartOffset: LengthMetrics.vp(1e5),
               blurEffectiveEndOffset: LengthMetrics.vp(2e5)
             },
-            scrollEffectStyle: {
+            systemMaterialEffect: { materialType: hdsMaterial.MaterialType.ADAPTIVE, materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE },
+        scrollEffectStyle: {
               backgroundStyle: {
                 backgroundColor: $r('sys.color.ohos_id_color_background_transparent'),
               },
@@ -1477,7 +1478,8 @@ export struct ScanPage {
               blurEffectiveStartOffset: LengthMetrics.vp(1e5),
               blurEffectiveEndOffset: LengthMetrics.vp(2e5)
             },
-            scrollEffectStyle: {
+            systemMaterialEffect: { materialType: hdsMaterial.MaterialType.ADAPTIVE, materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE },
+        scrollEffectStyle: {
               backgroundStyle: {
                 backgroundColor: $r('sys.color.ohos_id_color_background_transparent'),
               },

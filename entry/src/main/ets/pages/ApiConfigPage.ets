@@ -1,5 +1,5 @@
 import { hdsEffect, HdsNavigation, HdsNavigationAttribute, HdsNavigationTitleMode, HdsActionBar, ActionBarButton, ActionBarStyle,
-  ScrollEffectType } from '@kit.UIDesignKit';
+  ScrollEffectType, hdsMaterial } from '@kit.UIDesignKit';
 import { MultiKeySlots, MAX_KEY_SLOTS } from '../storage/ApiConfigStorage';
 import http from '@ohos.net.http';
 import promptAction from '@ohos.promptAction';
@@ -1632,6 +1632,10 @@ export struct ApiConfigPage {
           scrollEffectType: ScrollEffectType.GRADIENT_BLUR,
           blurEffectiveStartOffset: LengthMetrics.vp(30),
           blurEffectiveEndOffset: LengthMetrics.vp(50)
+        },
+        systemMaterialEffect: {
+          materialType: hdsMaterial.MaterialType.ADAPTIVE,
+          materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE // 标题栏按钮沉浸光感效果跟随系统策略自适应
         },
         scrollEffectStyle: {
           backgroundStyle: {

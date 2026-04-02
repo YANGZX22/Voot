@@ -1658,18 +1658,18 @@ struct Index {
     this.subtitleBackgroundColor = snapshot.subtitleBackgroundColor;
     this.subtitleHeight = snapshot.subtitleHeight !== undefined ? snapshot.subtitleHeight : 10;
     this.glossary = snapshot.glossary !== undefined ? snapshot.glossary : '';
-    
-    // 应用主题模式
-    if (snapshot.themeMode !== undefined) {
-      this.updateThemeMode(snapshot.themeMode);
-    }
-    
-    // 应用导航栏配置
+
+    // 应用导航栏配置（必须在 updateThemeMode 之前，因为后者会触发 persistApiConfigSnapshot）
     if (snapshot.autoCollapseTabBar !== undefined) {
       this.autoCollapseTabBar = snapshot.autoCollapseTabBar;
     }
     if (snapshot.collapseDirection !== undefined) {
       this.collapseDirection = snapshot.collapseDirection;
+    }
+
+    // 应用主题模式（会触发 persistApiConfigSnapshot，需确保所有字段已恢复）
+    if (snapshot.themeMode !== undefined) {
+      this.updateThemeMode(snapshot.themeMode);
     }
   }
   

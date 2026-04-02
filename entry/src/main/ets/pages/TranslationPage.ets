@@ -13,7 +13,7 @@
  */
 
 import { hdsEffect, HdsNavigation, HdsNavigationAttribute, HdsNavigationTitleMode,
-  ScrollEffectType } from '@kit.UIDesignKit';
+  ScrollEffectType, hdsMaterial } from '@kit.UIDesignKit';
 import promptAction from '@ohos.promptAction';
 import { THEMES } from '../model/Theme';
 import { ContinuityService, DeviceInfo } from '../services/ContinuityService';
@@ -811,6 +811,7 @@ export struct TranslationPage {
           blurEffectiveStartOffset: LengthMetrics.vp(1e5),
           blurEffectiveEndOffset: LengthMetrics.vp(2e5)
         },
+        systemMaterialEffect: { materialType: hdsMaterial.MaterialType.ADAPTIVE, materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE },
         scrollEffectStyle: {
           backgroundStyle: {
             backgroundColor: $r('sys.color.ohos_id_color_background_transparent'),

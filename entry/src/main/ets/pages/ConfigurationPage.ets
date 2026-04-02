@@ -1,6 +1,6 @@
 import { hdsEffect, HdsNavigation, HdsNavigationAttribute, HdsNavigationTitleMode,
   HideMode,
-  ScrollEffectType } from '@kit.UIDesignKit';
+  ScrollEffectType, hdsMaterial } from '@kit.UIDesignKit';
 import { AuthUtil, LogUtil, ToastUtil } from '@pura/harmony-utils';
 import { userAuth } from '@kit.UserAuthenticationKit';
 import userIAM_userAuth from '@ohos.userIAM.userAuth';
@@ -1716,7 +1716,8 @@ export struct ConfigurationPage {
             blurEffectiveStartOffset: LengthMetrics.vp(0),
             blurEffectiveEndOffset: LengthMetrics.vp(20)
           },
-          scrollEffectStyle: {
+          systemMaterialEffect: { materialType: hdsMaterial.MaterialType.ADAPTIVE, materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE },
+        scrollEffectStyle: {
             backgroundStyle: {
               backgroundColor: $r('sys.color.ohos_id_color_background_transparent'),
             },

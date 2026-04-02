@@ -1,5 +1,5 @@
 import { hdsEffect, HdsNavigation, HdsNavigationAttribute, HdsNavigationTitleMode, HideMode,
-  ScrollEffectType } from '@kit.UIDesignKit';
+  ScrollEffectType, hdsMaterial } from '@kit.UIDesignKit';
 import { CapsuleSegmentButtonV2, SegmentButtonV2Items, ColorMetrics, SymbolGlyphModifier,
   LengthMetrics } from '@kit.ArkUI';
 import { webview } from '@kit.ArkWeb';
@@ -1919,7 +1919,8 @@ export struct SettingsPage {
             blurEffectiveStartOffset: LengthMetrics.vp(0),
             blurEffectiveEndOffset: LengthMetrics.vp(20)
           },
-          scrollEffectStyle: {
+          systemMaterialEffect: { materialType: hdsMaterial.MaterialType.ADAPTIVE, materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE },
+        scrollEffectStyle: {
             backgroundStyle: {
               backgroundColor: $r('sys.color.ohos_id_color_background_transparent'),
             },

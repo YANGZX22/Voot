@@ -2,7 +2,7 @@ import router from '@ohos.router';
 import { Session } from '../model/Session';
 import { HistoryStorage } from '../storage/HistoryStorage';
 import { HdsNavigation, HdsNavigationAttribute, HdsNavigationTitleMode, hdsEffect,
-  ScrollEffectType } from '@kit.UIDesignKit';
+  ScrollEffectType, hdsMaterial } from '@kit.UIDesignKit';
 import common from '@ohos.app.ability.common';
 import promptAction from '@ohos.promptAction';
 import { systemShare } from '@kit.ShareKit';
@@ -414,6 +414,7 @@ export struct HistoryTabPage {
           blurEffectiveStartOffset: LengthMetrics.vp(0),
           blurEffectiveEndOffset: LengthMetrics.vp(20)
         },
+        systemMaterialEffect: { materialType: hdsMaterial.MaterialType.ADAPTIVE, materialLevel: hdsMaterial.MaterialLevel.ADAPTIVE },
         scrollEffectStyle: {
           backgroundStyle: {
             backgroundColor: $r('sys.color.ohos_id_color_background_transparent'),

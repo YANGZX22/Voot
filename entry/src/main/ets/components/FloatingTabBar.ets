@@ -2,6 +2,8 @@
  * FloatingTabBar - 悬浮导航栏组件
  */
 import { curves } from '@kit.ArkUI';
+import { hdsEffect, hdsMaterial } from '@kit.UIDesignKit';
+import { BusinessError } from '@kit.BasicServicesKit';
 import { THEMES } from '../model/Theme';
 
 @Component
@@ -27,6 +29,7 @@ export struct FloatingTabBar {
 
   @State isCollapsed: boolean = false;
   private collapseTimer: number = -1;
+  @State customMaterialLevel: hdsMaterial.MaterialLevel = hdsMaterial.MaterialLevel.EXQUISITE;
 
   private readonly TAB_COUNT: number = 5;
   private readonly BAR_HEIGHT: number = 58;
@@ -36,6 +39,19 @@ export struct FloatingTabBar {
 
   aboutToAppear() {
     this.resetTimer();
+    // 检测设备材质能力，不支持 IMMERSIVE 时降级为 SMOOTH
+    try {
+      let materialTypes: Array<hdsMaterial.MaterialType> = hdsMaterial.getSystemMaterialTypes();
+      if (materialTypes.indexOf(hdsMaterial.MaterialType.IMMERSIVE) < 0) {
+        this.customMaterialLevel = hdsMaterial.MaterialLevel.SMOOTH;
+      }
+    } catch (err) {
+      let message = (err as BusinessError).message;
+      let code = (err as BusinessError).code;
+      console.error(`getSystemMaterialTypes failed, code: ${code}, message: ${message}`);
+      // 出错时保守降级为流畅
+      this.customMaterialLevel = hdsMaterial.MaterialLevel.SMOOTH;
+    }
   }
 
   aboutToDisappear() {
@@ -160,6 +176,13 @@ export struct FloatingTabBar {
             .position({ x: this.sliderOffsetX, y: this.SLIDER_V_PAD })
             .opacity(this.isCollapsed ? 0 : 1)
             .hitTestBehavior(HitTestMode.None)
+            .visualEffect(new hdsEffect.HdsEffectBuilder()
+              .pointLight({
+                sourceType: this.isDarkMode ? hdsEffect.PointLightSourceType.NONE : hdsEffect.PointLightSourceType.SOFT,
+                illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE :
+                  hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
+              })
+              .buildEffect())
         }
 
       // 折叠后的小球内容 (显示当前Tab icon和名称) 置于此处使其在底部，避免展开时阻挡第一项的点击事件
@@ -331,6 +354,13 @@ export struct FloatingTabBar {
       color: this.isCollapsed ? this.getThemeColor('35') : '#22000000', 
       offsetY: 8 
     })
+    .visualEffect(new hdsEffect.HdsEffectBuilder()
+      .pointLight({
+        sourceType: this.isDarkMode ? hdsEffect.PointLightSourceType.NONE : hdsEffect.PointLightSourceType.SOFT,
+        illuminatedType: this.isDarkMode ? hdsEffect.PointLightIlluminatedType.NONE :
+          hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
+      })
+      .buildEffect())
     .gesture(
       PanGesture(new PanGestureOptions({ direction: this.collapseDirection === 0 ? PanDirection.Left : PanDirection.Right }))
         .onActionEnd(() => {
